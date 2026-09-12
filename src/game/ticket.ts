@@ -30,22 +30,10 @@ function generateTicketId(): string {
 }
 
 export const TERMINAL_STATUSES: readonly TicketStatus[] = ['LOST', 'JACKPOT_WON', 'JACKPOT_LOST'];
-export const BASE_PHASE_STATUSES: readonly TicketStatus[] = ['WAITING', 'ACTIVE'];
-export const JACKPOT_PHASE_STATUSES: readonly TicketStatus[] = ['BASE_WON', 'JACKPOT_STEP_1', 'JACKPOT_STEP_2'];
 
 /** True once a ticket can no longer change state. */
 export function isTerminal(status: TicketStatus): boolean {
   return TERMINAL_STATUSES.includes(status);
-}
-
-/**
- * True once a ticket's BASE game has concluded — either LOST, or BASE_WON
- * and beyond (i.e. it is in or past jackpot qualification). Per Section 5,
- * a ticket in Jackpot Qualification Mode is considered base-resolved, which
- * is what allows its tier slot to be bet on again immediately.
- */
-export function isBaseResolved(status: TicketStatus): boolean {
-  return status !== 'WAITING' && status !== 'ACTIVE';
 }
 
 // ----------------------------------------------------------------------------

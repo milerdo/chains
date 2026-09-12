@@ -43,8 +43,10 @@ function getAudioContext(): AudioContext | null {
 
 /** Enables or mutes all CHAINS sound effects. Also proactively (re)creates /
  * resumes the AudioContext on enable, since browsers require it to be
- * created or resumed from within a user gesture. */
-export function setAudioEnabled(enabled: boolean): void {
+ * created or resumed from within a user gesture. Not exported — nothing
+ * outside this module needs to explicitly set on/off, only toggle it (see
+ * toggleAudioEnabled below), which is what GameHeader's mute button uses. */
+function setAudioEnabled(enabled: boolean): void {
   audioEnabled = enabled;
   if (enabled) {
     getAudioContext();
@@ -112,12 +114,6 @@ export function playTick(): void {
  * actual drawn digit. */
 export function playDrawSettle(): void {
   playTone({ frequency: 300, durationMs: 170, shape: 'triangle', gain: 0.18, frequencyGlideTo: 170 });
-}
-
-/** Short bright click when a ticket's base sequence advances one step
- * (a digit matched). */
-export function playStepMatch(): void {
-  playTone({ frequency: 540, durationMs: 90, shape: 'sine', gain: 0.12 });
 }
 
 /** Low descending buzz when a ticket (base or jackpot) loses. */

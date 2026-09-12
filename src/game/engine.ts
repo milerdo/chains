@@ -504,9 +504,20 @@ export class ChainsGame {
   }
 
   /** Cleans up timers and subscribers. Call when the engine instance is no
-   * longer needed (e.g. on UI unmount). */
+   * longer needed (e.g. on UI unmount).
+   *
+   * Resets isRunning/isPaused back to false (not just clearing the timer),
+   * so a later start() on the same instance actually re-arms the loop
+   * instead of silently no-op'ing on its `if (this.isRunning) return;`
+   * guard. This matters in practice: React's StrictMode (dev mode only)
+   * mounts every component twice — mount, unmount, mount again — which
+   * fires this destroy() once before the "real" mount's start() call. Without
+   * this reset, the engine ends up permanently believing it's running with
+   * no timer actually scheduled. */
   destroy(): void {
     this.clearTimer();
+    this.isRunning = false;
+    this.isPaused = false;
     this.listeners.clear();
   }
 

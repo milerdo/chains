@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { ChainsGame } from '../game/engine';
 import { isTerminal } from '../game/ticket';
+import { playBaseWin, playJackpotFanfare, playLoss } from '../utils/audio';
 import type {
   BetRequest,
   DrawResult,
@@ -33,6 +34,7 @@ import type {
   PlaceBetResult,
   SimulatedActivity,
   Ticket,
+  TicketStatus,
   TicketTier,
 } from '../game/types';
 
@@ -43,7 +45,15 @@ export interface UseGameValue {
   history: Ticket[];
   balance: number;
   jackpotPools: JackpotPools;
+  /** The most recently RESOLVED draw, held back from the raw engine value
+   * until the Wheel's suspense animation has actually had time to play
+   * (see MIN_REVEAL_DELAY_MS below). The engine computes the true digit
+   * the instant the DRAWING phase begins — by design, so the RNG result
+   * is never influenced by the UI — but every component that displays a
+   * digit (Wheel, NumberStream, GameHistory) must not find out before the
+   * animation says so, or the "reveal" is spoiled before it plays. */
   currentDraw: DrawResult | null;
+  /** Same reveal-delay applied to the running stream list. */
   streamHistory: DrawResult[];
   phase: GamePhase;
   /** Milliseconds remaining in the current phase, updated smoothly on a
@@ -57,10 +67,6 @@ export interface UseGameValue {
   drawIndex: number;
   simulatedActivity: SimulatedActivity;
   forcedQueue: number[];
-  /** True for a brief window right after instantStep() fires, so
-   * animation-driving components (the Wheel) know to skip their timed
-   * reveal and snap straight to the already-resolved result. */
-  skipNextAnimation: boolean;
 
   placeBet: (request: BetRequest) => PlaceBetResult;
   forceNextDraw: (digit: number) => void;
@@ -82,11 +88,12 @@ const GameContext = createContext<UseGameValue | null>(null);
  * timeRemainingMs between actual engine state emissions. */
 const TIME_TICK_MS = 200;
 
-/** How long (ms) the "skip the next animation" flag stays true after
- * instantStep() fires — long enough for a listening effect to observe it
- * on the very next render, short enough to never linger into a later,
- * normally-timed draw. */
-const SKIP_ANIMATION_WINDOW_MS = 60;
+/** Floor on how long a draw stays hidden after it's computed, even if
+ * drawAnimationDurationMs is configured very short — matches the minimum
+ * spin time the Wheel commits to, so the two can never disagree. Exported
+ * so Wheel.tsx can shape its cosmetic spin-deceleration curve against the
+ * exact same number rather than keeping its own separate copy. */
+export const MIN_REVEAL_DELAY_MS = 1200;
 
 export function GameProvider({ children }: { children: ReactNode }) {
   // Exactly one ChainsGame instance for the lifetime of this provider.
@@ -100,7 +107,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [simulatedActivity, setSimulatedActivity] = useState<SimulatedActivity>(() => game.getSimulatedActivity());
   const [forcedQueue, setForcedQueue] = useState<number[]>(() => game.peekForcedDraws());
   const [timeRemaining, setTimeRemaining] = useState<number>(() => game.getState().timeRemainingMs);
-  const [skipNextAnimation, setSkipNextAnimation] = useState(false);
+
+  // --- Reveal-delayed draw/stream state -------------------------------
+  // Held back from the raw engine value until the suspense animation has
+  // had time to play. See MIN_REVEAL_DELAY_MS and the UseGameValue doc
+  // comment above for why this exists.
+  const [revealedDraw, setRevealedDraw] = useState<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] }>(
+    () => {
+      const initial = game.getState();
+      return { currentDraw: initial.currentDraw, streamHistory: initial.streamHistory };
+    },
+  );
+  // Tracks the drawIndex already scheduled/revealed so the subscribe
+  // callback only reacts to genuinely NEW draws — the engine emits on
+  // every action (bets placed, jackpot pool ticks, ticket progress, etc.),
+  // not just draws.
+  const lastSeenDrawIndexRef = useRef<number>(revealedDraw.currentDraw?.drawIndex ?? 0);
+  const revealTimeoutRef = useRef<number | null>(null);
+  // Set synchronously (not via React state) immediately around
+  // instantStep()'s call into the engine, so the subscribe callback below
+  // — a stable closure that does not re-run per render — can read the
+  // live "was this instant-stepped?" signal at the exact moment the
+  // engine's synchronous emit fires, with no stale-closure risk and no
+  // arbitrary timing window to get wrong.
+  const skipNextRevealDelayRef = useRef(false);
+  // Last status seen per ticket id, used to fire outcome sounds exactly
+  // once per genuine transition (see applyTicketSounds below).
+  const prevTicketStatusRef = useRef<Map<string, TicketStatus>>(new Map());
 
   useEffect(() => {
     const unsubscribe = game.subscribe((nextState) => {
@@ -108,11 +141,63 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setSimulatedActivity(game.getSimulatedActivity());
       setForcedQueue(game.peekForcedDraws());
       setTimeRemaining(nextState.timeRemainingMs);
+
+      // Plays the right sound for any ticket whose status just changed
+      // into a win/loss outcome, at most once per transition (a ticket
+      // could pass BASE_WON -> JACKPOT_STEP_1 -> JACKPOT_WON across
+      // separate draws, correctly chiming once for each real outcome).
+      const applyTicketSounds = (tickets: Ticket[]) => {
+        for (const ticket of tickets) {
+          const previousStatus = prevTicketStatusRef.current.get(ticket.id);
+          if (previousStatus === ticket.status) continue;
+          prevTicketStatusRef.current.set(ticket.id, ticket.status);
+          if (ticket.status === 'JACKPOT_WON') playJackpotFanfare();
+          else if (ticket.status === 'BASE_WON') playBaseWin();
+          else if (ticket.status === 'LOST' || ticket.status === 'JACKPOT_LOST') playLoss();
+        }
+      };
+
+      const incomingDrawIndex = nextState.currentDraw?.drawIndex ?? 0;
+      if (incomingDrawIndex === lastSeenDrawIndexRef.current) {
+        // Not a new draw — a bet was placed, a jackpot pool ticked up, a
+        // demo-panel action fabricated/simulated a ticket, etc. There's no
+        // pending "unrevealed" draw here, so any ticket outcome is safe to
+        // announce immediately (this is also what makes the Demo Panel's
+        // "Simulate Jackpot Win" button play its fanfare right away).
+        applyTicketSounds(nextState.tickets);
+        return;
+      }
+      lastSeenDrawIndexRef.current = incomingDrawIndex;
+
+      if (revealTimeoutRef.current !== null) {
+        window.clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
+
+      const reveal = () => {
+        setRevealedDraw({ currentDraw: nextState.currentDraw, streamHistory: nextState.streamHistory });
+        // Ticket outcomes caused by THIS draw must surface — visually and
+        // audibly — at the same moment the digit itself does, not before;
+        // otherwise a win/loss sound would spoil the wheel's reveal the
+        // same way the undelayed stream/history once did (see item 1b).
+        applyTicketSounds(nextState.tickets);
+      };
+
+      if (skipNextRevealDelayRef.current) {
+        reveal();
+      } else {
+        const delayMs = Math.max(MIN_REVEAL_DELAY_MS, nextState.config.drawAnimationDurationMs) / nextState.speedMultiplier;
+        revealTimeoutRef.current = window.setTimeout(reveal, delayMs);
+      }
     });
     game.start();
     return () => {
       unsubscribe();
       game.destroy();
+      if (revealTimeoutRef.current !== null) {
+        window.clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
@@ -130,15 +215,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const clearForcedDraws = useCallback(() => game.clearForcedDraws(), [game]);
 
   const instantStep = useCallback(() => {
-    setSkipNextAnimation(true);
+    // Both the flag flip and the engine call are synchronous, and
+    // instantStep()'s own call chain (advancePhase -> enterPhase ->
+    // processDraw -> emit) is entirely synchronous too, so the subscribe
+    // callback above observes skipNextRevealDelayRef.current === true at
+    // exactly the right moment, then it's safe to flip back immediately —
+    // no timing window needed.
+    skipNextRevealDelayRef.current = true;
     game.instantStep();
-    window.setTimeout(() => setSkipNextAnimation(false), SKIP_ANIMATION_WINDOW_MS);
+    skipNextRevealDelayRef.current = false;
   }, [game]);
 
   const setSpeed = useCallback((multiplier: number) => game.setSpeedMultiplier(multiplier), [game]);
   const pauseGame = useCallback(() => game.pause(), [game]);
   const resumeGame = useCallback(() => game.resume(), [game]);
-  const resetGame = useCallback(() => game.reset(), [game]);
+  const resetGame = useCallback(() => {
+    game.reset();
+    prevTicketStatusRef.current.clear();
+  }, [game]);
   const resetBalance = useCallback(() => game.resetBalance(), [game]);
   const simulateJackpotWin = useCallback(
     (tier: JackpotTierName) => {
@@ -160,8 +254,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       history: gameState.tickets.filter((t) => isTerminal(t.status)),
       balance: gameState.balance,
       jackpotPools: gameState.jackpotPools,
-      currentDraw: gameState.currentDraw,
-      streamHistory: gameState.streamHistory,
+      currentDraw: revealedDraw.currentDraw,
+      streamHistory: revealedDraw.streamHistory,
       phase: gameState.phase,
       timeRemaining,
       speedMultiplier: gameState.speedMultiplier,
@@ -171,7 +265,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       drawIndex: gameState.drawIndex,
       simulatedActivity,
       forcedQueue,
-      skipNextAnimation,
       placeBet,
       forceNextDraw,
       forceDrawSequence,
@@ -187,10 +280,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }),
     [
       gameState,
+      revealedDraw,
       timeRemaining,
       simulatedActivity,
       forcedQueue,
-      skipNextAnimation,
       placeBet,
       forceNextDraw,
       forceDrawSequence,

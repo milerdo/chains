@@ -7,15 +7,12 @@
 import type { GameConfig, JackpotPools, JackpotTierName, TicketTier } from './types';
 
 // ----------------------------------------------------------------------------
-// Timings (ms). DRAW_INTERVAL is the full round-trip time of one game cycle:
-// BETTING_OPEN -> BETTING_CLOSED -> DRAWING -> RESULT -> (next round).
+// Timings (ms)
 // ----------------------------------------------------------------------------
 export const BETTING_DURATION = 10_000;
 export const BETTING_CLOSED_DURATION = 1_000;
 export const DRAW_ANIMATION_DURATION = 8_000;
 export const RESULT_DISPLAY_DURATION = 1_000;
-export const DRAW_INTERVAL =
-  BETTING_DURATION + BETTING_CLOSED_DURATION + DRAW_ANIMATION_DURATION + RESULT_DISPLAY_DURATION; // 20,000ms
 
 // ----------------------------------------------------------------------------
 // Economy
@@ -29,13 +26,6 @@ export const BASE_MULTIPLIERS: Record<TicketTier, number> = {
   LOW: 9,
   MEDIUM: 88,
   HIGH: 888,
-};
-
-/** Profit-only multiplier per $1 staked (total return minus stake). */
-export const BASE_PROFIT: Record<TicketTier, number> = {
-  LOW: 8,
-  MEDIUM: 87,
-  HIGH: 887,
 };
 
 /** Number of consecutive digits each tier requires (Section 5). */

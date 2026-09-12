@@ -1,18 +1,26 @@
 // ============================================================================
 // CHAINS — Wheel
-// The central live-draw display. Purely a reveal: the actual RNG result is
-// already decided by the engine the instant the DRAWING phase begins
-// (see engine.ts enterPhase). This component only spins through random
-// digits for a cosmetic, decelerating interval before settling on whatever
-// currentDraw.digit already is — it never influences the outcome.
+// The central live-draw display. The actual RNG result is already decided
+// by the engine the instant the DRAWING phase begins (see engine.ts
+// enterPhase) — but useGame() deliberately holds `currentDraw` back until
+// the suspense animation has had time to play (see MIN_REVEAL_DELAY_MS in
+// useGame.ts). That split is what this component relies on:
 //
-// When the demo panel's instantStep() fires, skipNextAnimation goes true
-// for one render and the reveal snaps straight to the result instead of
-// playing the multi-second spin.
+//   - starting the cosmetic spin reacts to the raw `phase` (entering
+//     DRAWING is not a spoiler — only the digit value is), so it begins
+//     immediately and in sync with the real phase clock;
+//   - stopping and revealing reacts to `currentDraw` itself, which only
+//     changes once the hook's reveal delay has actually elapsed (or
+//     immediately, for a demo-panel instant step).
+//
+// This keeps the single source of truth for "has this draw been revealed
+// yet?" in the hook — Wheel never re-decides that on its own, which is
+// exactly what let the old per-component timers drift out of sync with
+// NumberStream/GameHistory (and with each other at high demo speeds).
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { useGame } from '../hooks/useGame';
+import { useGame, MIN_REVEAL_DELAY_MS } from '../hooks/useGame';
 import { playDrawSettle, playTick } from '../utils/audio';
 import { formatCountdown, formatDrawIndex } from '../utils/format';
 import type { GamePhase } from '../game/types';
@@ -24,75 +32,73 @@ const PHASE_LABEL: Record<GamePhase, string> = {
   RESULT: 'RESULT',
 };
 
-const MIN_SPIN_DURATION_MS = 1200;
-
 export function Wheel() {
-  const { phase, currentDraw, config, timeRemaining, skipNextAnimation, streamHistory, drawIndex } = useGame();
+  const { phase, currentDraw, config, speedMultiplier, timeRemaining, streamHistory, drawIndex } = useGame();
 
   const [displayDigit, setDisplayDigit] = useState<number | null>(currentDraw?.digit ?? null);
   const [spinning, setSpinning] = useState(false);
   const [justSettled, setJustSettled] = useState(false);
 
   const prevPhaseRef = useRef<GamePhase>(phase);
+  const prevRevealedDrawIndexRef = useRef<number | undefined>(currentDraw?.drawIndex);
   const rafRef = useRef<number | null>(null);
-  const settleTimeoutRef = useRef<number | null>(null);
 
+  // Effect 1 — start the cosmetic spin the instant we (really) enter
+  // DRAWING. Purely decorative: it swaps in random digits with a
+  // decelerating cadence and, if nothing else happened, just holds on the
+  // last random digit — it never decides the outcome and never reveals it.
   useEffect(() => {
     const enteredDrawing = phase === 'DRAWING' && prevPhaseRef.current !== 'DRAWING';
     prevPhaseRef.current = phase;
-    if (!enteredDrawing || !currentDraw) return;
-
-    const finalDigit = currentDraw.digit;
-
-    function settle() {
-      setDisplayDigit(finalDigit);
-      setSpinning(false);
-      playDrawSettle();
-      setJustSettled(true);
-      settleTimeoutRef.current = window.setTimeout(() => setJustSettled(false), 500);
-    }
-
-    if (skipNextAnimation) {
-      settle();
-      return;
-    }
+    if (!enteredDrawing) return;
 
     setSpinning(true);
-    const duration = Math.max(MIN_SPIN_DURATION_MS, config.drawAnimationDurationMs);
+    const duration = Math.max(MIN_REVEAL_DELAY_MS, config.drawAnimationDurationMs) / speedMultiplier;
     const start = performance.now();
     let lastSwap = start;
 
     function step(now: number) {
       const elapsed = now - start;
       const t = Math.min(1, elapsed / duration);
-      if (t >= 1) {
-        settle();
-        return;
-      }
       // Swap interval grows from ~45ms to ~525ms as t -> 1, which reads as
-      // a natural deceleration into the final digit.
+      // a natural deceleration toward the (still-hidden) final digit.
       const swapInterval = 45 + Math.pow(t, 3) * 480;
       if (now - lastSwap >= swapInterval) {
         setDisplayDigit(Math.floor(Math.random() * 10));
         lastSwap = now;
         playTick();
       }
-      rafRef.current = requestAnimationFrame(step);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      }
     }
     rafRef.current = requestAnimationFrame(step);
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentDraw, skipNextAnimation, config.drawAnimationDurationMs]);
+  }, [phase, config.drawAnimationDurationMs, speedMultiplier]);
 
-  useEffect(
-    () => () => {
-      if (settleTimeoutRef.current !== null) window.clearTimeout(settleTimeoutRef.current);
-    },
-    [],
-  );
+  // Effect 2 — reveal the true digit the moment the hook's delayed
+  // `currentDraw` actually updates. This is the ONLY place the real digit
+  // is shown, and it fires immediately for an instant-stepped draw (since
+  // the hook skips its own delay in that case) or after the full delay for
+  // a normally-timed one.
+  useEffect(() => {
+    if (!currentDraw || currentDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
+    prevRevealedDrawIndexRef.current = currentDraw.drawIndex;
+
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setDisplayDigit(currentDraw.digit);
+    setSpinning(false);
+    playDrawSettle();
+    setJustSettled(true);
+    const settleTimeout = window.setTimeout(() => setJustSettled(false), 500);
+    return () => window.clearTimeout(settleTimeout);
+  }, [currentDraw]);
 
   const recentDigits = streamHistory.slice(-6);
   const showCountdown = phase === 'BETTING_OPEN';

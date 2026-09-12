@@ -4,8 +4,6 @@
 // src/game/payouts.ts for anything that touches actual credited amounts.
 // ============================================================================
 
-import type { TicketTier } from '../game/types';
-
 /** "$9.00" / "-$1.00" — always shows the sign explicitly for negatives. */
 export function formatCurrency(value: number): string {
   const sign = value < 0 ? '-' : '';
@@ -36,12 +34,6 @@ export function formatCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   return totalSeconds.toString().padStart(2, '0');
 }
-
-export const TIER_SHORT_LABEL: Record<TicketTier, string> = {
-  LOW: 'LOW',
-  MEDIUM: 'MED',
-  HIGH: 'HIGH',
-};
 
 export function formatPercent(fraction: number, decimals = 2): string {
   return `${(fraction * 100).toFixed(decimals)}%`;
