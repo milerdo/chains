@@ -1,25 +1,19 @@
 // ============================================================================
-// CHAINS — Wheel (rotary dial, per build spec Section 22)
+// CHAINS — Wheel (classic mechanical prize wheel, Section 22 / CLAUDE.md §8)
+// Rendered entirely in SVG so the disc, pegs, and digits share one
+// coordinate space and one rotation — no parent/child CSS transform
+// composition to get subtly out of sync (see conversation history: that
+// was the root cause of the previous alignment bugs).
 //
-// A rotary-telephone-dial-inspired reveal, not a spinning prize wheel:
-//   - 10 recessed "finger holes" arranged around a static bezel, one per
-//     digit 0-9.
-//   - A single FIXED indicator at 12 o'clock — the only position that ever
-//     determines the result. It never moves.
-//   - The DIAL rotates under the indicator (never a needle sweeping around
-//     a static face).
-//   - Only the hole currently under the indicator is ever emphasized (and
-//     even then, only with a brighter label — not a glow). Glow is
-//     reserved exclusively for the single moment of landing.
-//
-// Engine separation: the actual RNG result is already decided by the
-// engine the instant DRAWING begins — this component only reveals it, and
-// (per useGame.ts's reveal-delay, see item 1b) it genuinely does not know
-// the target digit until the hook says so. That means the dial can't
-// animate toward a known target from the start: it spins indefinitely in
-// ascending order not knowing the answer (Effect 1), then does a short
-// forward-only "final approach" the instant the true digit is revealed
-// (Effect 2), landing exactly aligned under the indicator.
+// Rotation convention (derive once, use everywhere):
+//   - Rotating group transform = rotate(-spinAngle, 150, 150)
+//   - Digit i's UNROTATED center sits at angle i*36° clockwise-from-top
+//   - After rotation, digit under the fixed top pointer satisfies
+//     i*36 - spinAngle ≡ 0 (mod 360)  =>  i = floor(norm(spinAngle)/36)
+//   - digitAtSpinAngle() below implements exactly that, unnegated, and
+//     spinAngleRef.current is used directly (no sign flip at call sites)
+//     for both the live display digit AND the landing-target math, so the
+//     two can never disagree.
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -35,86 +29,104 @@ const PHASE_LABEL: Record<GamePhase, string> = {
   RESULT: 'RESULT',
 };
 
-// --- Dial geometry -----------------------------------------------------
+// --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
-const HOLE_STEP_DEG = 360 / HOLE_COUNT; // 36deg between adjacent holes
-const DIAL_SIZE_PX = 208;
-const DIAL_RADIUS_PX = 80; // distance from center to each hole's center
-const HOLE_SIZE_PX = 32;
+const HOLE_STEP_DEG = 360 / HOLE_COUNT;
+const CX = 150;
+const CY = 150;
+const RIM_OUTER_R = 144;
+const RIM_INNER_R = 126; // wedges drawn out to here
+const PEG_R = 120; // just inside the rim, at wedge BOUNDARIES (not digit centers)
+const DIGIT_R = 92;
+const HUB_R = 20;
+const RIVET_R = 136;
+const RIVET_COUNT = 26;
+
+// Digit -> wedge color, matching the reference wheel's G/R/B sector pattern.
+const WEDGE_COLORS = ['#1e6b3e', '#8a1f1f', '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f'];
 
 // --- Animation timing ----------------------------------------------------
-// Indeterminate phase (Effect 1): constant angular speed while the true
-// digit is still secret. Final approach (Effect 2): a short, always-forward
-// deceleration once the real digit is known.
-const SPIN_SPEED_DEG_PER_SEC = 300;
-const FINAL_APPROACH_MS = 600;
-// If the true digit arrives within this long of the spin starting, treat it
-// as a Demo Panel instant-step (no meaningful spin happened yet) and skip
-// straight to landing with no animation, matching "Instant Step" semantics.
+const MAX_SPIN_SPEED_DEG_PER_SEC = 280; // ~0.78 rev/sec cruise — brisk but mechanical, not frantic
+const SPIN_ACCEL_TIME_CONSTANT_SEC = 0.35;
+const LANDING_TARGET_MS = 2800; // desired natural landing feel at 1x speed
+const MIN_APPROACH_MS = 900;
 const INSTANT_THRESHOLD_MS = 60;
+const FLAPPER_CLICK_MS = 150;
 
-/** Which digit's hole currently sits under the fixed indicator, given the
- * disc's cumulative forward rotation. Holes are placed at digit*36deg
- * (clockwise from 12 o'clock) and the disc rotates by -spinAngle, so
- * increasing spinAngle brings digits to the indicator in ascending order
- * (0,1,2,...9,0,1,...) — verified against this exact formula before
- * writing the component. */
+function pt(angleDeg: number, r: number): { x: number; y: number } {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+}
+
 function digitAtSpinAngle(spinAngle: number): number {
   const normalized = ((spinAngle % 360) + 360) % 360;
   return Math.floor(normalized / HOLE_STEP_DEG) % 10;
 }
 
+// Linear deceleration to exactly zero: eased'(0) = 2 * (distance/duration),
+// which is what lets the landing phase start at the wheel's true current
+// speed (see effect 2) instead of jumping.
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
 export function Wheel() {
   const { phase, currentDraw, speedMultiplier, timeRemaining, streamHistory, drawIndex } = useGame();
 
-  // spinAngle is a cumulative, ALWAYS-INCREASING value — the dial only
-  // ever advances forward through ascending digits, across its whole
-  // lifetime, never resetting or reversing (matching a real dial's
-  // continuous mechanical motion).
   const spinAngleRef = useRef(0);
   const [displayRotation, setDisplayRotation] = useState(0);
   const [currentDigit, setCurrentDigit] = useState(currentDraw?.digit ?? 0);
-  const [spinning, setSpinning] = useState(false);
   const [justLanded, setJustLanded] = useState(false);
+  const [flapperTick, setFlapperTick] = useState(0);
 
   const prevPhaseRef = useRef<GamePhase>(phase);
   const prevRevealedDrawIndexRef = useRef<number | undefined>(currentDraw?.drawIndex);
   const spinStartTimeRef = useRef(0);
+  const accelStartTimeRef = useRef(0);
+  // Tracks the wheel's actual last-measured angular speed, so the landing
+  // phase can start from the REAL current velocity rather than a
+  // theoretical max — this is what guarantees no speed jump at handoff,
+  // correct even under the demo panel's speed multiplier.
+  const lastAngularSpeedRef = useRef(MAX_SPIN_SPEED_DEG_PER_SEC);
   const indeterminateRafRef = useRef<number | null>(null);
   const finalApproachRafRef = useRef<number | null>(null);
-  // Read via ref (not the effect's dependency array) so a mid-spin speed
-  // change from the Demo Panel is picked up on the very next animation
-  // frame without restarting (and thereby killing) the in-progress spin.
   const speedMultiplierRef = useRef(speedMultiplier);
   speedMultiplierRef.current = speedMultiplier;
 
-  // Effect 1 — the instant we (really) enter DRAWING, start an
-  // indeterminate ascending spin. Entering DRAWING is not itself a
-  // spoiler (only the digit value is), so this reacts to the raw phase
-  // and begins immediately, in sync with the real phase clock — it just
-  // doesn't know where it's going yet.
+  function fireFlapperClick() {
+    setFlapperTick((t) => t + 1);
+    playTick();
+  }
+
+  // Effect 1 — enter DRAWING: ease in to cruise speed, then hold. Does not
+  // know the target digit yet.
   useEffect(() => {
     const enteredDrawing = phase === 'DRAWING' && prevPhaseRef.current !== 'DRAWING';
     prevPhaseRef.current = phase;
     if (!enteredDrawing) return;
 
-    setSpinning(true);
     setJustLanded(false);
     spinStartTimeRef.current = performance.now();
+    accelStartTimeRef.current = spinStartTimeRef.current;
     let lastFrameTime = spinStartTimeRef.current;
     let lastDigit = digitAtSpinAngle(spinAngleRef.current);
 
     function step(now: number) {
       const deltaSec = (now - lastFrameTime) / 1000;
+      const accelElapsedSec = (now - accelStartTimeRef.current) / 1000;
       lastFrameTime = now;
-      spinAngleRef.current += SPIN_SPEED_DEG_PER_SEC * speedMultiplierRef.current * deltaSec;
+
+      const speedFraction = 1 - Math.exp(-accelElapsedSec / SPIN_ACCEL_TIME_CONSTANT_SEC);
+      const angularSpeed = MAX_SPIN_SPEED_DEG_PER_SEC * speedFraction * speedMultiplierRef.current;
+      lastAngularSpeedRef.current = angularSpeed;
+      spinAngleRef.current += angularSpeed * deltaSec;
       setDisplayRotation(spinAngleRef.current);
 
       const nextDigit = digitAtSpinAngle(spinAngleRef.current);
       if (nextDigit !== lastDigit) {
         lastDigit = nextDigit;
         setCurrentDigit(nextDigit);
-        playTick();
+        fireFlapperClick();
       }
       indeterminateRafRef.current = requestAnimationFrame(step);
     }
@@ -125,11 +137,9 @@ export function Wheel() {
     };
   }, [phase]);
 
-  // Effect 2 — the moment the hook's delayed `currentDraw` actually
-  // updates (immediately for an instant step, or after the full reveal
-  // delay otherwise), stop the indeterminate spin and do a short,
-  // always-forward "final approach" to the true digit, landing it exactly
-  // under the indicator. This is the ONLY place the real digit is shown.
+  // Effect 2 — the true digit is revealed. Decelerate uniformly from the
+  // wheel's actual current speed to zero, landing exactly on it. This is
+  // the ONLY place the real digit is ever shown.
   useEffect(() => {
     if (!currentDraw || currentDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
     prevRevealedDrawIndexRef.current = currentDraw.drawIndex;
@@ -147,36 +157,45 @@ export function Wheel() {
     const wasInstant = performance.now() - spinStartTimeRef.current < INSTANT_THRESHOLD_MS;
     const currentAtStart = digitAtSpinAngle(spinAngleRef.current);
     const rawTicks = (targetDigit - currentAtStart + 10) % 10;
-    // Always travel forward by at least one step so there's a visible
-    // landing motion, except when instant-stepping (genuinely no
-    // animation should play there).
-    const ticks = wasInstant ? rawTicks : rawTicks === 0 ? HOLE_COUNT : rawTicks;
-    const targetAngle = spinAngleRef.current + ticks * HOLE_STEP_DEG;
+    const baseTicks = rawTicks === 0 ? HOLE_COUNT : rawTicks;
 
-    function land() {
-      spinAngleRef.current = targetAngle;
-      setDisplayRotation(targetAngle);
+    function land(finalAngle: number) {
+      spinAngleRef.current = finalAngle;
+      setDisplayRotation(finalAngle);
       setCurrentDigit(targetDigit);
-      setSpinning(false);
       setJustLanded(true);
+      fireFlapperClick();
       playDrawSettle();
       window.setTimeout(() => setJustLanded(false), 650);
     }
 
     if (wasInstant) {
-      land();
+      land(spinAngleRef.current + baseTicks * HOLE_STEP_DEG);
       return;
     }
 
+    // Pick a number of extra full revolutions so the total distance, at
+    // the wheel's REAL current speed, takes close to LANDING_TARGET_MS —
+    // then recompute the exact duration from that distance so velocity
+    // continuity (see easeOutQuad) is exact, not approximate.
+    const v0 = Math.max(60, lastAngularSpeedRef.current);
+    const targetMs = LANDING_TARGET_MS / speedMultiplierRef.current;
+    const idealDistanceDeg = (v0 * (targetMs / 1000)) / 2;
+    const idealTicks = idealDistanceDeg / HOLE_STEP_DEG;
+    const extraRevolutions = Math.max(1, Math.round((idealTicks - baseTicks) / HOLE_COUNT));
+    const ticks = baseTicks + extraRevolutions * HOLE_COUNT;
+    const distanceDeg = ticks * HOLE_STEP_DEG;
+    const approachDurationMs = Math.max(MIN_APPROACH_MS, (2 * distanceDeg) / v0 * 1000);
+    const targetAngle = spinAngleRef.current + distanceDeg;
+
     const startAngle = spinAngleRef.current;
     const startTime = performance.now();
-    const approachDurationMs = FINAL_APPROACH_MS / speedMultiplierRef.current;
     let lastDigit = digitAtSpinAngle(startAngle);
 
     function step(now: number) {
       const t = Math.min(1, (now - startTime) / approachDurationMs);
-      const eased = 1 - Math.pow(1 - t, 3); // ease-out: decelerates into the landing
-      const angle = startAngle + (targetAngle - startAngle) * eased;
+      const eased = easeOutQuad(t);
+      const angle = startAngle + distanceDeg * eased;
       spinAngleRef.current = angle;
       setDisplayRotation(angle);
 
@@ -184,13 +203,13 @@ export function Wheel() {
       if (nextDigit !== lastDigit && t < 1) {
         lastDigit = nextDigit;
         setCurrentDigit(nextDigit);
-        playTick();
+        fireFlapperClick();
       }
 
       if (t < 1) {
         finalApproachRafRef.current = requestAnimationFrame(step);
       } else {
-        land();
+        land(targetAngle);
       }
     }
     finalApproachRafRef.current = requestAnimationFrame(step);
@@ -200,7 +219,6 @@ export function Wheel() {
     };
   }, [currentDraw]);
 
-  // Cleanup on unmount.
   useEffect(
     () => () => {
       if (indeterminateRafRef.current !== null) cancelAnimationFrame(indeterminateRafRef.current);
@@ -223,70 +241,128 @@ export function Wheel() {
       </div>
 
       <div className="mt-5 flex flex-col items-center">
-        <div className="relative" style={{ width: DIAL_SIZE_PX, height: DIAL_SIZE_PX }}>
-          {/* Static bezel — flat dark, no gradient (Section 22/31: high
-              contrast, minimal, glow reserved for the landing only). */}
-          <div
-            className={[
-              'absolute inset-0 rounded-full border-2 bg-[#141414] transition-colors duration-300',
-              spinning ? 'border-white/15' : 'border-white/10',
-            ].join(' ')}
-          />
+        <svg
+          width={260}
+          height={260}
+          viewBox="0 0 300 300"
+          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}
+        >
+          <defs>
+            <radialGradient id="frameGrad" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stopColor="#eecf8a" />
+              <stop offset="55%" stopColor="#8a6512" />
+              <stop offset="100%" stopColor="#4a3506" />
+            </radialGradient>
+            <radialGradient id="hubGrad" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stopColor="#f6e3a8" />
+              <stop offset="60%" stopColor="#8a6512" />
+              <stop offset="100%" stopColor="#3d2c05" />
+            </radialGradient>
+            <radialGradient id="sheenGrad" cx="50%" cy="38%" r="65%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </radialGradient>
+          </defs>
 
-          {/* The 10 finger holes. Each is positioned with the standard
-              rotate/translate/counter-rotate technique so it orbits the
-              center while its own label stays upright — no separately
-              rotating wrapper needed. */}
-          {Array.from({ length: HOLE_COUNT }, (_, digit) => {
-            const angle = digit * HOLE_STEP_DEG - displayRotation;
-            const isLit = digit === currentDigit;
-            const isLanded = isLit && justLanded;
-            return (
-              <div
-                key={digit}
-                className="absolute left-1/2 top-1/2"
-                style={{
-                  width: HOLE_SIZE_PX,
-                  height: HOLE_SIZE_PX,
-                  marginLeft: -HOLE_SIZE_PX / 2,
-                  marginTop: -HOLE_SIZE_PX / 2,
-                  transform: `rotate(${angle}deg) translateY(-${DIAL_RADIUS_PX}px) rotate(${-angle}deg)`,
-                }}
-              >
-                <div
-                  className={[
-                    'flex h-full w-full items-center justify-center rounded-full',
-                    'shadow-[inset_0_2px_5px_rgba(0,0,0,0.65),inset_0_-1px_1px_rgba(255,255,255,0.04)]',
-                    isLanded ? 'bg-[#1c1608]' : 'bg-[#101010]',
-                  ].join(' ')}
-                >
-                  <span
-                    className={[
-                      'font-mono font-bold tabular-nums transition-all duration-150',
-                      isLanded
-                        ? 'scale-125 text-2xl text-[#eab308]'
-                        : isLit
-                          ? 'text-base text-white/85'
-                          : 'text-sm text-white/25',
-                    ].join(' ')}
-                    style={isLanded ? { textShadow: '0 0 18px rgba(234,179,8,0.7)' } : undefined}
-                  >
-                    {digit}
-                  </span>
-                </div>
-              </div>
-            );
+          {/* Fixed outer frame — never rotates */}
+          <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="url(#frameGrad)" />
+          <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
+
+          {/* Fixed rivets */}
+          {Array.from({ length: RIVET_COUNT }, (_, i) => {
+            const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
+            return <circle key={`rivet-${i}`} cx={p.x} cy={p.y} r={2.4} fill="#f6e3a8" stroke="#5c4409" strokeWidth={0.5} />;
           })}
 
-          {/* Fixed indicator — a distinct mechanical tab/bracket at 12
-              o'clock. Never rotates; this is the only position that
-              determines the result. Neutral metal tone, not gold — gold
-              is reserved for the winning digit itself. */}
-          <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2">
-            <div className="h-3 w-6 rounded-sm border border-white/25 bg-[#2a2a2a] shadow-[0_1px_3px_rgba(0,0,0,0.5)]" />
-            <div className="mx-auto -mt-px h-2 w-2 rotate-45 border-b border-r border-white/25 bg-[#2a2a2a]" />
-          </div>
-        </div>
+          {/* Rotating disc — wedges, pegs, and digits share ONE transform,
+              so they can never drift out of sync with each other. */}
+          <g transform={`rotate(${-displayRotation} ${CX} ${CY})`}>
+            {WEDGE_COLORS.map((color, i) => {
+              const start = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
+              const end = i * HOLE_STEP_DEG + HOLE_STEP_DEG / 2;
+              const p1 = pt(start, RIM_INNER_R);
+              const p2 = pt(end, RIM_INNER_R);
+              const isLanded = justLanded && i === currentDigit;
+              return (
+                <path
+                  key={`wedge-${i}`}
+                  d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
+                  fill={isLanded ? '#eab308' : color}
+                  stroke="#d4af5a"
+                  strokeWidth={1.5}
+                  style={{ transition: 'fill 150ms ease-out' }}
+                />
+              );
+            })}
+
+            {/* Subtle sheen overlay for depth, no isolated "shine spot" */}
+            <circle cx={CX} cy={CY} r={RIM_INNER_R} fill="url(#sheenGrad)" />
+
+            {/* Pegs at wedge BOUNDARIES, not on digits */}
+            {Array.from({ length: HOLE_COUNT }, (_, i) => {
+              const angle = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
+              const p = pt(angle, PEG_R);
+              return (
+                <circle key={`peg-${i}`} cx={p.x} cy={p.y} r={4} fill="#d9c088" stroke="#5c4409" strokeWidth={0.6} />
+              );
+            })}
+
+            {/* Digits — large, bold, radially tilted like the reference */}
+            {Array.from({ length: HOLE_COUNT }, (_, i) => {
+              const angle = i * HOLE_STEP_DEG;
+              const p = pt(angle, DIGIT_R);
+              return (
+                <text
+                  key={`digit-${i}`}
+                  x={p.x}
+                  y={p.y}
+                  transform={`rotate(${angle} ${p.x} ${p.y})`}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontFamily="ui-monospace, 'SFMono-Regular', monospace"
+                  fontWeight={800}
+                  fontSize={36}
+                  fill="#f4e4b8"
+                  stroke="#2a1a00"
+                  strokeWidth={1.5}
+                  paintOrder="stroke"
+                >
+                  {i}
+                </text>
+              );
+            })}
+
+            {/* Hub */}
+            <circle cx={CX} cy={CY} r={HUB_R} fill="url(#hubGrad)" stroke="#2a1c02" strokeWidth={1.5} />
+          </g>
+
+          {/* Fixed pivot + flapper — always at top, never orbits. Tip
+              touches the rim at angle 0 by construction (SVG coordinates,
+              not CSS flex layout), so it can't drift off-center. */}
+          <circle cx={CX} cy={22} r={5} fill="url(#frameGrad)" stroke="#2a1c02" strokeWidth={1} />
+          <g
+            key={flapperTick}
+            style={{
+              transformOrigin: `${CX}px 22px`,
+              animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
+            }}
+          >
+            <polygon
+              points={`${CX - 10},4 ${CX + 10},4 ${CX},${RIM_OUTER_R - RIM_INNER_R + 26}`}
+              fill="#c9971f"
+              stroke="#5c4409"
+              strokeWidth={1}
+            />
+          </g>
+
+          <style>{`
+            @keyframes flapper-click {
+              0% { transform: rotate(0deg); }
+              35% { transform: rotate(-18deg); }
+              100% { transform: rotate(0deg); }
+            }
+          `}</style>
+        </svg>
 
         <div className="mt-4 flex items-center gap-1.5">
           {recentDigits.length === 0 && (

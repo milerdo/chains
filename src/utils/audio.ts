@@ -144,3 +144,19 @@ export function playJackpotFanfare(): void {
 export function playUiClick(): void {
   playTone({ frequency: 900, durationMs: 28, shape: 'square', gain: 0.04 });
 }
+
+// Browsers only allow an AudioContext to resume inside a real user gesture.
+// If the first thing that tries to play a sound is an automatic engine
+// event (not a click), the context gets created suspended and stays that
+// way forever. Unlocking it on the very first gesture anywhere — rather
+// than relying on whichever control happens to be clicked first — fixes
+// that regardless of what the player interacts with first.
+if (typeof window !== 'undefined') {
+  const unlockOnFirstGesture = () => {
+    getAudioContext();
+    window.removeEventListener('pointerdown', unlockOnFirstGesture);
+    window.removeEventListener('keydown', unlockOnFirstGesture);
+  };
+  window.addEventListener('pointerdown', unlockOnFirstGesture, { once: true });
+  window.addEventListener('keydown', unlockOnFirstGesture, { once: true });
+}
