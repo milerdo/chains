@@ -103,14 +103,26 @@ export interface Ticket {
   /** Running total of everything credited to the player from this ticket:
    * baseWinAmount + jackpotWinAmount (when applicable). */
   totalReturn: number;
+    /** Set only on tickets created from a combo bet — ties every possibility
+   * of the same combo together for UI grouping (Section 7: "one combined
+   * CHAINS Link"). Null for straight tickets. */
+  comboGroupId: string | null;
+  /** The original digit SET before permutation expansion (e.g. [3,1,4] for
+   * a combo that produced the possibility [4,1,3]). Null for straight
+   * tickets. */
+  comboDigits: number[] | null;
   /** Ordered audit trail of every draw this ticket has evaluated against. */
   drawLog: TicketDrawRecord[];
 }
 
-/** One tier selection within a single bet submission (Section 5). */
 export interface BetSelection {
   tier: TicketTier;
   digits: number[];
+  /** If true, `digits` is a combo digit SET — the engine expands it into
+   * every unique permutation, each becoming its own $1 possibility/ticket
+   * (Section 5b/7). If false/omitted, `digits` is a single straight
+   * sequence (existing behavior, unchanged). */
+  isCombo?: boolean;
 }
 
 /** A full bet submission: 1-3 independent tier tickets sharing one jackpot

@@ -1,25 +1,31 @@
 // ============================================================================
 // CHAINS — BettingPanel
-// Lets the player build up to 3 independent tier tickets (LOW/MEDIUM/HIGH)
-// plus one shared 2-digit jackpot combination, then submits them as a
-// single BetRequest to the engine. All validation (digit completeness,
-// balance, the 3-ticket concurrency cap) is enforced by the engine itself
-// (see engine.ts placeBetInternal) — this component only builds the
-// request and surfaces whatever PlaceBetResult comes back.
+// Lets the player build a single tier ticket (LOW/MEDIUM/HIGH — only one
+// tier per betting round, Section 6) plus one shared 2-digit jackpot
+// combination, optionally as a Combo bet (Section 5b: every unique
+// ordering of the entered digits becomes its own $1 possibility), then
+// submits it as a single BetRequest to the engine. All validation (digit
+// completeness, balance, the 3-ticket concurrency cap, combo expansion) is
+// enforced by the engine itself (see engine.ts placeBetInternal) — this
+// component only builds the request and surfaces whatever PlaceBetResult
+// comes back.
 //
-// UX pattern: tapping a tier "chip" includes/excludes it from this bet.
-// Included tiers show their sequence as a row of slots; tapping a slot (or
-// a jackpot slot) focuses it, and the single shared digit pad below fills
+// UX pattern: tapping a tier "chip" selects/deselects it as this bet's
+// single tier. The tier's digit slots render below; tapping a slot (or a
+// jackpot slot) focuses it, and the single shared digit pad below fills
 // whichever slot is focused, then auto-advances to the next empty one —
-// the same flow as entering a PIN.
+// the same flow as entering a PIN. A Combo toggle appears once a
+// MEDIUM/HIGH tier is selected (a 1-digit LOW combo would just be a
+// straight bet, so it's hidden there).
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
+import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
-import type { BetRequest, GamePhase, TicketTier } from '../game/types';
+import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
 const TIER_ORDER: TicketTier[] = ['LOW', 'MEDIUM', 'HIGH'];
 
@@ -50,7 +56,8 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 export function BettingPanel() {
   const { placeBet, phase, balance } = useGame();
 
-const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);  const [tierDigits, setTierDigits] = useState<Record<TicketTier, (number | null)[]>>({
+  const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);
+  const [tierDigits, setTierDigits] = useState<Record<TicketTier, (number | null)[]>>({
     LOW: emptySlots('LOW'),
     MEDIUM: emptySlots('MEDIUM'),
     HIGH: emptySlots('HIGH'),
@@ -60,6 +67,7 @@ const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);  cons
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [autoBetRounds, setAutoBetRounds] = useState(DEFAULT_AUTO_BET_ROUNDS);
   const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
+  const [isCombo, setIsCombo] = useState(false);
 
   const autoBetActive = autoBet !== null;
   const prevPhaseRef = useRef<GamePhase>(phase);
@@ -106,25 +114,26 @@ const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);  cons
     return digits[tier].findIndex((d) => d === null);
   }
 
-function selectTier(tier: TicketTier) {
-  if (locked) return;
-  playUiClick();
-  setFeedback(null);
-  if (selectedTier === tier) {
-    setSelectedTier(null);
-    setEditTarget((current) => (current?.kind === 'tier' && current.tier === tier ? null : current));
-    return;
+  function selectTier(tier: TicketTier) {
+    if (locked) return;
+    playUiClick();
+    setFeedback(null);
+    setIsCombo(false);
+    if (selectedTier === tier) {
+      setSelectedTier(null);
+      setEditTarget((current) => (current?.kind === 'tier' && current.tier === tier ? null : current));
+      return;
+    }
+    setSelectedTier(tier);
+    const firstEmpty = findFirstEmptyTierSlot(tier, tierDigits);
+    setEditTarget({ kind: 'tier', tier, index: firstEmpty === -1 ? 0 : firstEmpty });
   }
-  setSelectedTier(tier);
-  const firstEmpty = findFirstEmptyTierSlot(tier, tierDigits);
-  setEditTarget({ kind: 'tier', tier, index: firstEmpty === -1 ? 0 : firstEmpty });
-}
 
   function focusTierSlot(tier: TicketTier, index: number) {
-  if (locked || selectedTier !== tier) return;
-  playUiClick();
-  setEditTarget({ kind: 'tier', tier, index });
-}
+    if (locked || selectedTier !== tier) return;
+    playUiClick();
+    setEditTarget({ kind: 'tier', tier, index });
+  }
 
   function focusJackpotSlot(index: 0 | 1) {
     if (locked) return;
@@ -132,30 +141,30 @@ function selectTier(tier: TicketTier) {
     setEditTarget({ kind: 'jackpot', index });
   }
 
-function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<TicketTier, (number | null)[]>) {
-  if (current.kind === 'tier') {
-    const slots = digitsSnapshot[current.tier];
-    if (current.index + 1 < slots.length) {
-      setEditTarget({ kind: 'tier', tier: current.tier, index: current.index + 1 });
-      return;
+  function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<TicketTier, (number | null)[]>) {
+    if (current.kind === 'tier') {
+      const slots = digitsSnapshot[current.tier];
+      if (current.index + 1 < slots.length) {
+        setEditTarget({ kind: 'tier', tier: current.tier, index: current.index + 1 });
+        return;
+      }
+      if (jackpotDigits[0] === null) {
+        setEditTarget({ kind: 'jackpot', index: 0 });
+        return;
+      }
+      if (jackpotDigits[1] === null) {
+        setEditTarget({ kind: 'jackpot', index: 1 });
+        return;
+      }
+      setEditTarget(null);
+    } else {
+      if (current.index === 0) {
+        setEditTarget({ kind: 'jackpot', index: 1 });
+        return;
+      }
+      setEditTarget(null);
     }
-    if (jackpotDigits[0] === null) {
-      setEditTarget({ kind: 'jackpot', index: 0 });
-      return;
-    }
-    if (jackpotDigits[1] === null) {
-      setEditTarget({ kind: 'jackpot', index: 1 });
-      return;
-    }
-    setEditTarget(null);
-  } else {
-    if (current.index === 0) {
-      setEditTarget({ kind: 'jackpot', index: 1 });
-      return;
-    }
-    setEditTarget(null);
   }
-}
 
   function handleDigitPress(digit: number) {
     if (!editTarget || locked) return;
@@ -179,20 +188,35 @@ function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<T
     }
   }
 
- function handleClear() {
-  if (autoBetActive) return;
-  playUiClick();
-  setSelectedTier(null);
-  setTierDigits({ LOW: emptySlots('LOW'), MEDIUM: emptySlots('MEDIUM'), HIGH: emptySlots('HIGH') });
-  setJackpotDigits([null, null]);
-  setEditTarget(null);
-  setFeedback(null);
-}
+  function handleClear() {
+    if (autoBetActive) return;
+    playUiClick();
+    setSelectedTier(null);
+    setTierDigits({ LOW: emptySlots('LOW'), MEDIUM: emptySlots('MEDIUM'), HIGH: emptySlots('HIGH') });
+    setJackpotDigits([null, null]);
+    setEditTarget(null);
+    setFeedback(null);
+    setIsCombo(false);
+  }
 
   const activeSelections = selectedTier ? [selectedTier] : [];
-  const totalStake = activeSelections.length * TICKET_STAKE;
+  const filledTierDigits: number[] = selectedTier
+    ? tierDigits[selectedTier].filter((d): d is number => d !== null)
+    : [];
   const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
   const allTiersComplete = activeSelections.every((tier) => tierDigits[tier].every((d) => d !== null));
+  // Combo betting is only meaningful for 2+ digit tiers (MEDIUM/HIGH) —
+  // matches spec Section 5b's examples; a 1-digit LOW combo would
+  // trivially equal a straight bet.
+  const comboAvailable = selectedTier !== null && selectedTier !== 'LOW';
+  const comboActive = comboAvailable && isCombo;
+  const possibilityCount = comboActive && allTiersComplete ? countComboPossibilities(filledTierDigits) : 1;
+  const totalStake =
+    activeSelections.length === 0
+      ? 0
+      : comboActive && allTiersComplete
+        ? calculateComboStake(filledTierDigits)
+        : TICKET_STAKE;
   const canSubmit =
     isBettingOpen &&
     !autoBetActive &&
@@ -202,8 +226,9 @@ function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<T
     balance >= totalStake;
 
   function buildRequest(): BetRequest {
-    const selections = activeSelections.map((tier) => ({ tier, digits: tierDigits[tier] as number[] }));
-    return { selections, jackpotSequence: jackpotDigits as [number, number] };
+    const tier = activeSelections[0];
+    const selection: BetSelection = { tier, digits: tierDigits[tier] as number[], isCombo: comboActive };
+    return { selections: [selection], jackpotSequence: jackpotDigits as [number, number] };
   }
 
   function handleSubmit() {
@@ -263,16 +288,18 @@ function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<T
         )}
       </div>
 
-      {/* Tier toggles all on one row; digit slots for whichever tiers are
-          included render below, one row per included tier. */}
+      {/* Tier toggles all on one row — single-select: choosing a tier
+          deselects any previously selected tier (Section 6: only one
+          volatility tier per betting round). Digit slots for whichever
+          tier is selected render below. */}
       <div className="mt-4 grid grid-cols-3 gap-2">
         {TIER_ORDER.map((tier) => (
           <TierChip
-          key={tier}
-          tier={tier}
-          included={selectedTier === tier}
-          disabled={locked}
-          onToggle={() => selectTier(tier)}
+            key={tier}
+            tier={tier}
+            included={selectedTier === tier}
+            disabled={locked}
+            onToggle={() => selectTier(tier)}
           />
         ))}
       </div>
@@ -290,6 +317,41 @@ function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<T
             />
           ))}
         </div>
+      )}
+
+      {comboAvailable && (
+        <button
+          type="button"
+          onClick={() => {
+            if (locked) return;
+            playUiClick();
+            setIsCombo((c) => !c);
+          }}
+          disabled={locked}
+          className={[
+            'mt-2.5 flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 transition disabled:cursor-not-allowed disabled:opacity-40',
+            isCombo
+              ? 'border-[#eab308]/40 bg-[#eab308]/[0.06]'
+              : 'border-white/[0.07] bg-white/[0.02] hover:border-white/15',
+          ].join(' ')}
+        >
+          <span className="flex items-center gap-2">
+            <span
+              className={[
+                'flex h-5 w-5 items-center justify-center rounded-md border text-[10px] transition',
+                isCombo ? 'border-[#eab308] bg-[#eab308] text-black' : 'border-white/20 text-transparent',
+              ].join(' ')}
+            >
+              ✓
+            </span>
+            <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
+          </span>
+          {isCombo && allTiersComplete && (
+            <span className="font-mono text-[11px] text-[#eab308]">
+              {possibilityCount} possibilit{possibilityCount === 1 ? 'y' : 'ies'} · {formatCurrency(totalStake)}
+            </span>
+          )}
+        </button>
       )}
 
       <div className="mt-4 rounded-2xl border border-[#eab308]/20 bg-[#eab308]/[0.04] p-3.5">
@@ -406,7 +468,7 @@ function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<T
                   : 'cursor-not-allowed bg-white/[0.06] text-white/25',
               ].join(' ')}
             >
-              Place Bet
+              {isCombo ? 'Confirm Combo' : 'Place Bet'}
             </button>
           </div>
         )}

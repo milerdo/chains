@@ -42,6 +42,7 @@ import {
 } from './constants';
 import { JackpotManager } from './jackpot';
 import { RNG } from './rng';
+import { expandComboPossibilities, validateComboDigits } from './combo';
 import { calculateBaseTotalReturn, calculateTotalStake, roundCurrency } from './payouts';
 import {
   activateDueTickets,
@@ -83,6 +84,7 @@ export class ChainsGame {
   private currentDraw: DrawResult | null = null;
   private tickets: Ticket[] = [];
   private balance: number;
+  private comboGroupCounter = 0;
 
   // --- phase / scheduler state -----------------------------------------------
   private phase: GamePhase = 'BETTING_OPEN';
@@ -525,28 +527,24 @@ export class ChainsGame {
   // Private: betting internals
   // ==========================================================================
 
-  private placeBetInternal(request: BetRequest, options: PlaceBetOptions): PlaceBetResult {
+    private placeBetInternal(request: BetRequest, options: PlaceBetOptions): PlaceBetResult {
     if (!options.bypassPhaseCheck && this.phase !== 'BETTING_OPEN') {
       return this.betFailure('Betting is currently closed for this round.');
     }
 
     if (!request || !Array.isArray(request.selections) || request.selections.length === 0) {
-      return this.betFailure('Select at least one tier (LOW, MEDIUM, or HIGH) before placing a bet.');
+      return this.betFailure('Select a tier (LOW, MEDIUM, or HIGH) before placing a bet.');
     }
     if (request.selections.length > 1) {
-  return this.betFailure('Only one volatility tier (LOW, MEDIUM, or HIGH) may be selected per betting round.');
+      return this.betFailure('Only one volatility tier (LOW, MEDIUM, or HIGH) may be selected per betting round.');
     }
 
-    const tiersSeen = new Set<TicketTier>();
-    for (const selection of request.selections) {
-      if (tiersSeen.has(selection.tier)) {
-        return this.betFailure(`Duplicate ${selection.tier} selection in the same bet.`);
-      }
-      tiersSeen.add(selection.tier);
-    }
+    const [selection] = request.selections;
 
     try {
-      for (const selection of request.selections) {
+      if (selection.isCombo) {
+        validateComboDigits(selection.tier, selection.digits);
+      } else {
         validateBaseDigits(selection.tier, selection.digits);
       }
       validateJackpotSequence(request.jackpotSequence);
@@ -554,34 +552,47 @@ export class ChainsGame {
       return this.betFailure(error instanceof Error ? error.message : 'Invalid bet.');
     }
 
-    for (const selection of request.selections) {
-      const activeCount = countActiveWithSameSequence(this.tickets, selection.tier, selection.digits);
+    // Straight bets are a single "possibility" (the sequence as entered);
+    // combo bets expand into every unique ordering (Section 5b). Either
+    // way, everything downstream treats `possibilities` uniformly.
+    const possibilities: number[][] = selection.isCombo
+      ? expandComboPossibilities(selection.digits)
+      : [selection.digits];
+
+    for (const possibility of possibilities) {
+      const activeCount = countActiveWithSameSequence(this.tickets, selection.tier, possibility);
       if (activeCount >= MAX_CONCURRENT_TICKETS_PER_SEQUENCE) {
         return this.betFailure(
           `Maximum of ${MAX_CONCURRENT_TICKETS_PER_SEQUENCE} concurrent ${selection.tier} tickets on ` +
-            `${selection.digits.join(' → ')} already running. Wait for one to resolve before betting it again.`,
+            `${possibility.join(' → ')} already running. Wait for one to resolve before betting it again.`,
         );
       }
     }
 
-    const totalStake = calculateTotalStake(request.selections.length, this.config.ticketStake);
+    const totalStake = calculateTotalStake(possibilities.length, this.config.ticketStake);
     if (this.balance < totalStake) {
       return this.betFailure(`Insufficient balance. Need $${totalStake.toFixed(2)}, have $${this.balance.toFixed(2)}.`);
     }
 
     const startDrawIndex = this.drawIndex + 1;
-    const newTickets: Ticket[] = request.selections.map((selection) =>
+    const comboGroupId = selection.isCombo ? this.generateComboGroupId() : null;
+    const newTickets: Ticket[] = possibilities.map((digits) =>
       createTicket({
         tier: selection.tier,
-        digits: selection.digits,
+        digits,
         jackpotSequence: request.jackpotSequence,
         startDrawIndex,
         createdAtDrawIndex: this.drawIndex,
         stake: this.config.ticketStake,
+        comboGroupId,
+        comboDigits: selection.isCombo ? selection.digits : null,
       }),
     );
 
-    for (const selection of request.selections) {
+    // Jackpot funding is contributed once per possibility, since the total
+    // confirmed stake is what Section 18 bases contributions on (mirrors
+    // the existing per-ticket contribution for straight bets).
+    for (let i = 0; i < possibilities.length; i += 1) {
       this.jackpotManager.contribute(selection.tier, this.config.ticketStake);
     }
 
@@ -591,10 +602,17 @@ export class ChainsGame {
 
     return {
       success: true,
-      message: `Bet placed: ${newTickets.length} ticket(s), total stake $${totalStake.toFixed(2)}.`,
+      message: selection.isCombo
+        ? `Combo bet placed: ${newTickets.length} possibilities, total stake $${totalStake.toFixed(2)}.`
+        : `Bet placed: 1 ticket, total stake $${totalStake.toFixed(2)}.`,
       ticketIds: newTickets.map((t) => t.id),
       totalStake,
     };
+  }
+
+  private generateComboGroupId(): string {
+    this.comboGroupCounter += 1;
+    return `combo-${this.drawIndex}-${this.comboGroupCounter}`;
   }
 
   private betFailure(message: string): PlaceBetResult {

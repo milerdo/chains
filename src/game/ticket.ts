@@ -71,12 +71,11 @@ export interface CreateTicketParams {
   tier: TicketTier;
   digits: number[];
   jackpotSequence: [number, number];
-  /** The global draw index this ticket will first evaluate against — always
-   * the first draw after betting closes (Section 10). */
   startDrawIndex: number;
-  /** The global draw index at which the bet was placed (for audit/history). */
   createdAtDrawIndex: number;
   stake?: number;
+  comboGroupId?: string | null;
+  comboDigits?: number[] | null;
 }
 
 /** Creates a brand-new ticket in the WAITING state. Throws if the digits or
@@ -109,6 +108,8 @@ export function createTicket(params: CreateTicketParams): Ticket {
     jackpotWinAmount: null,
     totalReturn: 0,
     drawLog: [],
+    comboGroupId: params.comboGroupId ?? null,
+    comboDigits: params.comboDigits ? [...params.comboDigits] : null,
   };
 }
 
