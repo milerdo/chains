@@ -155,7 +155,7 @@ Do not claim something works if it was not tested.
 ## 8. Wheel animation
 
 The wheel must reveal a predetermined game result.
-
+The wheel should look like 'wheel.png'
 The engine generates the digit.
 The wheel animates toward that digit.
 The animation must not generate or alter the result.
