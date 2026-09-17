@@ -50,8 +50,7 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 export function BettingPanel() {
   const { placeBet, phase, balance } = useGame();
 
-  const [includedTiers, setIncludedTiers] = useState<Set<TicketTier>>(new Set());
-  const [tierDigits, setTierDigits] = useState<Record<TicketTier, (number | null)[]>>({
+const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);  const [tierDigits, setTierDigits] = useState<Record<TicketTier, (number | null)[]>>({
     LOW: emptySlots('LOW'),
     MEDIUM: emptySlots('MEDIUM'),
     HIGH: emptySlots('HIGH'),
@@ -107,29 +106,25 @@ export function BettingPanel() {
     return digits[tier].findIndex((d) => d === null);
   }
 
-  function toggleTier(tier: TicketTier) {
-    if (locked) return;
-    playUiClick();
-    setFeedback(null);
-    setIncludedTiers((prev) => {
-      const next = new Set(prev);
-      if (next.has(tier)) {
-        next.delete(tier);
-        setEditTarget((current) => (current?.kind === 'tier' && current.tier === tier ? null : current));
-      } else {
-        next.add(tier);
-        const firstEmpty = findFirstEmptyTierSlot(tier, tierDigits);
-        setEditTarget({ kind: 'tier', tier, index: firstEmpty === -1 ? 0 : firstEmpty });
-      }
-      return next;
-    });
+function selectTier(tier: TicketTier) {
+  if (locked) return;
+  playUiClick();
+  setFeedback(null);
+  if (selectedTier === tier) {
+    setSelectedTier(null);
+    setEditTarget((current) => (current?.kind === 'tier' && current.tier === tier ? null : current));
+    return;
   }
+  setSelectedTier(tier);
+  const firstEmpty = findFirstEmptyTierSlot(tier, tierDigits);
+  setEditTarget({ kind: 'tier', tier, index: firstEmpty === -1 ? 0 : firstEmpty });
+}
 
   function focusTierSlot(tier: TicketTier, index: number) {
-    if (locked || !includedTiers.has(tier)) return;
-    playUiClick();
-    setEditTarget({ kind: 'tier', tier, index });
-  }
+  if (locked || selectedTier !== tier) return;
+  playUiClick();
+  setEditTarget({ kind: 'tier', tier, index });
+}
 
   function focusJackpotSlot(index: 0 | 1) {
     if (locked) return;
@@ -137,38 +132,30 @@ export function BettingPanel() {
     setEditTarget({ kind: 'jackpot', index });
   }
 
-  function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<TicketTier, (number | null)[]>) {
-    if (current.kind === 'tier') {
-      const slots = digitsSnapshot[current.tier];
-      if (current.index + 1 < slots.length) {
-        setEditTarget({ kind: 'tier', tier: current.tier, index: current.index + 1 });
-        return;
-      }
-      const remainingTiers = TIER_ORDER.filter((t) => includedTiers.has(t) && t !== current.tier);
-      for (const t of remainingTiers) {
-        const firstEmpty = findFirstEmptyTierSlot(t, digitsSnapshot);
-        if (firstEmpty !== -1) {
-          setEditTarget({ kind: 'tier', tier: t, index: firstEmpty });
-          return;
-        }
-      }
-      if (jackpotDigits[0] === null) {
-        setEditTarget({ kind: 'jackpot', index: 0 });
-        return;
-      }
-      if (jackpotDigits[1] === null) {
-        setEditTarget({ kind: 'jackpot', index: 1 });
-        return;
-      }
-      setEditTarget(null);
-    } else {
-      if (current.index === 0) {
-        setEditTarget({ kind: 'jackpot', index: 1 });
-        return;
-      }
-      setEditTarget(null);
+function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<TicketTier, (number | null)[]>) {
+  if (current.kind === 'tier') {
+    const slots = digitsSnapshot[current.tier];
+    if (current.index + 1 < slots.length) {
+      setEditTarget({ kind: 'tier', tier: current.tier, index: current.index + 1 });
+      return;
     }
+    if (jackpotDigits[0] === null) {
+      setEditTarget({ kind: 'jackpot', index: 0 });
+      return;
+    }
+    if (jackpotDigits[1] === null) {
+      setEditTarget({ kind: 'jackpot', index: 1 });
+      return;
+    }
+    setEditTarget(null);
+  } else {
+    if (current.index === 0) {
+      setEditTarget({ kind: 'jackpot', index: 1 });
+      return;
+    }
+    setEditTarget(null);
   }
+}
 
   function handleDigitPress(digit: number) {
     if (!editTarget || locked) return;
@@ -192,17 +179,17 @@ export function BettingPanel() {
     }
   }
 
-  function handleClear() {
-    if (autoBetActive) return;
-    playUiClick();
-    setIncludedTiers(new Set());
-    setTierDigits({ LOW: emptySlots('LOW'), MEDIUM: emptySlots('MEDIUM'), HIGH: emptySlots('HIGH') });
-    setJackpotDigits([null, null]);
-    setEditTarget(null);
-    setFeedback(null);
-  }
+ function handleClear() {
+  if (autoBetActive) return;
+  playUiClick();
+  setSelectedTier(null);
+  setTierDigits({ LOW: emptySlots('LOW'), MEDIUM: emptySlots('MEDIUM'), HIGH: emptySlots('HIGH') });
+  setJackpotDigits([null, null]);
+  setEditTarget(null);
+  setFeedback(null);
+}
 
-  const activeSelections = TIER_ORDER.filter((tier) => includedTiers.has(tier));
+  const activeSelections = selectedTier ? [selectedTier] : [];
   const totalStake = activeSelections.length * TICKET_STAKE;
   const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
   const allTiersComplete = activeSelections.every((tier) => tierDigits[tier].every((d) => d !== null));
@@ -281,11 +268,11 @@ export function BettingPanel() {
       <div className="mt-4 grid grid-cols-3 gap-2">
         {TIER_ORDER.map((tier) => (
           <TierChip
-            key={tier}
-            tier={tier}
-            included={includedTiers.has(tier)}
-            disabled={locked}
-            onToggle={() => toggleTier(tier)}
+          key={tier}
+          tier={tier}
+          included={selectedTier === tier}
+          disabled={locked}
+          onToggle={() => selectTier(tier)}
           />
         ))}
       </div>

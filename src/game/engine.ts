@@ -533,8 +533,8 @@ export class ChainsGame {
     if (!request || !Array.isArray(request.selections) || request.selections.length === 0) {
       return this.betFailure('Select at least one tier (LOW, MEDIUM, or HIGH) before placing a bet.');
     }
-    if (request.selections.length > 3) {
-      return this.betFailure('A single bet may contain at most one ticket per tier (LOW, MEDIUM, HIGH).');
+    if (request.selections.length > 1) {
+  return this.betFailure('Only one volatility tier (LOW, MEDIUM, or HIGH) may be selected per betting round.');
     }
 
     const tiersSeen = new Set<TicketTier>();

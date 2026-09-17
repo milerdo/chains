@@ -54,8 +54,8 @@ export const INITIAL_JACKPOT_POOLS: JackpotPools = {
  * given tier, at the moment the bet is confirmed (Section 18). */
 export const JACKPOT_CONTRIBUTION_RATES: Record<TicketTier, number> = {
   LOW: 0.06,
-  MEDIUM: 0.08,
-  HIGH: 0.072,
+  MEDIUM: 0.07,
+  HIGH: 0.08,
 };
 
 /** Number of digits in the jackpot qualification combination (Section 8). */
