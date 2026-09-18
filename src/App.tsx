@@ -17,8 +17,6 @@ import { Wheel } from './components/Wheel';
 import { NumberStream } from './components/NumberStream';
 import { BettingPanel } from './components/BettingPanel';
 import { TicketDrawer } from './components/Ticket';
-import { GameHistory } from './components/GameHistory';
-import { MultiplayerSim } from './components/MultiplayerSim';
 import { HelpModal } from './components/HelpModal';
 import { DemoPanel } from './components/DemoPanel';
 
@@ -38,14 +36,7 @@ function AppShell() {
           <NumberStream />
           <BettingPanel />
           <TicketDrawer tickets={activeTickets} />
-        </div>
-
-        {/* Sidebar: table activity + history. Stacks below the live table
-            on mobile/tablet, pins alongside it from lg up. */}
-        <aside className="flex w-full flex-col gap-5 lg:w-[360px] lg:shrink-0">
-          <MultiplayerSim />
-          <GameHistory />
-        </aside>
+        </div>  
       </main>
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
