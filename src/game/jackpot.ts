@@ -1,5 +1,5 @@
 // ============================================================================
-// CHAINS — Progressive Jackpot Manager (Sections 16, 17, 18)
+// CHAINS — Progressive Jackpot Manager
 // Manages live pool balances, funding accumulation, winner payouts (with
 // multi-winner split support), and seed resets. Framework-agnostic.
 // ============================================================================
@@ -13,7 +13,7 @@ export interface JackpotWinRecord {
   ticketId: string;
   amountWon: number;
   drawIndex: number;
-  /** How many tickets shared this exact jackpot win (Section 17). 1 = sole winner. */
+  /** splitting the jackpot */
   splitAmong: number;
 }
 
@@ -47,13 +47,12 @@ export class JackpotManager {
 
   /**
    * Adds this tier's configured contribution rate (per $1 staked) to its
-   * corresponding jackpot pool. Called the instant a bet is confirmed
-   * (Section 18). Returns the exact amount contributed.
+   * corresponding jackpot pool. Returns the exact amount contributed.
    */
   contribute(tier: TicketTier, stake: number): number {
     const jackpotTierName = TIER_TO_JACKPOT[tier];
-    // Contribution rates are sub-cent by design (Section 18: $0.06 / $0.08 /
-    // $0.072 per $1 wagered), so the pool accumulator must retain full
+    // Contribution rates are by design: $0.06 / $0.07 /
+    // $0.08 per $1 wagered. the pool accumulator must retain full
     // precision rather than rounding every single contribution to the
     // nearest cent — that would silently truncate the "exact" rate the spec
     // requires. Only roundPrecise (floating-point dust cleanup) is applied
@@ -101,7 +100,6 @@ export class JackpotManager {
     return [...this.winHistory];
   }
 
-  /** Developer/demo override to directly set a pool balance (Section 27). */
   forceSetPool(tierName: JackpotTierName, amount: number): void {
     this.pools[tierName] = roundCurrency(amount);
   }

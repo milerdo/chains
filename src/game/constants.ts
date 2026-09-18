@@ -93,8 +93,8 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
  * this demo MVP.
  */
 export const THEORETICAL_RTP = {
-  overall: 0.96,
-  houseEdge: 0.04,
+  overall: 0.9594,
+  houseEdge: 0.0406,
   LOW: 0.9,
   MEDIUM: 0.88,
   HIGH: 0.888,

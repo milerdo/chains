@@ -2,14 +2,7 @@
 // CHAINS — Headless Game Engine (Section 33)
 //
 // ChainsGame owns ALL game math and state. It has zero React / DOM
-// dependencies and can run standalone:
-//
-//   const game = new ChainsGame();
-//   game.placeBet({ selections: [{ tier: 'HIGH', digits: [4, 2, 3] }], jackpotSequence: [7, 4] });
-//   game.processDraw(4);
-//   game.processDraw(2);
-//   game.processDraw(3);
-//   const state = game.getState();
+// dependencies and can run standalone
 //
 // A UI layer (React or otherwise) should only ever call public methods on
 // this class and render whatever getState() / subscribe() hand back. This
@@ -541,6 +534,15 @@ export class ChainsGame {
 
     const [selection] = request.selections;
 
+    if (!options.bypassPhaseCheck) {
+      const pendingStartDrawIndex = this.drawIndex + 1;
+      const committedTier = this.tickets.find((t) => t.startDrawIndex === pendingStartDrawIndex)?.tier;
+      if (committedTier && committedTier !== selection.tier) {
+        return this.betFailure(
+          `Only one volatility tier per betting round. You already have a ${committedTier} bet this round.`,
+        );
+      }
+    }
     try {
       if (selection.isCombo) {
         validateComboDigits(selection.tier, selection.digits);

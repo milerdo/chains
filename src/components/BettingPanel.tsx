@@ -8,7 +8,7 @@ import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/co
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
-const DEFAULT_AUTO_BET_ROUNDS = 5;
+const DEFAULT_AUTO_BET_ROUNDS = 10;
 
 const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   LOW: { odds: `${BASE_MULTIPLIERS.LOW}x`, description: '1 digit' },
@@ -357,7 +357,7 @@ export function BettingPanel() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}              
+              onClick={() => setAutoBetRounds((r) => Math.max(1, r - 1))}              
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -366,7 +366,7 @@ export function BettingPanel() {
             <span className="w-6 text-center font-mono text-sm font-bold tabular-nums text-white">{autoBetRounds}</span>
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.min(DEFAULT_AUTO_BET_ROUNDS, r + 1))}
+              onClick={() => setAutoBetRounds((r) => Math.min(50, r + 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
