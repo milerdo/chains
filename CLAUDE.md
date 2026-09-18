@@ -100,7 +100,7 @@ Recommended priority:
 5. Connect the engine to the existing UI.
 6. Implement the wheel animation.
 7. Implement demo wallet and jackpot display.
-8. Implement history, help and developer controls.
+8. Implement help and developer controls.
 9. Polish the responsive UI.
 10. Verify the complete playable MVP.
 
