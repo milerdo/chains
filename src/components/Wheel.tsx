@@ -1,25 +1,7 @@
 // ============================================================================
 // CHAINS — Wheel (classic mechanical prize wheel, Section 22 / CLAUDE.md §8)
 // Rendered entirely in SVG so the disc, pegs, and digits share one
-// coordinate space and one rotation — no parent/child CSS transform
-// composition to get subtly out of sync.
-//
-// Rotation convention (derive once, use everywhere):
-//   - Rotating group transform = rotate(-spinAngle, 150, 150)
-//   - Digit i's UNROTATED center sits at angle i*36° clockwise-from-top
-//   - Digit i's WEDGE spans [i*36-18, i*36+18) degrees (centered on i)
-//   - After rotation, digit under the fixed top pointer satisfies
-//     i*36 - spinAngle ≡ 0 (mod 360)  =>  i = floor((norm(spinAngle)+18)/36)
-//   - digitAtSpinAngle() below implements exactly that, and
-//     spinAngleRef.current is used directly (no sign flip at call sites)
-//     for both the live display digit AND the landing-target math, so the
-//     two can never disagree.
-//
-// Engine separation unchanged: the true digit is decided by the engine the
-// instant DRAWING begins and only reaches this component via useGame's
-// reveal-delayed `currentDraw`. Until that arrives, the wheel spins
-// indeterminately — it doesn't know the target, so it only ever moves
-// forward, never backward, never changes mid-animation.
+// coordinate space and one rotation 
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -86,16 +68,17 @@ function easeOutQuad(t: number): number {
 }
 
 export function Wheel() {
-  const { phase, currentDraw, speedMultiplier, timeRemaining, streamHistory, drawIndex } = useGame();
-
+  const { phase, wheelTargetDraw, speedMultiplier, timeRemaining, streamHistory, drawIndex, reportWheelLanded } = useGame();
   const spinAngleRef = useRef(0);
   const [displayRotation, setDisplayRotation] = useState(0);
-  const [currentDigit, setCurrentDigit] = useState(currentDraw?.digit ?? 0);
+  const [currentDigit, setCurrentDigit] = useState(wheelTargetDraw?.digit ?? 0);
   const [justLanded, setJustLanded] = useState(false);
   const [flapperTick, setFlapperTick] = useState(0);
 
+  const spinDirectionRef = useRef<1 | -1>(1);
   const prevPhaseRef = useRef<GamePhase>(phase);
-  const prevRevealedDrawIndexRef = useRef<number | undefined>(currentDraw?.drawIndex);
+// prevRevealedDrawIndexRef init + both effect-2 guards:
+  const prevRevealedDrawIndexRef = useRef<number | undefined>(wheelTargetDraw?.drawIndex);
   const spinStartTimeRef = useRef(0);
   const accelStartTimeRef = useRef(0);
   // Tracks the wheel's actual last-measured angular speed, so the landing
@@ -115,10 +98,17 @@ export function Wheel() {
 
   // Effect 1 — enter DRAWING: ease in to cruise speed, then hold. Does not
   // know the target digit yet.
+  // Effect 1 — flip direction on every genuine entry into DRAWING, then use
+  // it for this whole spin (both the indeterminate phase and landing read
+  // the same spinDirectionRef.current, set once per phase entry, so they
+  // can never disagree on which way this particular spin is going).
   useEffect(() => {
     const enteredDrawing = phase === 'DRAWING' && prevPhaseRef.current !== 'DRAWING';
     prevPhaseRef.current = phase;
     if (!enteredDrawing) return;
+
+    spinDirectionRef.current = spinDirectionRef.current === 1 ? -1 : 1;
+    const direction = spinDirectionRef.current;
 
     setJustLanded(false);
     spinStartTimeRef.current = performance.now();
@@ -133,8 +123,8 @@ export function Wheel() {
 
       const speedFraction = 1 - Math.exp(-accelElapsedSec / SPIN_ACCEL_TIME_CONSTANT_SEC);
       const angularSpeed = MAX_SPIN_SPEED_DEG_PER_SEC * speedFraction * speedMultiplierRef.current;
-      lastAngularSpeedRef.current = angularSpeed;
-      spinAngleRef.current += angularSpeed * deltaSec;
+      lastAngularSpeedRef.current = angularSpeed; // magnitude only — direction applied below
+      spinAngleRef.current += direction * angularSpeed * deltaSec;
       setDisplayRotation(spinAngleRef.current);
 
       const nextDigit = digitAtSpinAngle(spinAngleRef.current);
@@ -158,8 +148,8 @@ export function Wheel() {
   // revolutions — that's what was causing the landing to run too long).
   // This is the ONLY place the real digit is ever shown.
   useEffect(() => {
-    if (!currentDraw || currentDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
-    prevRevealedDrawIndexRef.current = currentDraw.drawIndex;
+  if (!wheelTargetDraw || wheelTargetDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
+  prevRevealedDrawIndexRef.current = wheelTargetDraw.drawIndex;
 
     if (indeterminateRafRef.current !== null) {
       cancelAnimationFrame(indeterminateRafRef.current);
@@ -170,11 +160,18 @@ export function Wheel() {
       finalApproachRafRef.current = null;
     }
 
-    const targetDigit = currentDraw.digit;
+    // Effect 2 — landing: ticks/target/step all become direction-aware.
+
+
+    const targetDigit = wheelTargetDraw!.digit; // see section 2 below for the rename
     const wasInstant = performance.now() - spinStartTimeRef.current < INSTANT_THRESHOLD_MS;
     const currentAtStart = digitAtSpinAngle(spinAngleRef.current);
-    const rawTicks = (targetDigit - currentAtStart + 10) % 10;
-    const ticks = rawTicks === 0 ? HOLE_COUNT : rawTicks; // minimum forward distance only
+    const direction = spinDirectionRef.current;
+    const rawTicks =
+      direction === 1
+        ? (targetDigit - currentAtStart + 10) % 10
+        : (currentAtStart - targetDigit + 10) % 10;
+    const ticks = rawTicks === 0 ? HOLE_COUNT : rawTicks;
 
     function land(finalAngle: number) {
       spinAngleRef.current = finalAngle;
@@ -183,24 +180,22 @@ export function Wheel() {
       setJustLanded(true);
       fireFlapperClick();
       playDrawSettle();
+      reportWheelLanded(); // see section 2 below
       window.setTimeout(() => setJustLanded(false), 650);
     }
 
     if (wasInstant) {
-      land(spinAngleRef.current + ticks * HOLE_STEP_DEG);
+      land(spinAngleRef.current + direction * ticks * HOLE_STEP_DEG);
       return;
     }
 
     const distanceDeg = ticks * HOLE_STEP_DEG;
-    // Duration derived from the wheel's actual real-time speed (uniform-
-    // deceleration model: distance = v0*T/2), clamped to a sane window —
-    // physically consistent (no jump) AND bounded (no runaway duration).
     const v0 = Math.max(60, lastAngularSpeedRef.current);
     const approachDurationMs = Math.min(
       MAX_APPROACH_MS,
       Math.max(MIN_APPROACH_MS, ((2 * distanceDeg) / v0) * 1000),
     );
-    const targetAngle = spinAngleRef.current + distanceDeg;
+    const targetAngle = spinAngleRef.current + direction * distanceDeg;
 
     const startAngle = spinAngleRef.current;
     const startTime = performance.now();
@@ -209,7 +204,7 @@ export function Wheel() {
     function step(now: number) {
       const t = Math.min(1, (now - startTime) / approachDurationMs);
       const eased = easeOutQuad(t);
-      const angle = startAngle + distanceDeg * eased;
+      const angle = startAngle + direction * distanceDeg * eased;
       spinAngleRef.current = angle;
       setDisplayRotation(angle);
 
@@ -231,7 +226,7 @@ export function Wheel() {
     return () => {
       if (finalApproachRafRef.current !== null) cancelAnimationFrame(finalApproachRafRef.current);
     };
-  }, [currentDraw]);
+  }, [wheelTargetDraw]);
 
   useEffect(
     () => () => {
@@ -386,6 +381,7 @@ export function Wheel() {
               style={{
                 transformOrigin: `${CX}px 22px`,
                 animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
+                ['--flapper-bounce' as string]: `${spinDirectionRef.current * -18}deg`,
               }}
             >
               <polygon
@@ -397,11 +393,12 @@ export function Wheel() {
             </g>
 
             <style>{`
+              /* keyframes */
               @keyframes flapper-click {
                 0% { transform: rotate(0deg); }
-                35% { transform: rotate(-18deg); }
+                35% { transform: rotate(var(--flapper-bounce, -18deg)); }
                 100% { transform: rotate(0deg); }
-              }
+                }
             `}</style>
           </svg>
         </div>

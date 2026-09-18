@@ -7,6 +7,20 @@
 // No game math lives here — this is a thin reactive wrapper only. Every
 // value it exposes is either read directly off engine.getState() or is a
 // direct pass-through call into a public engine method.
+//
+// Reveal pipeline (two stages):
+//   1. `wheelTargetDraw` fires at the original suspense-delay timing and
+//      tells the Wheel which digit to land on. The Wheel does NOT reveal
+//      this to the player yet — it's purely the landing target.
+//   2. `currentDraw` / `streamHistory` (the "public" reveal, consumed by
+//      GameHistory, NumberStream, JackpotPanel, etc.) do not update until
+//      the Wheel calls `reportWheelLanded()` once its landing animation has
+//      visually settled. A bounded fallback timer (PUBLIC_REVEAL_FALLBACK_MS)
+//      reveals anyway if that's never called, so the game can never get
+//      stuck (e.g. if no Wheel is mounted).
+// This is what keeps the Draw History list (and anything else reading
+// currentDraw/streamHistory) from showing a result before the wheel has
+// actually stopped on it.
 // ============================================================================
 
 import {
@@ -46,15 +60,22 @@ export interface UseGameValue {
   balance: number;
   jackpotPools: JackpotPools;
   /** The most recently RESOLVED draw, held back from the raw engine value
-   * until the Wheel's suspense animation has actually had time to play
-   * (see MIN_REVEAL_DELAY_MS below). The engine computes the true digit
-   * the instant the DRAWING phase begins — by design, so the RNG result
-   * is never influenced by the UI — but every component that displays a
-   * digit (Wheel, NumberStream, GameHistory) must not find out before the
-   * animation says so, or the "reveal" is spoiled before it plays. */
+   * until the Wheel has reported that its landing animation has actually
+   * finished (see file header). Every component that displays a digit
+   * (GameHistory, NumberStream) reads this — never wheelTargetDraw — so
+   * none of them can find out before the wheel's reveal plays. */
   currentDraw: DrawResult | null;
-  /** Same reveal-delay applied to the running stream list. */
+  /** Same landing-gated reveal applied to the running stream list. */
   streamHistory: DrawResult[];
+  /** The digit the Wheel should currently be landing/settling on. Fires at
+   * the original suspense-delay timing. Only Wheel.tsx should consume
+   * this — everything else should read `currentDraw` above. */
+  wheelTargetDraw: DrawResult | null;
+  /** Wheel.tsx calls this once its landing animation has visually
+   * settled, which is what actually reveals currentDraw/streamHistory to
+   * the rest of the UI. Safe to call multiple times or not at all (a
+   * bounded fallback timer reveals regardless). */
+  reportWheelLanded: () => void;
   phase: GamePhase;
   /** Milliseconds remaining in the current phase, updated smoothly on a
    * short local interval (the engine itself only emits on phase changes /
@@ -95,6 +116,18 @@ const TIME_TICK_MS = 200;
  * exact same number rather than keeping its own separate copy. */
 export const MIN_REVEAL_DELAY_MS = 1200;
 
+/** Ceiling on how long the public reveal (currentDraw/streamHistory) waits
+ * for Wheel.tsx's reportWheelLanded() before firing anyway. Generous
+ * relative to Wheel.tsx's own worst-case landing duration
+ * (MAX_APPROACH_MS = 1800ms there) — kept in sync manually since Wheel
+ * doesn't currently export that constant; revisit if the two drift. */
+const PUBLIC_REVEAL_FALLBACK_MS = 2500;
+
+/** Subtracted from the suspense delay so the Wheel's landing tween has
+ * room to finish before the engine's own DRAWING phase timer elapses and
+ * advances to RESULT. Must be >= Wheel.tsx's MAX_APPROACH_MS. */
+const WHEEL_MAX_LANDING_MS = 1800;
+
 export function GameProvider({ children }: { children: ReactNode }) {
   // Exactly one ChainsGame instance for the lifetime of this provider.
   const gameRef = useRef<ChainsGame | null>(null);
@@ -108,10 +141,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [forcedQueue, setForcedQueue] = useState<number[]>(() => game.peekForcedDraws());
   const [timeRemaining, setTimeRemaining] = useState<number>(() => game.getState().timeRemainingMs);
 
-  // --- Reveal-delayed draw/stream state -------------------------------
-  // Held back from the raw engine value until the suspense animation has
-  // had time to play. See MIN_REVEAL_DELAY_MS and the UseGameValue doc
-  // comment above for why this exists.
+  // --- Reveal-delayed draw/stream state (public reveal) ----------------
+  // Held back from the raw engine value until Wheel.tsx confirms its
+  // landing animation has actually finished. See file header and
+  // MIN_REVEAL_DELAY_MS for why this exists.
   const [revealedDraw, setRevealedDraw] = useState<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] }>(
     () => {
       const initial = game.getState();
@@ -134,6 +167,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Last status seen per ticket id, used to fire outcome sounds exactly
   // once per genuine transition (see applyTicketSounds below).
   const prevTicketStatusRef = useRef<Map<string, TicketStatus>>(new Map());
+
+  // --- Wheel landing target (stage 1 of the reveal pipeline) -----------
+  const [wheelTargetDraw, setWheelTargetDraw] = useState<DrawResult | null>(() => game.getState().currentDraw);
+  // Holds the next public-reveal payload until either Wheel.tsx calls
+  // reportWheelLanded() or the fallback timer below fires.
+  const pendingPublicRevealRef = useRef<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] } | null>(
+    null,
+  );
+  const publicRevealFallbackTimeoutRef = useRef<number | null>(null);
+
+  const commitPublicReveal = useCallback(() => {
+    if (publicRevealFallbackTimeoutRef.current !== null) {
+      window.clearTimeout(publicRevealFallbackTimeoutRef.current);
+      publicRevealFallbackTimeoutRef.current = null;
+    }
+    if (pendingPublicRevealRef.current === null) return;
+    setRevealedDraw(pendingPublicRevealRef.current);
+    pendingPublicRevealRef.current = null;
+  }, []);
+
+  /** Called by Wheel.tsx once its landing animation has visually settled.
+   * This is what actually reveals currentDraw/streamHistory. */
+  const reportWheelLanded = useCallback(() => {
+    commitPublicReveal();
+  }, [commitPublicReveal]);
 
   useEffect(() => {
     const unsubscribe = game.subscribe((nextState) => {
@@ -175,18 +233,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       const reveal = () => {
-        setRevealedDraw({ currentDraw: nextState.currentDraw, streamHistory: nextState.streamHistory });
-        // Ticket outcomes caused by THIS draw must surface — visually and
-        // audibly — at the same moment the digit itself does, not before;
-        // otherwise a win/loss sound would spoil the wheel's reveal the
-        // same way the undelayed stream/history once did (see item 1b).
+        // Sounds stay tied to this moment (unchanged from before — when
+        // the Wheel starts landing, not when it finishes landing).
         applyTicketSounds(nextState.tickets);
+
+        // Stage 1: tell the Wheel what to land on.
+        setWheelTargetDraw(nextState.currentDraw);
+
+        // Stage 2: queue the public reveal, but don't commit it yet —
+        // Wheel.tsx's reportWheelLanded() (or the fallback timer) does
+        // that once the landing animation has actually finished.
+        pendingPublicRevealRef.current = {
+          currentDraw: nextState.currentDraw,
+          streamHistory: nextState.streamHistory,
+        };
+        if (publicRevealFallbackTimeoutRef.current !== null) {
+          window.clearTimeout(publicRevealFallbackTimeoutRef.current);
+        }
+        publicRevealFallbackTimeoutRef.current = window.setTimeout(commitPublicReveal, PUBLIC_REVEAL_FALLBACK_MS);
       };
 
       if (skipNextRevealDelayRef.current) {
         reveal();
       } else {
-        const delayMs = Math.max(MIN_REVEAL_DELAY_MS, nextState.config.drawAnimationDurationMs) / nextState.speedMultiplier;
+        // Reserves WHEEL_MAX_LANDING_MS + a small buffer at the end of the
+        // DRAWING phase window so the Wheel's landing tween has room to
+        // finish before the engine advances to RESULT — otherwise the
+        // phase timer can outrun the still-spinning wheel.
+        const delayMs =
+          Math.max(
+            MIN_REVEAL_DELAY_MS,
+            nextState.config.drawAnimationDurationMs - WHEEL_MAX_LANDING_MS - 200,
+          ) / nextState.speedMultiplier;
         revealTimeoutRef.current = window.setTimeout(reveal, delayMs);
       }
     });
@@ -197,6 +275,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (revealTimeoutRef.current !== null) {
         window.clearTimeout(revealTimeoutRef.current);
         revealTimeoutRef.current = null;
+      }
+      if (publicRevealFallbackTimeoutRef.current !== null) {
+        window.clearTimeout(publicRevealFallbackTimeoutRef.current);
+        publicRevealFallbackTimeoutRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -256,6 +338,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       jackpotPools: gameState.jackpotPools,
       currentDraw: revealedDraw.currentDraw,
       streamHistory: revealedDraw.streamHistory,
+      wheelTargetDraw,
+      reportWheelLanded,
       phase: gameState.phase,
       timeRemaining,
       speedMultiplier: gameState.speedMultiplier,
@@ -281,6 +365,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [
       gameState,
       revealedDraw,
+      wheelTargetDraw,
+      reportWheelLanded,
       timeRemaining,
       simulatedActivity,
       forcedQueue,
