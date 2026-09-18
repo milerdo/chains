@@ -2,18 +2,24 @@
 // CHAINS — Wheel (classic mechanical prize wheel, Section 22 / CLAUDE.md §8)
 // Rendered entirely in SVG so the disc, pegs, and digits share one
 // coordinate space and one rotation — no parent/child CSS transform
-// composition to get subtly out of sync (see conversation history: that
-// was the root cause of the previous alignment bugs).
+// composition to get subtly out of sync.
 //
 // Rotation convention (derive once, use everywhere):
 //   - Rotating group transform = rotate(-spinAngle, 150, 150)
 //   - Digit i's UNROTATED center sits at angle i*36° clockwise-from-top
+//   - Digit i's WEDGE spans [i*36-18, i*36+18) degrees (centered on i)
 //   - After rotation, digit under the fixed top pointer satisfies
-//     i*36 - spinAngle ≡ 0 (mod 360)  =>  i = floor(norm(spinAngle)/36)
-//   - digitAtSpinAngle() below implements exactly that, unnegated, and
+//     i*36 - spinAngle ≡ 0 (mod 360)  =>  i = floor((norm(spinAngle)+18)/36)
+//   - digitAtSpinAngle() below implements exactly that, and
 //     spinAngleRef.current is used directly (no sign flip at call sites)
 //     for both the live display digit AND the landing-target math, so the
 //     two can never disagree.
+//
+// Engine separation unchanged: the true digit is decided by the engine the
+// instant DRAWING begins and only reaches this component via useGame's
+// reveal-delayed `currentDraw`. Until that arrives, the wheel spins
+// indeterminately — it doesn't know the target, so it only ever moves
+// forward, never backward, never changes mid-animation.
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -41,15 +47,19 @@ const DIGIT_R = 92;
 const HUB_R = 20;
 const RIVET_R = 136;
 const RIVET_COUNT = 26;
+const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
 
 // Digit -> wedge color, matching the reference wheel's G/R/B sector pattern.
-const WEDGE_COLORS = ['#1e6b3e', '#8a1f1f', '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f'];
+const WEDGE_COLORS = [
+  '#1e6b3e', '#8a1f1f', '#1f3f82', '#8a1f1f', '#1e6b3e',
+  '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f',
+];
 
 // --- Animation timing ----------------------------------------------------
-const MAX_SPIN_SPEED_DEG_PER_SEC = 280; // ~0.78 rev/sec cruise — brisk but mechanical, not frantic
+const MAX_SPIN_SPEED_DEG_PER_SEC = 280; // ~0.78 rev/sec cruise — brisk but mechanical
 const SPIN_ACCEL_TIME_CONSTANT_SEC = 0.35;
-const LANDING_TARGET_MS = 2800; // desired natural landing feel at 1x speed
-const MIN_APPROACH_MS = 900;
+const MIN_APPROACH_MS = 300;
+const MAX_APPROACH_MS = 1800; // hard cap so landing duration can never balloon
 const INSTANT_THRESHOLD_MS = 60;
 const FLAPPER_CLICK_MS = 150;
 
@@ -58,14 +68,19 @@ function pt(angleDeg: number, r: number): { x: number; y: number } {
   return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
 }
 
+// Boundary math matches the wedge geometry exactly: wedge i spans
+// [i*36-18, i*36+18), so the digit flip must happen at the half-step
+// offset, not at raw multiples of 36 (that mismatch was the "digit
+// changes before the visual border" bug).
 function digitAtSpinAngle(spinAngle: number): number {
   const normalized = ((spinAngle % 360) + 360) % 360;
-  return Math.floor(normalized / HOLE_STEP_DEG) % 10;
+  return Math.floor((normalized + HOLE_STEP_DEG / 2) / HOLE_STEP_DEG) % 10;
 }
 
-// Linear deceleration to exactly zero: eased'(0) = 2 * (distance/duration),
-// which is what lets the landing phase start at the wheel's true current
-// speed (see effect 2) instead of jumping.
+// Uniform deceleration to exactly zero: eased'(0) = 2 * (distance/duration).
+// Paired with a duration derived from the wheel's REAL current speed, this
+// guarantees the landing phase starts at the wheel's actual velocity —
+// never a jump.
 function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
@@ -138,8 +153,10 @@ export function Wheel() {
   }, [phase]);
 
   // Effect 2 — the true digit is revealed. Decelerate uniformly from the
-  // wheel's actual current speed to zero, landing exactly on it. This is
-  // the ONLY place the real digit is ever shown.
+  // wheel's actual current speed to zero, landing exactly on it, traveling
+  // only the minimum forward distance to the target (no artificial extra
+  // revolutions — that's what was causing the landing to run too long).
+  // This is the ONLY place the real digit is ever shown.
   useEffect(() => {
     if (!currentDraw || currentDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
     prevRevealedDrawIndexRef.current = currentDraw.drawIndex;
@@ -157,7 +174,7 @@ export function Wheel() {
     const wasInstant = performance.now() - spinStartTimeRef.current < INSTANT_THRESHOLD_MS;
     const currentAtStart = digitAtSpinAngle(spinAngleRef.current);
     const rawTicks = (targetDigit - currentAtStart + 10) % 10;
-    const baseTicks = rawTicks === 0 ? HOLE_COUNT : rawTicks;
+    const ticks = rawTicks === 0 ? HOLE_COUNT : rawTicks; // minimum forward distance only
 
     function land(finalAngle: number) {
       spinAngleRef.current = finalAngle;
@@ -170,22 +187,19 @@ export function Wheel() {
     }
 
     if (wasInstant) {
-      land(spinAngleRef.current + baseTicks * HOLE_STEP_DEG);
+      land(spinAngleRef.current + ticks * HOLE_STEP_DEG);
       return;
     }
 
-    // Pick a number of extra full revolutions so the total distance, at
-    // the wheel's REAL current speed, takes close to LANDING_TARGET_MS —
-    // then recompute the exact duration from that distance so velocity
-    // continuity (see easeOutQuad) is exact, not approximate.
-    const v0 = Math.max(60, lastAngularSpeedRef.current);
-    const targetMs = LANDING_TARGET_MS / speedMultiplierRef.current;
-    const idealDistanceDeg = (v0 * (targetMs / 1000)) / 2;
-    const idealTicks = idealDistanceDeg / HOLE_STEP_DEG;
-    const extraRevolutions = Math.max(1, Math.round((idealTicks - baseTicks) / HOLE_COUNT));
-    const ticks = baseTicks + extraRevolutions * HOLE_COUNT;
     const distanceDeg = ticks * HOLE_STEP_DEG;
-    const approachDurationMs = Math.max(MIN_APPROACH_MS, (2 * distanceDeg) / v0 * 1000);
+    // Duration derived from the wheel's actual real-time speed (uniform-
+    // deceleration model: distance = v0*T/2), clamped to a sane window —
+    // physically consistent (no jump) AND bounded (no runaway duration).
+    const v0 = Math.max(60, lastAngularSpeedRef.current);
+    const approachDurationMs = Math.min(
+      MAX_APPROACH_MS,
+      Math.max(MIN_APPROACH_MS, ((2 * distanceDeg) / v0) * 1000),
+    );
     const targetAngle = spinAngleRef.current + distanceDeg;
 
     const startAngle = spinAngleRef.current;
@@ -241,128 +255,156 @@ export function Wheel() {
       </div>
 
       <div className="mt-5 flex flex-col items-center">
-        <svg
-          width={260}
-          height={260}
-          viewBox="0 0 300 300"
-          style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}
-        >
-          <defs>
-            <radialGradient id="frameGrad" cx="35%" cy="30%" r="75%">
-              <stop offset="0%" stopColor="#eecf8a" />
-              <stop offset="55%" stopColor="#8a6512" />
-              <stop offset="100%" stopColor="#4a3506" />
-            </radialGradient>
-            <radialGradient id="hubGrad" cx="35%" cy="30%" r="75%">
-              <stop offset="0%" stopColor="#f6e3a8" />
-              <stop offset="60%" stopColor="#8a6512" />
-              <stop offset="100%" stopColor="#3d2c05" />
-            </radialGradient>
-            <radialGradient id="sheenGrad" cx="50%" cy="38%" r="65%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-            </radialGradient>
-          </defs>
+        {/* Shadow lives on this static wrapper, NOT on the svg that
+            contains the rotating transform — filters recomputed against
+            an animating transform is what caused the center "wobble". */}
+        <div style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}>
+          <svg width={260} height={260} viewBox="0 0 300 300">
+            <defs>
+              <radialGradient id="frameGrad" cx="35%" cy="30%" r="75%">
+                <stop offset="0%" stopColor="#eecf8a" />
+                <stop offset="55%" stopColor="#8a6512" />
+                <stop offset="100%" stopColor="#4a3506" />
+              </radialGradient>
+              <radialGradient id="hubGrad" cx="35%" cy="30%" r="75%">
+                <stop offset="0%" stopColor="#f6e3a8" />
+                <stop offset="60%" stopColor="#8a6512" />
+                <stop offset="100%" stopColor="#3d2c05" />
+              </radialGradient>
+              <radialGradient id="sheenGrad" cx="50%" cy="38%" r="65%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="pegGrad" cx="35%" cy="30%" r="75%">
+                <stop offset="0%" stopColor="#fff3cf" />
+                <stop offset="55%" stopColor="#d9c088" />
+                <stop offset="100%" stopColor="#6b4f10" />
+              </radialGradient>
+            </defs>
 
-          {/* Fixed outer frame — never rotates */}
-          <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="url(#frameGrad)" />
-          <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
+            {/* Fixed outer frame — never rotates */}
+            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="url(#frameGrad)" />
+            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
 
-          {/* Fixed rivets */}
-          {Array.from({ length: RIVET_COUNT }, (_, i) => {
-            const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
-            return <circle key={`rivet-${i}`} cx={p.x} cy={p.y} r={2.4} fill="#f6e3a8" stroke="#5c4409" strokeWidth={0.5} />;
-          })}
-
-          {/* Rotating disc — wedges, pegs, and digits share ONE transform,
-              so they can never drift out of sync with each other. */}
-          <g transform={`rotate(${-displayRotation} ${CX} ${CY})`}>
-            {WEDGE_COLORS.map((color, i) => {
-              const start = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
-              const end = i * HOLE_STEP_DEG + HOLE_STEP_DEG / 2;
-              const p1 = pt(start, RIM_INNER_R);
-              const p2 = pt(end, RIM_INNER_R);
-              const isLanded = justLanded && i === currentDigit;
+            {/* Fixed rivets */}
+            {Array.from({ length: RIVET_COUNT }, (_, i) => {
+              const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
               return (
-                <path
-                  key={`wedge-${i}`}
-                  d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
-                  fill={isLanded ? '#eab308' : color}
-                  stroke="#d4af5a"
-                  strokeWidth={1.5}
-                  style={{ transition: 'fill 150ms ease-out' }}
+                <circle
+                  key={`rivet-${i}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={2.4}
+                  fill="#f6e3a8"
+                  stroke="#5c4409"
+                  strokeWidth={0.5}
                 />
               );
             })}
 
-            {/* Subtle sheen overlay for depth, no isolated "shine spot" */}
-            <circle cx={CX} cy={CY} r={RIM_INNER_R} fill="url(#sheenGrad)" />
+            {/* Rotating disc — wedges, pegs, and digits share ONE
+                transform, so they can never drift out of sync with each
+                other. */}
+            <g transform={`rotate(${-displayRotation} ${CX} ${CY})`}>
+              {WEDGE_COLORS.map((color, i) => {
+                const start = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
+                const end = i * HOLE_STEP_DEG + HOLE_STEP_DEG / 2;
+                const p1 = pt(start, RIM_INNER_R);
+                const p2 = pt(end, RIM_INNER_R);
+                const isLanded = justLanded && i === currentDigit;
+                return (
+                  <path
+                    key={`wedge-${i}`}
+                    d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
+                    fill={isLanded ? '#eab308' : color}
+                    stroke="#d4af5a"
+                    strokeWidth={1.5}
+                    style={{ transition: 'fill 150ms ease-out' }}
+                  />
+                );
+              })}
 
-            {/* Pegs at wedge BOUNDARIES, not on digits */}
-            {Array.from({ length: HOLE_COUNT }, (_, i) => {
-              const angle = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
-              const p = pt(angle, PEG_R);
-              return (
-                <circle key={`peg-${i}`} cx={p.x} cy={p.y} r={4} fill="#d9c088" stroke="#5c4409" strokeWidth={0.6} />
-              );
-            })}
+              {/* Subtle sheen overlay for depth, no isolated "shine spot" */}
+              <circle cx={CX} cy={CY} r={RIM_INNER_R} fill="url(#sheenGrad)" />
 
-            {/* Digits — large, bold, radially tilted like the reference */}
-            {Array.from({ length: HOLE_COUNT }, (_, i) => {
-              const angle = i * HOLE_STEP_DEG;
-              const p = pt(angle, DIGIT_R);
-              return (
-                <text
-                  key={`digit-${i}`}
-                  x={p.x}
-                  y={p.y}
-                  transform={`rotate(${angle} ${p.x} ${p.y})`}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontFamily="ui-monospace, 'SFMono-Regular', monospace"
-                  fontWeight={800}
-                  fontSize={36}
-                  fill="#f4e4b8"
-                  stroke="#2a1a00"
-                  strokeWidth={1.5}
-                  paintOrder="stroke"
-                >
-                  {i}
-                </text>
-              );
-            })}
+              {/* Pegs at wedge BOUNDARIES, not on digits — enlarged,
+                  beveled, with a soft drop "seat" so they read as raised
+                  physical bumps the flapper catches on. */}
+              {Array.from({ length: HOLE_COUNT }, (_, i) => {
+                const angle = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
+                const p = pt(angle, PEG_R);
+                return (
+                  <g key={`peg-${i}`}>
+                    <circle cx={p.x} cy={p.y + 1} r={PEG_VISUAL_R} fill="#1a1200" opacity={0.4} />
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={PEG_VISUAL_R}
+                      fill="url(#pegGrad)"
+                      stroke="#4a3506"
+                      strokeWidth={0.8}
+                    />
+                  </g>
+                );
+              })}
 
-            {/* Hub */}
-            <circle cx={CX} cy={CY} r={HUB_R} fill="url(#hubGrad)" stroke="#2a1c02" strokeWidth={1.5} />
-          </g>
+              {/* Digits — large, bold, radially tilted like the reference */}
+              {Array.from({ length: HOLE_COUNT }, (_, i) => {
+                const angle = i * HOLE_STEP_DEG;
+                const p = pt(angle, DIGIT_R);
+                return (
+                  <text
+                    key={`digit-${i}`}
+                    x={p.x}
+                    y={p.y}
+                    transform={`rotate(${angle} ${p.x} ${p.y})`}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontFamily="ui-monospace, 'SFMono-Regular', monospace"
+                    fontWeight={800}
+                    fontSize={36}
+                    fill="#f4e4b8"
+                    stroke="#2a1a00"
+                    strokeWidth={1.5}
+                    paintOrder="stroke"
+                  >
+                    {i}
+                  </text>
+                );
+              })}
 
-          {/* Fixed pivot + flapper — always at top, never orbits. Tip
-              touches the rim at angle 0 by construction (SVG coordinates,
-              not CSS flex layout), so it can't drift off-center. */}
-          <circle cx={CX} cy={22} r={5} fill="url(#frameGrad)" stroke="#2a1c02" strokeWidth={1} />
-          <g
-            key={flapperTick}
-            style={{
-              transformOrigin: `${CX}px 22px`,
-              animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
-            }}
-          >
-            <polygon
-              points={`${CX - 10},4 ${CX + 10},4 ${CX},${RIM_OUTER_R - RIM_INNER_R + 26}`}
-              fill="#c9971f"
-              stroke="#5c4409"
-              strokeWidth={1}
-            />
-          </g>
+              {/* Hub */}
+              <circle cx={CX} cy={CY} r={HUB_R} fill="url(#hubGrad)" stroke="#2a1c02" strokeWidth={1.5} />
+            </g>
 
-          <style>{`
-            @keyframes flapper-click {
-              0% { transform: rotate(0deg); }
-              35% { transform: rotate(-18deg); }
-              100% { transform: rotate(0deg); }
-            }
-          `}</style>
-        </svg>
+            {/* Fixed pivot + flapper — always at top, never orbits. Tip
+                reaches exactly to the peg ring so it visually makes
+                contact rather than stopping short. */}
+            <circle cx={CX} cy={22} r={5} fill="url(#frameGrad)" stroke="#2a1c02" strokeWidth={1} />
+            <g
+              key={flapperTick}
+              style={{
+                transformOrigin: `${CX}px 22px`,
+                animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
+              }}
+            >
+              <polygon
+                points={`${CX - 9},16 ${CX + 9},16 ${CX},34`}
+                fill="#c9971f"
+                stroke="#5c4409"
+                strokeWidth={1}
+              />
+            </g>
+
+            <style>{`
+              @keyframes flapper-click {
+                0% { transform: rotate(0deg); }
+                35% { transform: rotate(-18deg); }
+                100% { transform: rotate(0deg); }
+              }
+            `}</style>
+          </svg>
+        </div>
 
         <div className="mt-4 flex items-center gap-1.5">
           {recentDigits.length === 0 && (
