@@ -1,23 +1,3 @@
-// ============================================================================
-// CHAINS — BettingPanel
-// Lets the player build a single tier ticket (LOW/MEDIUM/HIGH — only one
-// tier per betting round, Section 6) plus one shared 2-digit jackpot
-// combination, optionally as a Combo bet (Section 5b: every unique
-// ordering of the entered digits becomes its own $1 possibility), then
-// submits it as a single BetRequest to the engine. All validation (digit
-// completeness, balance, the 3-ticket concurrency cap, combo expansion) is
-// enforced by the engine itself (see engine.ts placeBetInternal) — this
-// component only builds the request and surfaces whatever PlaceBetResult
-// comes back.
-//
-// UX pattern: tapping a tier "chip" selects/deselects it as this bet's
-// single tier. The tier's digit slots render below; tapping a slot (or a
-// jackpot slot) focuses it, and the single shared digit pad below fills
-// whichever slot is focused, then auto-advances to the next empty one —
-// the same flow as entering a PIN. A Combo toggle appears once a
-// MEDIUM/HIGH tier is selected (a 1-digit LOW combo would just be a
-// straight bet, so it's hidden there).
-// ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
@@ -27,7 +7,8 @@ import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
-const TIER_ORDER: TicketTier[] = ['LOW', 'MEDIUM', 'HIGH'];
+const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
+const DEFAULT_AUTO_BET_ROUNDS = 5;
 
 const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   LOW: { odds: `${BASE_MULTIPLIERS.LOW}x`, description: '1 digit' },
@@ -35,20 +16,20 @@ const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   HIGH: { odds: `${BASE_MULTIPLIERS.HIGH}x`, description: '3 digits' },
 };
 
-const MIN_AUTO_BET_ROUNDS = 1;
-const MAX_AUTO_BET_ROUNDS = 50;
-const DEFAULT_AUTO_BET_ROUNDS = 5;
+/** Section 5a: the number of digits entered IS the tier selection — no
+ * separate chip/toggle. 0 filled slots = no tier yet. */
+function tierForDigitCount(count: number): TicketTier | null {
+  if (count === 1) return 'LOW';
+  if (count === 2) return 'MEDIUM';
+  if (count === 3) return 'HIGH';
+  return null;
+}
 
-type EditTarget = { kind: 'tier'; tier: TicketTier; index: number } | { kind: 'jackpot'; index: 0 | 1 } | null;
-
+type EditTarget = { kind: 'digit'; index: number } | { kind: 'jackpot'; index: 0 | 1 } | null;
 interface AutoBetState {
   template: BetRequest;
   roundsRemaining: number;
   roundsTotal: number;
-}
-
-function emptySlots(tier: TicketTier): (number | null)[] {
-  return Array(BASE_SEQUENCE_LENGTH[tier]).fill(null) as (number | null)[];
 }
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -56,18 +37,13 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 export function BettingPanel() {
   const { placeBet, phase, balance } = useGame();
 
-  const [selectedTier, setSelectedTier] = useState<TicketTier | null>(null);
-  const [tierDigits, setTierDigits] = useState<Record<TicketTier, (number | null)[]>>({
-    LOW: emptySlots('LOW'),
-    MEDIUM: emptySlots('MEDIUM'),
-    HIGH: emptySlots('HIGH'),
-  });
+  const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
   const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>([null, null]);
-  const [editTarget, setEditTarget] = useState<EditTarget>(null);
+  const [isCombo, setIsCombo] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditTarget>({ kind: 'digit', index: 0 });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [autoBetRounds, setAutoBetRounds] = useState(DEFAULT_AUTO_BET_ROUNDS);
   const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
-  const [isCombo, setIsCombo] = useState(false);
 
   const autoBetActive = autoBet !== null;
   const prevPhaseRef = useRef<GamePhase>(phase);
@@ -107,32 +83,17 @@ export function BettingPanel() {
     });
   }, [phase, autoBet, placeBet]);
 
-  const isBettingOpen = phase === 'BETTING_OPEN';
+    const isBettingOpen = phase === 'BETTING_OPEN';
   const locked = !isBettingOpen || autoBetActive;
 
-  function findFirstEmptyTierSlot(tier: TicketTier, digits: Record<TicketTier, (number | null)[]>): number {
-    return digits[tier].findIndex((d) => d === null);
-  }
+  const filledDigits = digits.filter((d): d is number => d !== null);
+  const filledCount = filledDigits.length;
+  const detectedTier = tierForDigitCount(filledCount);
 
-  function selectTier(tier: TicketTier) {
+  function focusDigitSlot(index: number) {
     if (locked) return;
     playUiClick();
-    setFeedback(null);
-    setIsCombo(false);
-    if (selectedTier === tier) {
-      setSelectedTier(null);
-      setEditTarget((current) => (current?.kind === 'tier' && current.tier === tier ? null : current));
-      return;
-    }
-    setSelectedTier(tier);
-    const firstEmpty = findFirstEmptyTierSlot(tier, tierDigits);
-    setEditTarget({ kind: 'tier', tier, index: firstEmpty === -1 ? 0 : firstEmpty });
-  }
-
-  function focusTierSlot(tier: TicketTier, index: number) {
-    if (locked || selectedTier !== tier) return;
-    playUiClick();
-    setEditTarget({ kind: 'tier', tier, index });
+    setEditTarget({ kind: 'digit', index });
   }
 
   function focusJackpotSlot(index: 0 | 1) {
@@ -141,11 +102,10 @@ export function BettingPanel() {
     setEditTarget({ kind: 'jackpot', index });
   }
 
-  function advanceFocus(current: NonNullable<EditTarget>, digitsSnapshot: Record<TicketTier, (number | null)[]>) {
-    if (current.kind === 'tier') {
-      const slots = digitsSnapshot[current.tier];
-      if (current.index + 1 < slots.length) {
-        setEditTarget({ kind: 'tier', tier: current.tier, index: current.index + 1 });
+  function advanceFocus(current: NonNullable<EditTarget>) {
+    if (current.kind === 'digit') {
+      if (current.index + 1 < MAX_DIGIT_SLOTS) {
+        setEditTarget({ kind: 'digit', index: current.index + 1 });
         return;
       }
       if (jackpotDigits[0] === null) {
@@ -171,11 +131,10 @@ export function BettingPanel() {
     playUiClick();
     setFeedback(null);
 
-    if (editTarget.kind === 'tier') {
-      setTierDigits((prev) => {
-        const next = { ...prev, [editTarget.tier]: [...prev[editTarget.tier]] };
-        next[editTarget.tier][editTarget.index] = digit;
-        advanceFocus(editTarget, next);
+    if (editTarget.kind === 'digit') {
+      setDigits((prev) => {
+        const next = [...prev];
+        next[editTarget.index] = digit;
         return next;
       });
     } else {
@@ -184,53 +143,44 @@ export function BettingPanel() {
         next[editTarget.index] = digit;
         return next;
       });
-      advanceFocus(editTarget, tierDigits);
     }
+    advanceFocus(editTarget);
+  }
+
+  function handleBackspace() {
+    if (locked || filledCount === 0) return;
+    playUiClick();
+    setFeedback(null);
+    const lastIndex = filledCount - 1;
+    setDigits((prev) => {
+      const next = [...prev];
+      next[lastIndex] = null;
+      return next;
+    });
+    setEditTarget({ kind: 'digit', index: lastIndex });
   }
 
   function handleClear() {
     if (autoBetActive) return;
     playUiClick();
-    setSelectedTier(null);
-    setTierDigits({ LOW: emptySlots('LOW'), MEDIUM: emptySlots('MEDIUM'), HIGH: emptySlots('HIGH') });
-    setJackpotDigits([null, null]);
-    setEditTarget(null);
-    setFeedback(null);
+    setDigits(Array(MAX_DIGIT_SLOTS).fill(null));
     setIsCombo(false);
+    setJackpotDigits([null, null]);
+    setEditTarget({ kind: 'digit', index: 0 });
+    setFeedback(null);
   }
-
-  const activeSelections = selectedTier ? [selectedTier] : [];
-  const filledTierDigits: number[] = selectedTier
-    ? tierDigits[selectedTier].filter((d): d is number => d !== null)
-    : [];
-  const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
-  const allTiersComplete = activeSelections.every((tier) => tierDigits[tier].every((d) => d !== null));
-  // Combo betting is only meaningful for 2+ digit tiers (MEDIUM/HIGH) —
-  // matches spec Section 5b's examples; a 1-digit LOW combo would
-  // trivially equal a straight bet.
-  const comboAvailable = selectedTier !== null && selectedTier !== 'LOW';
+    const comboAvailable = detectedTier !== null && detectedTier !== 'LOW';
   const comboActive = comboAvailable && isCombo;
-  const possibilityCount = comboActive && allTiersComplete ? countComboPossibilities(filledTierDigits) : 1;
-  const totalStake =
-    activeSelections.length === 0
-      ? 0
-      : comboActive && allTiersComplete
-        ? calculateComboStake(filledTierDigits)
-        : TICKET_STAKE;
-  const canSubmit =
-    isBettingOpen &&
-    !autoBetActive &&
-    activeSelections.length > 0 &&
-    allTiersComplete &&
-    jackpotComplete &&
-    balance >= totalStake;
+  const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
+  const possibilityCount = comboActive ? countComboPossibilities(filledDigits) : 1;
+  const totalStake = detectedTier === null ? 0 : comboActive ? calculateComboStake(filledDigits) : TICKET_STAKE;
+  const canSubmit = isBettingOpen && !autoBetActive && detectedTier !== null && jackpotComplete && balance >= totalStake;
 
   function buildRequest(): BetRequest {
-    const tier = activeSelections[0];
-    const selection: BetSelection = { tier, digits: tierDigits[tier] as number[], isCombo: comboActive };
+    const tier = detectedTier as TicketTier;
+    const selection: BetSelection = { tier, digits: filledDigits, isCombo: comboActive };
     return { selections: [selection], jackpotSequence: jackpotDigits as [number, number] };
   }
-
   function handleSubmit() {
     if (!canSubmit) return;
     const result = placeBet(buildRequest());
@@ -274,50 +224,61 @@ export function BettingPanel() {
       aria-label="Place a bet"
       className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">Place Bet</span>
-        {!isBettingOpen && !autoBetActive && (
-          <span className="rounded-full bg-white/[0.05] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
-            Betting closed
-          </span>
-        )}
-        {autoBetActive && (
-          <span className="rounded-full bg-[#eab308]/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-[#eab308]">
-            Auto Bet running
-          </span>
-        )}
-      </div>
-
-      {/* Tier toggles all on one row — single-select: choosing a tier
-          deselects any previously selected tier (Section 6: only one
-          volatility tier per betting round). Digit slots for whichever
-          tier is selected render below. */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {TIER_ORDER.map((tier) => (
-          <TierChip
-            key={tier}
-            tier={tier}
-            included={selectedTier === tier}
-            disabled={locked}
-            onToggle={() => selectTier(tier)}
-          />
-        ))}
-      </div>
-
-      {activeSelections.length > 0 && (
-        <div className="mt-2.5 flex flex-col gap-2">
-          {activeSelections.map((tier) => (
-            <TierDigitsRow
-              key={tier}
-              tier={tier}
-              digits={tierDigits[tier]}
-              editTarget={editTarget}
+            {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Number Entry</span>
+          {filledCount > 0 && (
+            <button
+              type="button"
+              onClick={handleBackspace}
               disabled={locked}
-              onFocusSlot={(index) => focusTierSlot(tier, index)}
-            />
-          ))}
+              className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/35 underline decoration-dotted disabled:opacity-30"
+            >
+              ⌫ back
+            </button>
+          )}
         </div>
-      )}
+
+        <div className="mt-2 flex items-center justify-center gap-3">
+          {digits.map((digit, i) => {
+            const isFocused = editTarget?.kind === 'digit' && editTarget.index === i;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => focusDigitSlot(i)}
+                disabled={locked}
+                className={[
+                  'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
+                  isFocused
+                    ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
+                    : digit !== null
+                      ? 'border-white/15 bg-white/[0.04] text-white'
+                      : 'border-dashed border-white/15 text-white/25',
+                ].join(' ')}
+              >
+                {digit ?? '·'}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-center gap-2">
+          {detectedTier ? (
+            <>
+              <span className="rounded-full bg-[#eab308]/15 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#eab308]">
+                {detectedTier}
+              </span>
+              <span className="font-mono text-[11px] text-white/40">
+                {TIER_META[detectedTier].odds} total return
+              </span>
+            </>
+          ) : (
+            <span className="font-mono text-[11px] text-white/30">Enter 1–3 digits to set volatility</span>
+          )}
+        </div>
+      </div>
 
       {comboAvailable && (
         <button
@@ -346,14 +307,13 @@ export function BettingPanel() {
             </span>
             <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
           </span>
-          {isCombo && allTiersComplete && (
+          {isCombo && (
             <span className="font-mono text-[11px] text-[#eab308]">
               {possibilityCount} possibilit{possibilityCount === 1 ? 'y' : 'ies'} · {formatCurrency(totalStake)}
             </span>
           )}
         </button>
       )}
-
       <div className="mt-4 rounded-2xl border border-[#eab308]/20 bg-[#eab308]/[0.04] p-3.5">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#eab308]/80">
           Jackpot Combination
@@ -397,7 +357,7 @@ export function BettingPanel() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(MIN_AUTO_BET_ROUNDS, r - 1))}
+              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}              
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -406,7 +366,7 @@ export function BettingPanel() {
             <span className="w-6 text-center font-mono text-sm font-bold tabular-nums text-white">{autoBetRounds}</span>
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.min(MAX_AUTO_BET_ROUNDS, r + 1))}
+              onClick={() => setAutoBetRounds((r) => Math.min(DEFAULT_AUTO_BET_ROUNDS, r + 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -480,83 +440,6 @@ export function BettingPanel() {
 // ----------------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------------
-
-interface TierChipProps {
-  tier: TicketTier;
-  included: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-}
-
-function TierChip({ tier, included, disabled, onToggle }: TierChipProps) {
-  const meta = TIER_META[tier];
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      disabled={disabled}
-      className={[
-        'flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40',
-        included
-          ? 'border-[#eab308]/35 bg-[#eab308]/[0.05]'
-          : 'border-white/[0.07] bg-white/[0.015] hover:border-white/15',
-      ].join(' ')}
-    >
-      <span
-        className={[
-          'flex h-5 w-5 items-center justify-center rounded-md border text-[10px] transition',
-          included ? 'border-[#eab308] bg-[#eab308] text-black' : 'border-white/20 text-transparent',
-        ].join(' ')}
-      >
-        ✓
-      </span>
-      <span className="font-mono text-sm font-bold tracking-[0.1em] text-white">{tier}</span>
-      <span className="font-mono text-[10px] text-white/35">{meta.description}</span>
-      <span className="font-mono text-[10px] text-white/50">{meta.odds}</span>
-    </button>
-  );
-}
-
-interface TierDigitsRowProps {
-  tier: TicketTier;
-  digits: (number | null)[];
-  editTarget: EditTarget;
-  disabled: boolean;
-  onFocusSlot: (index: number) => void;
-}
-
-function TierDigitsRow({ tier, digits, editTarget, disabled, onFocusSlot }: TierDigitsRowProps) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-      <span className="w-16 shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-white/40">{tier}</span>
-      <div className="flex items-center gap-2">
-        {digits.map((digit, i) => {
-          const isFocused = editTarget?.kind === 'tier' && editTarget.tier === tier && editTarget.index === i;
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onFocusSlot(i)}
-              disabled={disabled}
-              className={[
-                'flex h-9 w-9 items-center justify-center rounded-lg border font-mono text-base font-bold tabular-nums transition',
-                isFocused
-                  ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
-                  : digit !== null
-                    ? 'border-white/15 bg-white/[0.04] text-white'
-                    : 'border-dashed border-white/15 text-white/25',
-              ].join(' ')}
-            >
-              {digit ?? '·'}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 interface JackpotSlotProps {
   value: number | null;
   focused: boolean;
