@@ -8,7 +8,7 @@ import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/co
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
-const DEFAULT_AUTO_BET_ROUNDS = 10;
+const DEFAULT_AUTO_BET_ROUNDS = 5;
 
 const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   LOW: { odds: `${BASE_MULTIPLIERS.LOW}x`, description: '1 digit' },
@@ -35,15 +35,22 @@ interface AutoBetState {
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export function BettingPanel() {
-  const { placeBet, phase, balance } = useGame();
+  const { placeBet, phase, balance, currentJackpotSequence } = useGame();
 
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
-  const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>([null, null]);
+  const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>(currentJackpotSequence);
   const [isCombo, setIsCombo] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget>({ kind: 'digit', index: 0 });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [autoBetRounds, setAutoBetRounds] = useState(DEFAULT_AUTO_BET_ROUNDS);
   const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
+  // Locks the form the instant a bet is successfully submitted, until the
+  // NEXT betting round opens. Fixes the bug where hitting Clear after a
+  // successful submit let the player keep re-building and re-submitting
+  // bets in the same round, past the 3-ticket-per-sequence cap (the cap
+  // itself was always enforced correctly — nothing stopped the player from
+  // just submitting several separate bets before it kicked in).
+  const [hasBetThisRound, setHasBetThisRound] = useState(false);
 
   const autoBetActive = autoBet !== null;
   const prevPhaseRef = useRef<GamePhase>(phase);
@@ -58,15 +65,21 @@ export function BettingPanel() {
     return () => window.clearTimeout(timeout);
   }, [feedback]);
 
-  // Auto Bet: re-submit the saved template the instant a NEW betting round
-  // opens (not just "while" it's open — prevPhaseRef gates this to fire
-  // exactly once per phase transition, the same pattern Wheel.tsx uses for
-  // detecting entry into DRAWING). Stops itself if a resubmission ever
-  // fails (e.g. balance ran out, or the 3-ticket concurrency cap was hit by
-  // something else in the meantime) rather than failing silently on repeat.
+  // On every genuine entry into a NEW BETTING_OPEN round: unlock the form
+  // (hasBetThisRound reset) and re-seed the jackpot digit slots with the
+  // engine's freshly auto-generated combination (Section 9 — "randomly
+  // generated and displayed during the betting phase"). Auto Bet
+  // resubmission (unchanged logic) piggybacks on the same phase-entry
+  // check, same pattern Wheel.tsx uses for detecting entry into DRAWING.
   useEffect(() => {
     const enteredBettingOpen = phase === 'BETTING_OPEN' && prevPhaseRef.current !== 'BETTING_OPEN';
     prevPhaseRef.current = phase;
+
+    if (enteredBettingOpen) {
+      setHasBetThisRound(false);
+      setJackpotDigits(currentJackpotSequence);
+    }
+
     if (!enteredBettingOpen || !autoBet) return;
 
     const result = placeBet(autoBet.template);
@@ -81,10 +94,10 @@ export function BettingPanel() {
       const roundsRemaining = prev.roundsRemaining - 1;
       return roundsRemaining > 0 ? { ...prev, roundsRemaining } : null;
     });
-  }, [phase, autoBet, placeBet]);
+  }, [phase, autoBet, placeBet, currentJackpotSequence]);
 
     const isBettingOpen = phase === 'BETTING_OPEN';
-  const locked = !isBettingOpen || autoBetActive;
+  const locked = !isBettingOpen || autoBetActive || hasBetThisRound;
 
   const filledDigits = digits.filter((d): d is number => d !== null);
   const filledCount = filledDigits.length;
@@ -161,11 +174,14 @@ export function BettingPanel() {
   }
 
   function handleClear() {
-    if (autoBetActive) return;
+    if (locked) return;
     playUiClick();
     setDigits(Array(MAX_DIGIT_SLOTS).fill(null));
     setIsCombo(false);
-    setJackpotDigits([null, null]);
+    // Jackpot digits are auto-assigned now (Section 9) — Clear resets back
+    // to the round's generated combination rather than blanking it, since
+    // the player no longer has to fill it manually.
+    setJackpotDigits(currentJackpotSequence);
     setEditTarget({ kind: 'digit', index: 0 });
     setFeedback(null);
   }
@@ -174,7 +190,7 @@ export function BettingPanel() {
   const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
   const possibilityCount = comboActive ? countComboPossibilities(filledDigits) : 1;
   const totalStake = detectedTier === null ? 0 : comboActive ? calculateComboStake(filledDigits) : TICKET_STAKE;
-  const canSubmit = isBettingOpen && !autoBetActive && detectedTier !== null && jackpotComplete && balance >= totalStake;
+  const canSubmit = isBettingOpen && !autoBetActive && !hasBetThisRound && detectedTier !== null && jackpotComplete && balance >= totalStake;
 
   function buildRequest(): BetRequest {
     const tier = detectedTier as TicketTier;
@@ -188,6 +204,9 @@ export function BettingPanel() {
       playUiClick();
       setFeedback({ type: 'success', message: result.message });
       setEditTarget(null);
+      // Locks the form for the rest of this round — see hasBetThisRound
+      // comment above for why this is required.
+      setHasBetThisRound(true);
     } else {
       setFeedback({ type: 'error', message: result.message });
     }
@@ -203,6 +222,7 @@ export function BettingPanel() {
     }
     playUiClick();
     setEditTarget(null);
+    setHasBetThisRound(true);
     const roundsRemaining = autoBetRounds - 1;
     setFeedback({
       type: 'success',
@@ -280,6 +300,8 @@ export function BettingPanel() {
         </div>
       </div>
 
+      {/* Combo — switch instead of checkbox, with inline explanation so the
+          "any order" behavior is clear without a separate tooltip. */}
       {comboAvailable && (
         <button
           type="button"
@@ -296,16 +318,26 @@ export function BettingPanel() {
               : 'border-white/[0.07] bg-white/[0.02] hover:border-white/15',
           ].join(' ')}
         >
-          <span className="flex items-center gap-2">
-            <span
-              className={[
-                'flex h-5 w-5 items-center justify-center rounded-md border text-[10px] transition',
-                isCombo ? 'border-[#eab308] bg-[#eab308] text-black' : 'border-white/20 text-transparent',
-              ].join(' ')}
-            >
-              ✓
+          <span className="flex flex-col items-start gap-0.5">
+            <span className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
+              <span
+                role="switch"
+                aria-checked={isCombo}
+                className={[
+                  'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                  isCombo ? 'bg-[#eab308]' : 'bg-white/15',
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'absolute top-0.5 h-4 w-4 rounded-full bg-black shadow transition-transform',
+                    isCombo ? 'translate-x-4' : 'translate-x-0.5',
+                  ].join(' ')}
+                />
+              </span>
             </span>
-            <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
+            <span className="font-mono text-[10px] text-white/40">(Selected numbers in) any order</span>
           </span>
           {isCombo && (
             <span className="font-mono text-[11px] text-[#eab308]">
@@ -314,11 +346,14 @@ export function BettingPanel() {
           )}
         </button>
       )}
-      <div className="mt-4 rounded-2xl border border-[#eab308]/20 bg-[#eab308]/[0.04] p-3.5">
+      {/* Jackpot Combination — auto-assigned each round (Section 9), still
+          editable. Widened padding/gap for readability now that slots are
+          pre-filled rather than empty. */}
+      <div className="mt-4 rounded-2xl border border-[#eab308]/20 bg-[#eab308]/[0.04] p-4">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#eab308]/80">
           Jackpot Combination
         </span>
-        <div className="mt-2 flex items-center justify-center gap-3">
+        <div className="mt-2.5 flex items-center justify-center gap-4">
           <JackpotSlot
             value={jackpotDigits[0]}
             focused={editTarget?.kind === 'jackpot' && editTarget.index === 0}
@@ -357,7 +392,7 @@ export function BettingPanel() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(1, r - 1))}              
+              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}              
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -366,7 +401,7 @@ export function BettingPanel() {
             <span className="w-6 text-center font-mono text-sm font-bold tabular-nums text-white">{autoBetRounds}</span>
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.min(50, r + 1))}
+              onClick={() => setAutoBetRounds((r) => Math.min(DEFAULT_AUTO_BET_ROUNDS, r + 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -413,7 +448,8 @@ export function BettingPanel() {
             <button
               type="button"
               onClick={handleClear}
-              className="rounded-xl border border-white/10 px-3 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-white/50 transition hover:border-white/25 hover:text-white/80"
+              disabled={locked}
+              className="rounded-xl border border-white/10 px-3 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-white/50 transition hover:border-white/25 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-30"
             >
               Clear
             </button>
@@ -433,6 +469,12 @@ export function BettingPanel() {
           </div>
         )}
       </div>
+
+      {hasBetThisRound && !autoBetActive && isBettingOpen && (
+        <p className="mt-2.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
+          Bet locked in for this round — next round opens automatically.
+        </p>
+      )}
     </section>
   );
 }
@@ -454,7 +496,7 @@ function JackpotSlot({ value, focused, disabled, onClick }: JackpotSlotProps) {
       onClick={onClick}
       disabled={disabled}
       className={[
-        'flex h-11 w-11 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
+        'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
         focused
           ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
           : value !== null
@@ -472,11 +514,14 @@ interface DigitPadProps {
   onPress: (digit: number) => void;
 }
 
+/** Always two rows of five (0-4 / 5-9), on every breakpoint — a single
+ * 10-across row was too congested to tap reliably. Buttons enlarged
+ * (h-12, text-base) to match. */
 function DigitPad({ active, onPress }: DigitPadProps) {
   return (
     <div
       className={[
-        'mt-4 grid grid-cols-5 gap-1.5 transition-opacity duration-200 sm:grid-cols-10',
+        'mt-4 grid grid-cols-5 gap-2 transition-opacity duration-200',
         active ? 'opacity-100' : 'pointer-events-none opacity-30',
       ].join(' ')}
     >
@@ -486,7 +531,7 @@ function DigitPad({ active, onPress }: DigitPadProps) {
           type="button"
           onClick={() => onPress(digit)}
           disabled={!active}
-          className="flex h-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-sm font-semibold tabular-nums text-white/80 transition hover:border-[#eab308]/50 hover:bg-[#eab308]/10 hover:text-[#eab308] active:scale-95"
+          className="flex h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-base font-semibold tabular-nums text-white/80 transition hover:border-[#eab308]/50 hover:bg-[#eab308]/10 hover:text-[#eab308] active:scale-95"
         >
           {digit}
         </button>

@@ -2,7 +2,14 @@
 // CHAINS — Headless Game Engine (Section 33)
 //
 // ChainsGame owns ALL game math and state. It has zero React / DOM
-// dependencies and can run standalone
+// dependencies and can run standalone:
+//
+//   const game = new ChainsGame();
+//   game.placeBet({ selections: [{ tier: 'HIGH', digits: [4, 2, 3] }], jackpotSequence: [7, 4] });
+//   game.processDraw(4);
+//   game.processDraw(2);
+//   game.processDraw(3);
+//   const state = game.getState();
 //
 // A UI layer (React or otherwise) should only ever call public methods on
 // this class and render whatever getState() / subscribe() hand back. This
@@ -78,6 +85,11 @@ export class ChainsGame {
   private tickets: Ticket[] = [];
   private balance: number;
   private comboGroupCounter = 0;
+  /** The 2-digit jackpot combination auto-assigned for the current betting
+   * round (Section 9). Regenerated every time a fresh BETTING_OPEN phase
+   * begins (see enterPhase / reset below). The player may still edit it in
+   * the UI before confirming — this is only the starting value. */
+  private currentJackpotSequence: [number, number] = [0, 0];
 
   // --- phase / scheduler state -----------------------------------------------
   private phase: GamePhase = 'BETTING_OPEN';
@@ -111,6 +123,7 @@ export class ChainsGame {
     this.balance = this.config.startingBalance;
     this.phaseDurationMs = this.config.bettingDurationMs;
     this.phaseRemainingMs = this.phaseDurationMs;
+    this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
     this.simulatedActivity = this.generateSimulatedActivity();
   }
 
@@ -133,6 +146,7 @@ export class ChainsGame {
       })),
       balance: this.balance,
       jackpotPools: this.jackpotManager.getPools(),
+      currentJackpotSequence: [this.currentJackpotSequence[0], this.currentJackpotSequence[1]],
       phaseStartedAt: this.phaseStartTime,
       phaseEndsAt: this.phaseStartTime + this.phaseRemainingMs / this.speedMultiplier,
       timeRemainingMs: this.getTimeRemainingMs(),
@@ -157,6 +171,10 @@ export class ChainsGame {
 
   getJackpotPools(): JackpotPools {
     return this.jackpotManager.getPools();
+  }
+
+  getCurrentJackpotSequence(): [number, number] {
+    return [this.currentJackpotSequence[0], this.currentJackpotSequence[1]];
   }
 
   getBalance(): number {
@@ -486,6 +504,7 @@ export class ChainsGame {
     this.phaseDurationMs = this.config.bettingDurationMs;
     this.phaseRemainingMs = this.phaseDurationMs;
     this.phaseStartTime = Date.now();
+    this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
 
     this.simulatedActivity = this.generateSimulatedActivity();
     this.emit();
@@ -534,15 +553,6 @@ export class ChainsGame {
 
     const [selection] = request.selections;
 
-    if (!options.bypassPhaseCheck) {
-      const pendingStartDrawIndex = this.drawIndex + 1;
-      const committedTier = this.tickets.find((t) => t.startDrawIndex === pendingStartDrawIndex)?.tier;
-      if (committedTier && committedTier !== selection.tier) {
-        return this.betFailure(
-          `Only one volatility tier per betting round. You already have a ${committedTier} bet this round.`,
-        );
-      }
-    }
     try {
       if (selection.isCombo) {
         validateComboDigits(selection.tier, selection.digits);
@@ -630,6 +640,13 @@ export class ChainsGame {
     this.phaseDurationMs = durationMs;
     this.phaseRemainingMs = durationMs;
     this.phaseStartTime = Date.now();
+
+    if (phase === 'BETTING_OPEN') {
+      // Section 9: a fresh 2-digit jackpot combination is randomly
+      // generated and displayed at the start of every betting round. The
+      // player may still edit it before confirming a bet.
+      this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
+    }
 
     if (phase === 'DRAWING') {
       // The actual RNG result is determined by the engine the instant this

@@ -3,6 +3,8 @@
 // High-contrast banner for the three progressive pools. Each pool eases
 // toward its new value with a short numeric tween whenever it changes
 // (funding contributions or a payout reset), rather than snapping instantly.
+// MINI / MIDI / GRAND all share identical typography (font size, weight,
+// padding) — only the accent color and glow intensity differ between tiers.
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -70,7 +72,6 @@ const TIER_META: Record<JackpotTierName, TierMeta> = {
 function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: number }) {
   const animated = useAnimatedValue(amount);
   const meta = TIER_META[tierName];
-  const isGrand = tierName === 'GRAND';
 
   return (
     <div
@@ -78,22 +79,18 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         'relative flex-1 overflow-hidden rounded-2xl border bg-gradient-to-b from-white/[0.045] to-transparent px-3 py-3 backdrop-blur-sm transition-shadow duration-700 sm:px-4',
         meta.ring,
         meta.glow,
-        isGrand ? 'sm:py-4' : '',
       ].join(' ')}
     >
-      {isGrand && (
+      {tierName === 'GRAND' && (
         <span className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-t from-[#eab308]/[0.07] to-transparent" />
       )}
       <div className="relative flex flex-col items-center text-center">
         <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.4em] ${meta.accent}`}>
           {meta.label}
         </span>
-        <span
-          className={[
-            'mt-1 font-mono font-bold tabular-nums text-white',
-            isGrand ? 'text-2xl sm:text-3xl' : 'text-base sm:text-xl',
-          ].join(' ')}
-        >
+        {/* Same font size/weight for MINI, MIDI, and GRAND — only the
+            accent color and glow intensity differ between tiers. */}
+        <span className="mt-1 font-mono text-xl font-bold tabular-nums text-white sm:text-2xl">
           {formatCompactCurrency(animated)}
         </span>
       </div>

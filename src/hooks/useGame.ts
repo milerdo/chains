@@ -21,6 +21,14 @@
 // This is what keeps the Draw History list (and anything else reading
 // currentDraw/streamHistory) from showing a result before the wheel has
 // actually stopped on it.
+//
+// Sound is gated on the exact same commit point (see commitPublicReveal
+// below): a ticket's win/loss sound is only ever allowed to play once the
+// wheel has visually landed, never at spin-start. Previously the outcome
+// sound fired inside reveal() — which runs the instant the wheel STARTS its
+// landing approach — so a player could hear whether they won or lost before
+// the wheel visually stopped. applyTicketSoundsRef defers that call until
+// commitPublicReveal() actually fires.
 // ============================================================================
 
 import {
@@ -59,6 +67,10 @@ export interface UseGameValue {
   history: Ticket[];
   balance: number;
   jackpotPools: JackpotPools;
+  /** The 2-digit jackpot combination auto-assigned for the current betting
+   * round (Section 9). Editable in the UI, but pre-filled with this value
+   * the instant a fresh BETTING_OPEN phase begins. */
+  currentJackpotSequence: [number, number];
   /** The most recently RESOLVED draw, held back from the raw engine value
    * until the Wheel has reported that its landing animation has actually
    * finished (see file header). Every component that displays a digit
@@ -73,8 +85,10 @@ export interface UseGameValue {
   wheelTargetDraw: DrawResult | null;
   /** Wheel.tsx calls this once its landing animation has visually
    * settled, which is what actually reveals currentDraw/streamHistory to
-   * the rest of the UI. Safe to call multiple times or not at all (a
-   * bounded fallback timer reveals regardless). */
+   * the rest of the UI (and, as of the sound-timing fix, is also the
+   * moment any pending win/loss sound is allowed to play). Safe to call
+   * multiple times or not at all (a bounded fallback timer reveals
+   * regardless). */
   reportWheelLanded: () => void;
   phase: GamePhase;
   /** Milliseconds remaining in the current phase, updated smoothly on a
@@ -145,27 +159,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Held back from the raw engine value until Wheel.tsx confirms its
   // landing animation has actually finished. See file header and
   // MIN_REVEAL_DELAY_MS for why this exists.
-     const [revealedState, setRevealedState] = useState<{
-      currentDraw: DrawResult | null;
-      streamHistory: DrawResult[];
-      balance: number;
-      tickets: Ticket[];
-      jackpotPools: JackpotPools;
-      }>(() => {
-    const initial = game.getState();
-    return {
-      currentDraw: initial.currentDraw,
-      streamHistory: initial.streamHistory,
-      balance: initial.balance,
-      tickets: initial.tickets,
-      jackpotPools: initial.jackpotPools,
-    };
-  });
+  const [revealedDraw, setRevealedDraw] = useState<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] }>(
+    () => {
+      const initial = game.getState();
+      return { currentDraw: initial.currentDraw, streamHistory: initial.streamHistory };
+    },
+  );
   // Tracks the drawIndex already scheduled/revealed so the subscribe
   // callback only reacts to genuinely NEW draws — the engine emits on
   // every action (bets placed, jackpot pool ticks, ticket progress, etc.),
   // not just draws.
-  const lastSeenDrawIndexRef = useRef<number>(revealedState.currentDraw?.drawIndex ?? 0);
+  const lastSeenDrawIndexRef = useRef<number>(revealedDraw.currentDraw?.drawIndex ?? 0);
   const revealTimeoutRef = useRef<number | null>(null);
   // Set synchronously (not via React state) immediately around
   // instantStep()'s call into the engine, so the subscribe callback below
@@ -177,18 +181,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Last status seen per ticket id, used to fire outcome sounds exactly
   // once per genuine transition (see applyTicketSounds below).
   const prevTicketStatusRef = useRef<Map<string, TicketStatus>>(new Map());
+  // Holds a pending "play the outcome sounds for this draw" closure,
+  // queued the instant the wheel starts its landing approach but not
+  // actually invoked until commitPublicReveal() fires — i.e. exactly when
+  // the wheel has visually settled (or the fallback timer expires). This
+  // is what stops the player hearing a win/loss chime before the wheel
+  // stops spinning.
+  const applyTicketSoundsRef = useRef<(() => void) | null>(null);
 
   // --- Wheel landing target (stage 1 of the reveal pipeline) -----------
   const [wheelTargetDraw, setWheelTargetDraw] = useState<DrawResult | null>(() => game.getState().currentDraw);
   // Holds the next public-reveal payload until either Wheel.tsx calls
   // reportWheelLanded() or the fallback timer below fires.
- const pendingPublicRevealRef = useRef<{
-    currentDraw: DrawResult | null;
-    streamHistory: DrawResult[];
-    balance: number;
-    tickets: Ticket[];
-    jackpotPools: JackpotPools;
-  } | null>(null);
+  const pendingPublicRevealRef = useRef<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] } | null>(
+    null,
+  );
   const publicRevealFallbackTimeoutRef = useRef<number | null>(null);
 
   const commitPublicReveal = useCallback(() => {
@@ -197,12 +204,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       publicRevealFallbackTimeoutRef.current = null;
     }
     if (pendingPublicRevealRef.current === null) return;
-    setRevealedState(pendingPublicRevealRef.current);
+    // Sounds are gated on this exact commit point — never earlier — so a
+    // win/loss chime can never leak out before the wheel visually lands.
+    if (applyTicketSoundsRef.current) {
+      applyTicketSoundsRef.current();
+      applyTicketSoundsRef.current = null;
+    }
+    setRevealedDraw(pendingPublicRevealRef.current);
     pendingPublicRevealRef.current = null;
   }, []);
 
   /** Called by Wheel.tsx once its landing animation has visually settled.
-   * This is what actually reveals currentDraw/streamHistory. */
+   * This is what actually reveals currentDraw/streamHistory, and unlocks
+   * any pending outcome sound for this draw. */
   const reportWheelLanded = useCallback(() => {
     commitPublicReveal();
   }, [commitPublicReveal]);
@@ -231,15 +245,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       const incomingDrawIndex = nextState.currentDraw?.drawIndex ?? 0;
       if (incomingDrawIndex === lastSeenDrawIndexRef.current) {
+        // Not a new draw — a bet was placed, a jackpot pool ticked up, a
+        // demo-panel action fabricated/simulated a ticket, etc. There's no
+        // pending "unrevealed" draw here, so any ticket outcome is safe to
+        // announce immediately (this is also what makes the Demo Panel's
+        // "Simulate Jackpot Win" button play its fanfare right away).
         applyTicketSounds(nextState.tickets);
-        setRevealedState((prev) => ({
-          ...prev,
-          balance: nextState.balance,
-          tickets: nextState.tickets,
-          jackpotPools: nextState.jackpotPools,
-        }));
-         return;
-       }
+        return;
+      }
       lastSeenDrawIndexRef.current = incomingDrawIndex;
 
       if (revealTimeoutRef.current !== null) {
@@ -248,12 +261,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       const reveal = () => {
-        // Sounds stay tied to this moment (unchanged from before — when
-        // the Wheel starts landing, not when it finishes landing).
-        applyTicketSounds(nextState.tickets);
-
         // Stage 1: tell the Wheel what to land on.
         setWheelTargetDraw(nextState.currentDraw);
+
+        // Queue the outcome sounds for this draw, but do NOT play them
+        // yet — they only fire once commitPublicReveal() actually runs
+        // (Wheel.tsx's reportWheelLanded(), or the fallback timer below).
+        // This is what keeps the sound in lockstep with the visual reveal
+        // instead of leaking the result at spin-start.
+        applyTicketSoundsRef.current = () => applyTicketSounds(nextState.tickets);
 
         // Stage 2: queue the public reveal, but don't commit it yet —
         // Wheel.tsx's reportWheelLanded() (or the fallback timer) does
@@ -261,9 +277,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         pendingPublicRevealRef.current = {
           currentDraw: nextState.currentDraw,
           streamHistory: nextState.streamHistory,
-          balance: nextState.balance,
-          tickets: nextState.tickets,
-          jackpotPools: nextState.jackpotPools,
         };
         if (publicRevealFallbackTimeoutRef.current !== null) {
           window.clearTimeout(publicRevealFallbackTimeoutRef.current);
@@ -350,12 +363,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UseGameValue>(
     () => ({
       gameState,
-      activeTickets: revealedState.tickets.filter((t) => !isTerminal(t.status)),
-      history: revealedState.tickets.filter((t) => isTerminal(t.status)),
-      balance: revealedState.balance,
-      jackpotPools: revealedState.jackpotPools,
-      currentDraw: revealedState.currentDraw,
-      streamHistory: revealedState.streamHistory,
+      activeTickets: gameState.tickets.filter((t) => !isTerminal(t.status)),
+      history: gameState.tickets.filter((t) => isTerminal(t.status)),
+      balance: gameState.balance,
+      jackpotPools: gameState.jackpotPools,
+      currentJackpotSequence: gameState.currentJackpotSequence,
+      currentDraw: revealedDraw.currentDraw,
+      streamHistory: revealedDraw.streamHistory,
       wheelTargetDraw,
       reportWheelLanded,
       phase: gameState.phase,
@@ -382,7 +396,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }),
     [
       gameState,
-      revealedState,
+      revealedDraw,
       wheelTargetDraw,
       reportWheelLanded,
       timeRemaining,
