@@ -4,7 +4,7 @@
 // coordinate space and one rotation 
 // ============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playDrawSettle, playTick } from '../utils/audio';
 import { formatCountdown, formatDrawIndex } from '../utils/format';
@@ -69,6 +69,11 @@ function easeOutQuad(t: number): number {
 
 export function Wheel() {
   const { phase, wheelTargetDraw, speedMultiplier, timeRemaining, streamHistory, drawIndex, reportWheelLanded } = useGame();
+  // Unique per-mount suffix for this instance's gradient defs — two Wheel
+  // instances are mounted at once (desktop + mobile tab), and duplicate
+  // SVG ids across them caused refs to resolve into a display:none
+  // subtree below 1024px, silently failing to render.
+  const uid = useId();
   const spinAngleRef = useRef(0);
   const [displayRotation, setDisplayRotation] = useState(0);
   const [currentDigit, setCurrentDigit] = useState(wheelTargetDraw?.digit ?? 0);
@@ -256,21 +261,21 @@ export function Wheel() {
         <div style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}>
           <svg width={340} height={340} viewBox="0 0 300 300">
             <defs>
-              <radialGradient id="frameGrad" cx="35%" cy="30%" r="75%">
+               <radialGradient id={`frameGrad-${uid}`} cx="35%" cy="30%" r="75%">
                 <stop offset="0%" stopColor="#eecf8a" />
                 <stop offset="55%" stopColor="#8a6512" />
                 <stop offset="100%" stopColor="#4a3506" />
               </radialGradient>
-              <radialGradient id="hubGrad" cx="35%" cy="30%" r="75%">
+               <radialGradient id={`hubGrad-${uid}`} cx="35%" cy="30%" r="75%">
                 <stop offset="0%" stopColor="#f6e3a8" />
                 <stop offset="60%" stopColor="#8a6512" />
                 <stop offset="100%" stopColor="#3d2c05" />
               </radialGradient>
-              <radialGradient id="sheenGrad" cx="50%" cy="38%" r="65%">
+               <radialGradient id={`sheenGrad-${uid}`} cx="50%" cy="38%" r="65%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
                 <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
               </radialGradient>
-              <radialGradient id="pegGrad" cx="35%" cy="30%" r="75%">
+               <radialGradient id={`pegGrad-${uid}`} cx="35%" cy="30%" r="75%">
                 <stop offset="0%" stopColor="#fff3cf" />
                 <stop offset="55%" stopColor="#d9c088" />
                 <stop offset="100%" stopColor="#6b4f10" />
@@ -278,7 +283,7 @@ export function Wheel() {
             </defs>
 
             {/* Fixed outer frame — never rotates */}
-            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="url(#frameGrad)" />
+            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} />
             <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
 
             {/* Fixed rivets */}
@@ -320,7 +325,7 @@ export function Wheel() {
               })}
 
               {/* Subtle sheen overlay for depth, no isolated "shine spot" */}
-              <circle cx={CX} cy={CY} r={RIM_INNER_R} fill="url(#sheenGrad)" />
+              <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#sheenGrad-${uid})`} />
 
               {/* Pegs at wedge BOUNDARIES, not on digits — enlarged,
                   beveled, with a soft drop "seat" so they read as raised
@@ -331,14 +336,7 @@ export function Wheel() {
                 return (
                   <g key={`peg-${i}`}>
                     <circle cx={p.x} cy={p.y + 1} r={PEG_VISUAL_R} fill="#1a1200" opacity={0.4} />
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={PEG_VISUAL_R}
-                      fill="url(#pegGrad)"
-                      stroke="#4a3506"
-                      strokeWidth={0.8}
-                    />
+                    <circle cx={p.x} cy={p.y} r={PEG_VISUAL_R} fill={`url(#pegGrad-${uid})`} stroke="#4a3506" strokeWidth={0.8} />
                   </g>
                 );
               })}
@@ -369,13 +367,13 @@ export function Wheel() {
               })}
 
               {/* Hub */}
-              <circle cx={CX} cy={CY} r={HUB_R} fill="url(#hubGrad)" stroke="#2a1c02" strokeWidth={1.5} />
+               <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
             </g>
 
             {/* Fixed pivot + flapper — always at top, never orbits. Tip
                 reaches exactly to the peg ring so it visually makes
                 contact rather than stopping short. */}
-            <circle cx={CX} cy={22} r={5} fill="url(#frameGrad)" stroke="#2a1c02" strokeWidth={1} />
+            <circle cx={CX} cy={22} r={5} fill={`url(#frameGrad-${uid})`} stroke="#2a1c02" strokeWidth={1} />
             <g
               key={flapperTick}
               style={{

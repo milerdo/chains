@@ -249,9 +249,9 @@ export function BettingPanel() {
       className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
             {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
-      <div className="mt-4">
+      <div>
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Number Entry</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Choose 1-3 Digits</span>
           {filledCount > 0 && (
             <button
               type="button"
