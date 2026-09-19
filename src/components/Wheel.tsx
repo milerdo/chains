@@ -254,7 +254,7 @@ export function Wheel() {
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
         <div style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}>
-          <svg width={260} height={260} viewBox="0 0 300 300">
+          <svg width={340} height={340} viewBox="0 0 300 300">
             <defs>
               <radialGradient id="frameGrad" cx="35%" cy="30%" r="75%">
                 <stop offset="0%" stopColor="#eecf8a" />

@@ -54,9 +54,9 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
         <div className="mt-6 flex flex-col gap-6 text-sm leading-relaxed text-white/70">
           <Section title="The shared live stream">
             <p>
-              One continuous stream of digits (0–9) drives every ticket at the table. Every player watches the
-              exact same draws — but your own ticket only starts counting from the first draw after your bet
-              is placed, so two tickets can be at completely different points in their own sequence at once.
+              One continuous stream of digits (0–9) drives every link at the table. Every player watches the
+              exact same draws — but your own link only starts counting from the first draw after your bet
+              is placed, so two links can be at completely different points in their own sequence at once.
             </p>
           </Section>
 
@@ -73,14 +73,14 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               </li>
             </ul>
             <p className="mt-2">
-              Each tier you select is its own independent $1 ticket — play any combination of LOW, MEDIUM, and
+              Each tier you select is its own independent $1 link — play any combination of LOW, MEDIUM, and
               HIGH in the same round, from $1 up to $3.
             </p>
           </Section>
 
-          <Section title="One miss ends the ticket">
+          <Section title="One miss ends the link">
             <p>
-              If a draw doesn't match the next digit you need, the ticket loses immediately. It never waits for
+              If a draw doesn't match the next digit you need, the link loses immediately. It never waits for
               a second chance at that digit, never restarts, and never uses a later draw to catch up.
             </p>
           </Section>
@@ -88,7 +88,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           <Section title="Base win → jackpot qualification">
             <p>
               The instant your full sequence matches, the base payout is credited and locked in permanently —
-              nothing that happens afterward can take it back. Your ticket then enters{' '}
+              nothing that happens afterward can take it back. Your link then enters{' '}
               <span className="font-semibold text-white">Jackpot Qualification</span>: the next two draws are
               checked against your chosen 2-digit jackpot combination. Miss either one and qualification ends,
               but your base payout stays exactly as credited.
@@ -97,7 +97,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
           <Section title="Worked example">
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 font-mono text-xs">
-              <p className="text-white/50">Your ticket: HIGH — 4 → 2 → 3 · Jackpot: 7 → 4</p>
+              <p className="text-white/50">Your link: HIGH — 4 → 2 → 3 · Jackpot: 7 → 4</p>
               <div className="mt-3 flex flex-col gap-1.5">
                 <ExampleRow label="Draw 1" value="4" note="✓ matches" tone="win" />
                 <ExampleRow label="Draw 2" value="2" note="✓ matches" tone="win" />
@@ -108,11 +108,11 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             </div>
           </Section>
 
-          <Section title="MINI · MIDI · GRAND">
+          <Section title="3 · 4 · 5 IN A ROW">
             <p>
-              Each tier feeds a different progressive pool: LOW tickets qualify for MINI, MEDIUM for MIDI, and
-              HIGH for GRAND. Pools grow with every bet placed and reset to their seed value the moment they're
-              won. If more than one ticket qualifies on the exact same draw, the pool splits evenly between
+              Each tier feeds a different progressive pool: LOW links qualify for 3 in a row, MEDIUM for 4 in a row, and
+              HIGH for 5 in a row. Pools grow with every bet placed and reset to their seed value the moment they're
+              won. If more than one link qualifies on the exact same draw, the pool splits evenly between
               them.
             </p>
           </Section>
