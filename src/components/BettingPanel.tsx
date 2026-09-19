@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
@@ -66,11 +65,13 @@ export function BettingPanel() {
   }, [feedback]);
 
   // On every genuine entry into a NEW BETTING_OPEN round: unlock the form
-  // (hasBetThisRound reset) and re-seed the jackpot digit slots with the
-  // engine's freshly auto-generated combination (Section 9 — "randomly
-  // generated and displayed during the betting phase"). Auto Bet
-  // resubmission (unchanged logic) piggybacks on the same phase-entry
-  // check, same pattern Wheel.tsx uses for detecting entry into DRAWING.
+  // (hasBetThisRound reset). The jackpot digit slots are intentionally NOT
+  // re-seeded here anymore — the player's jackpot combination now persists
+  // across rounds until they manually edit it or use the reroll (⟳)
+  // control, rather than being overwritten by the engine's freshly
+  // auto-generated combination every round. Auto Bet resubmission
+  // (unchanged logic) piggybacks on the same phase-entry check, same
+  // pattern Wheel.tsx uses for detecting entry into DRAWING.
   useEffect(() => {
     const enteredBettingOpen = phase === 'BETTING_OPEN' && prevPhaseRef.current !== 'BETTING_OPEN';
     prevPhaseRef.current = phase;
@@ -93,9 +94,9 @@ export function BettingPanel() {
       const roundsRemaining = prev.roundsRemaining - 1;
       return roundsRemaining > 0 ? { ...prev, roundsRemaining } : null;
     });
-  }, [phase, autoBet, placeBet, currentJackpotSequence]);
+  }, [phase, autoBet, placeBet]);
 
-    const isBettingOpen = phase === 'BETTING_OPEN';
+  const isBettingOpen = phase === 'BETTING_OPEN';
   const locked = !isBettingOpen || autoBetActive || hasBetThisRound;
 
   const filledDigits = digits.filter((d): d is number => d !== null);
@@ -246,9 +247,9 @@ export function BettingPanel() {
   return (
     <section
       aria-label="Place a bet"
-      className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
+      className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-4 backdrop-blur-sm sm:p-5"
     >
-            {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
+      {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
       <div>
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Choose 1-3 Digits</span>
@@ -264,7 +265,7 @@ export function BettingPanel() {
           )}
         </div>
 
-        <div className="mt-2 flex items-center justify-center gap-3">
+        <div className="mt-2 flex items-center justify-center gap-2">
           {digits.map((digit, i) => {
             const isFocused = editTarget?.kind === 'digit' && editTarget.index === i;
             return (
@@ -274,7 +275,7 @@ export function BettingPanel() {
                 onClick={() => focusDigitSlot(i)}
                 disabled={locked}
                 className={[
-                  'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
+                  'flex h-11 w-11 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
                   isFocused
                     ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
                     : digit !== null
@@ -288,7 +289,7 @@ export function BettingPanel() {
           })}
         </div>
 
-        <div className="mt-2.5 flex items-center justify-center gap-2">
+        <div className="mt-2 flex items-center justify-center gap-2">
           {detectedTier ? (
             <>
               <span className="rounded-full bg-[#eab308]/15 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#eab308]">
@@ -305,21 +306,25 @@ export function BettingPanel() {
       </div>
 
       {/* Combo — switch instead of checkbox, with inline explanation so the
-          "any order" behavior is clear without a separate tooltip. */}
+          "any order" behavior is clear without a separate tooltip. Switch
+          and the possibility/stake badge sit on independent rows/tracks so
+          the badge appearing can never compress or offset the switch. */}
       {comboAvailable && (
-          <div
+        <div
           className={[
-            'mt-2.5 rounded-xl border px-3.5 py-2.5 transition',
-            isCombo ? 'border-[#eab308]/40 bg-[#eab308]/[0.06]' : 'border-white/[0.07] bg-white/[0.02]',
+            'mt-2 rounded-xl border px-3.5 py-2 transition',
+            isCombo
+              ? 'border-[#eab308]/40 bg-[#eab308]/[0.06]'
+              : 'border-white/[0.07] bg-white/[0.02] hover:border-white/15',
           ].join(' ')}
         >
-          {/* grid, not flex+justify-between: the switch column is sized to
-              its own `auto` track and can never be compressed by the label
-              or badge — this is what was pushing the thumb outside its own
-              (shrunk) track before. */}
           <button
             type="button"
-            onClick={() => { if (locked) return; playUiClick(); setIsCombo((c) => !c); }}
+            onClick={() => {
+              if (locked) return;
+              playUiClick();
+              setIsCombo((c) => !c);
+            }}
             disabled={locked}
             className="grid w-full grid-cols-[1fr_auto] items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -330,30 +335,58 @@ export function BettingPanel() {
             <span
               role="switch"
               aria-checked={isCombo}
-              className={['relative block h-5 w-9 shrink-0 rounded-full transition-colors', isCombo ? 'bg-[#eab308]' : 'bg-white/15'].join(' ')}
+              className={[
+                'relative block h-5 w-9 shrink-0 rounded-full transition-colors',
+                isCombo ? 'bg-[#eab308]' : 'bg-white/15',
+              ].join(' ')}
             >
               <span
-                className={['absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-black shadow transition-transform', isCombo ? 'translate-x-4' : 'translate-x-0'].join(' ')}
+                className={[
+                  'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-black shadow transition-transform',
+                  isCombo ? 'translate-x-4' : 'translate-x-0',
+                ].join(' ')}
               />
             </span>
           </button>
           {isCombo && (
-            <p className="mt-1.5 text-right font-mono text-[11px] text-[#eab308]">
+            <p className="mt-1 text-right font-mono text-[10px] text-[#eab308]">
               {possibilityCount} possibilit{possibilityCount === 1 ? 'y' : 'ies'} · {formatCurrency(totalStake)}
             </p>
           )}
         </div>
       )}
-      {/* Jackpot Combination — auto-assigned each round (Section 9), still
-          editable. Widened padding/gap for readability now that slots are
-          pre-filled rather than empty. */}
-      <div className="mt-3 flex items-center justify-between rounded-xl border border-[#eab308]/15 bg-[#eab308]/[0.03] px-3 py-2">
+
+      {/* Jackpot Combination — compact single row. Persists across rounds
+          until edited or rerolled (Section 9 note in IMPLEMENTATION LOG).
+          Intentionally minimal: the jackpot is a secondary/bonus feature,
+          not the main game loop. */}
+      <div className="mt-2 flex items-center justify-between rounded-xl border border-[#eab308]/15 bg-[#eab308]/[0.03] px-3 py-1.5">
         <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#eab308]/70">Jackpot</span>
         <div className="flex items-center gap-2">
-          <JackpotSlot small value={jackpotDigits[0]} focused={editTarget?.kind === 'jackpot' && editTarget.index === 0} disabled={locked} onClick={() => focusJackpotSlot(0)} />
+          <JackpotSlot
+            small
+            value={jackpotDigits[0]}
+            focused={editTarget?.kind === 'jackpot' && editTarget.index === 0}
+            disabled={locked}
+            onClick={() => focusJackpotSlot(0)}
+          />
           <span className="font-mono text-xs text-white/25">→</span>
-          <JackpotSlot small value={jackpotDigits[1]} focused={editTarget?.kind === 'jackpot' && editTarget.index === 1} disabled={locked} onClick={() => focusJackpotSlot(1)} />
-          <button type="button" onClick={handleRerollJackpot} disabled={locked} aria-label="Reroll jackpot combination" className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/40 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30">⟳</button>
+          <JackpotSlot
+            small
+            value={jackpotDigits[1]}
+            focused={editTarget?.kind === 'jackpot' && editTarget.index === 1}
+            disabled={locked}
+            onClick={() => focusJackpotSlot(1)}
+          />
+          <button
+            type="button"
+            onClick={handleRerollJackpot}
+            disabled={locked}
+            aria-label="Reroll jackpot combination"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/40 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            ⟳
+          </button>
         </div>
       </div>
 
@@ -363,7 +396,7 @@ export function BettingPanel() {
         <p
           role="status"
           className={[
-            'mt-3 rounded-lg px-3 py-2 text-center text-xs',
+            'mt-2 rounded-lg px-3 py-1.5 text-center text-xs',
             feedback.type === 'success'
               ? 'bg-emerald-400/10 text-emerald-300'
               : 'bg-red-400/10 text-red-300',
@@ -374,12 +407,12 @@ export function BettingPanel() {
       )}
 
       {!autoBetActive && (
-        <div className="mt-3 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
           <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/40">Auto Bet Rounds</span>
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}              
+              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -411,10 +444,10 @@ export function BettingPanel() {
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+      <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-3">
         <div className="flex flex-col">
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">Total Stake</span>
-          <span className="font-mono text-xl font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
+          <span className="font-mono text-lg font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
         </div>
 
         {autoBetActive && autoBet ? (
@@ -459,7 +492,7 @@ export function BettingPanel() {
 
       {hasBetThisRound && !autoBetActive && isBettingOpen && (
         <p className="mt-2.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
-          Bet locked in for this round — next round opens automatically.
+          Bet locked in for this round.
         </p>
       )}
     </section>
@@ -469,8 +502,13 @@ export function BettingPanel() {
 // ----------------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------------
-interface JackpotSlotProps { value: number | null; focused: boolean; disabled: boolean; onClick: () => void; small?: boolean; }
-
+interface JackpotSlotProps {
+  value: number | null;
+  focused: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  small?: boolean;
+}
 
 function JackpotSlot({ value, focused, disabled, onClick, small }: JackpotSlotProps) {
   return (
@@ -479,7 +517,9 @@ function JackpotSlot({ value, focused, disabled, onClick, small }: JackpotSlotPr
       onClick={onClick}
       disabled={disabled}
       className={[
-        small ? 'flex h-8 w-8 items-center justify-center rounded-lg border font-mono text-sm font-bold tabular-nums transition' : 'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
+        small
+          ? 'flex h-8 w-8 items-center justify-center rounded-lg border font-mono text-sm font-bold tabular-nums transition'
+          : 'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
         focused
           ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
           : value !== null
@@ -498,13 +538,12 @@ interface DigitPadProps {
 }
 
 /** Always two rows of five (0-4 / 5-9), on every breakpoint — a single
- * 10-across row was too congested to tap reliably. Buttons enlarged
- * (h-12, text-base) to match. */
+ * 10-across row was too congested to tap reliably. */
 function DigitPad({ active, onPress }: DigitPadProps) {
   return (
     <div
       className={[
-        'mt-4 grid grid-cols-5 gap-2 transition-opacity duration-200',
+        'mt-3 grid grid-cols-5 gap-1.5 transition-opacity duration-200',
         active ? 'opacity-100' : 'pointer-events-none opacity-30',
       ].join(' ')}
     >
@@ -514,7 +553,7 @@ function DigitPad({ active, onPress }: DigitPadProps) {
           type="button"
           onClick={() => onPress(digit)}
           disabled={!active}
-          className="flex h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-base font-semibold tabular-nums text-white/80 transition hover:border-[#eab308]/50 hover:bg-[#eab308]/10 hover:text-[#eab308] active:scale-95"
+          className="flex h-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-base font-semibold tabular-nums text-white/80 transition hover:border-[#eab308]/50 hover:bg-[#eab308]/10 hover:text-[#eab308] active:scale-95"
         >
           {digit}
         </button>

@@ -18,9 +18,9 @@ The game is demo-only:
 
 ## 2. Source of truth
 
-The CHAINS game specification is available in the project knowledge / specification file.
+The CHAINS game specification is available in the project knowledge / specification file (`updatedComboChains.txt`).
 
-Read it before implementing game mechanics.
+Read it before implementing game mechanics. Read the "IMPLEMENTATION LOG" section at the end of that file FIRST — it lists every place the live build has intentionally diverged from the original numbered spec (naming, UI behavior, timings). Treat the log as authoritative over the numbered sections wherever the two disagree.
 
 The specification defines the intended game concept, rules, payouts, jackpots, betting and player experience.
 
@@ -56,6 +56,8 @@ Do not migrate frameworks unless explicitly approved.
 
 Do not install new libraries unless there is a clear reason.
 
+**Layout warning:** `<Wheel />` is currently mounted twice at once (desktop 3-col grid + mobile tabbed view), toggled via CSS breakpoints, not conditional unmounting. Any component rendered this way MUST use `useId()` (or another per-instance-unique mechanism) for any raw SVG `id`/`url(#...)` reference — duplicate ids across the two mounted instances previously caused gradient fills to silently fail to render below the `lg` breakpoint. Check for this pattern before adding new SVG defs anywhere in the app.
+
 ## 4. Architecture
 
 Keep game logic independent of React.
@@ -86,6 +88,10 @@ React should render the engine state.
 Do not put authoritative game mathematics inside visual components.
 
 Do not let wheel animation determine the outcome.
+
+**Reveal pipeline:** `useGame.ts` gates THREE things behind the same wheel-landing commit point (`commitPublicReveal()`), not just the draw digit: `currentDraw`, `streamHistory`, AND `tickets` (active/history lists). All three come from a single `revealedDraw` state object updated together. If you add any new UI element that reads live outcome data, route it through this same gated state rather than raw `gameState`, or it will spoil the result before the wheel visually lands. The one exception is the "not a new draw" branch (bets placed, demo-panel actions, jackpot pool ticks) — those update ticket state immediately since there's no pending reveal to protect.
+
+**Sound timing:** ticket outcome sounds (`playBaseWin`/`playLoss`/`playJackpotFanfare`) fire from `applyTicketSoundsRef`, invoked ~260ms after `commitPublicReveal()`, deliberately staggered after the wheel's own landing thunk (`playDrawSettle`) so the two don't audibly collide. Do not move outcome sound calls earlier than this commit point — the engine's `enterPhase('DRAWING', ...)` previously double-emitted (`processDraw()` already emits internally; a second unconditional `this.emit()` right after it leaked sound at spin-start). That has been fixed — `enterPhase` now returns immediately after `processDraw()` + `armTimer()` for the DRAWING case. Do not reintroduce a second emit there.
 
 ## 5. Development strategy
 
@@ -127,6 +133,7 @@ Rules:
 - Keep responses concise.
 - Combine closely related changes when efficient.
 - Do not ask for approval on trivial implementation decisions.
+- When proposing a fix plan, give scoped diffs, not full file dumps, unless a file is being created new or is short.
 
 Before large changes, explain the plan briefly.
 
@@ -167,7 +174,7 @@ Use a realistic mechanical 0–9 wheel with:
 - Physical-looking movement.
 - Clear final digit.
 
-Keep animation timing configurable.
+Keep animation timing configurable (`DRAW_ANIMATION_DURATION` in `constants.ts`; currently 9.5s — increased from the original 8s per demo feedback, betting duration unchanged). SVG render size increased to 340×340 (was 260×260) for visual presence — geometry/viewBox math is untouched, only the rendered `width`/`height`.
 
 Do not spend excessive tokens on visual polish before the game is functional.
 
@@ -206,12 +213,17 @@ After implementation:
 
 Do not repeat unchanged code.
 
-## 11. First task
+## 11. Terminology (frontend only)
 
-When asked to begin:
+The player-facing term for a bet/sequence is **"Link"**, not "ticket" — e.g. "Your Links", "Active links", "link closed". This applies ONLY to UI copy (component labels, aria-labels, tab names, DemoPanel readouts, Help modal prose, toast/feedback messages). Internal code — the `Ticket` type, `ticket` variables, file names (`ticket.ts`, `Ticket.tsx`), function names (`createTicket`, `evaluateTicketOnDraw`, etc.) — intentionally still says "ticket" and should NOT be renamed; that would be a large, functionally-pointless refactor. Only touch display strings.
 
-- Read the CHAINS specification.
-- Inspect the existing codebase.
+## 12. First task
+
+When asked to begin a new session:
+
+- Read `updatedComboChains.txt`, including the IMPLEMENTATION LOG at the end.
+- Read this file in full, including sections 3, 4, 8, and 11 above.
+- Inspect the ACTUAL current codebase (App.tsx layout especially — it has changed shape more than once; do not assume a stale prior-session description of it is current).
 - Do not rewrite the application.
 - Do not build new features yet.
 - Report the current state.

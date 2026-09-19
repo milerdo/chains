@@ -85,7 +85,7 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         <span className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-t from-[#eab308]/[0.07] to-transparent" />
       )}
       <div className="relative flex flex-col items-center text-center">
-        <span className={`font-mono text-[7px] font-semibold uppercase tracking-[0.12em] ${meta.accent}`}>
+        <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.12em] ${meta.accent}`}>
           {meta.label}
         </span>
         {/* Same font size/weight for MINI, MIDI, and GRAND — only the

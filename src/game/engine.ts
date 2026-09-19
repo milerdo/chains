@@ -615,7 +615,7 @@ export class ChainsGame {
     return {
       success: true,
       message: selection.isCombo
-        ? `Combo bet placed: ${newTickets.length} possibilities, total stake $${totalStake.toFixed(2)}.`
+        ? `Combo bet placed: ${newTickets.length} links, total stake $${totalStake.toFixed(2)}.`
         : `Bet placed: 1 link, total stake $${totalStake.toFixed(2)}.`,
       ticketIds: newTickets.map((t) => t.id),
       totalStake,
