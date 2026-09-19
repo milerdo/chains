@@ -159,12 +159,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Held back from the raw engine value until Wheel.tsx confirms its
   // landing animation has actually finished. See file header and
   // MIN_REVEAL_DELAY_MS for why this exists.
-  const [revealedDraw, setRevealedDraw] = useState<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] }>(
-    () => {
-      const initial = game.getState();
-      return { currentDraw: initial.currentDraw, streamHistory: initial.streamHistory };
-    },
-  );
+  const [revealedDraw, setRevealedDraw] = useState<{
+    currentDraw: DrawResult | null;
+    streamHistory: DrawResult[];
+    tickets: Ticket[];
+  }>(() => {
+    const initial = game.getState();
+    return { currentDraw: initial.currentDraw, streamHistory: initial.streamHistory, tickets: initial.tickets };
+  });
   // Tracks the drawIndex already scheduled/revealed so the subscribe
   // callback only reacts to genuinely NEW draws — the engine emits on
   // every action (bets placed, jackpot pool ticks, ticket progress, etc.),
@@ -193,9 +195,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [wheelTargetDraw, setWheelTargetDraw] = useState<DrawResult | null>(() => game.getState().currentDraw);
   // Holds the next public-reveal payload until either Wheel.tsx calls
   // reportWheelLanded() or the fallback timer below fires.
-  const pendingPublicRevealRef = useRef<{ currentDraw: DrawResult | null; streamHistory: DrawResult[] } | null>(
-    null,
-  );
+  const pendingPublicRevealRef = useRef<{
+    currentDraw: DrawResult | null;
+    streamHistory: DrawResult[];
+    tickets: Ticket[];
+  } | null>(null);
   const publicRevealFallbackTimeoutRef = useRef<number | null>(null);
 
   const commitPublicReveal = useCallback(() => {
@@ -204,14 +208,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       publicRevealFallbackTimeoutRef.current = null;
     }
     if (pendingPublicRevealRef.current === null) return;
-    // Sounds are gated on this exact commit point — never earlier — so a
-    // win/loss chime can never leak out before the wheel visually lands.
-    if (applyTicketSoundsRef.current) {
-      applyTicketSoundsRef.current();
-      applyTicketSoundsRef.current = null;
-    }
     setRevealedDraw(pendingPublicRevealRef.current);
     pendingPublicRevealRef.current = null;
+    // Sounds are gated on this exact commit point — never earlier — so a
+    // win/loss chime can never leak out before the wheel visually lands.
+    // Delayed slightly so it doesn't collide with the wheel's own landing
+    // "thunk" (playDrawSettle), which fires at this same instant.
+    if (applyTicketSoundsRef.current) {
+      const fn = applyTicketSoundsRef.current;
+      applyTicketSoundsRef.current = null;
+      window.setTimeout(fn, 260);
+    }
   }, []);
 
   /** Called by Wheel.tsx once its landing animation has visually settled.
@@ -246,10 +253,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const incomingDrawIndex = nextState.currentDraw?.drawIndex ?? 0;
       if (incomingDrawIndex === lastSeenDrawIndexRef.current) {
         // Not a new draw — a bet was placed, a jackpot pool ticked up, a
-        // demo-panel action fabricated/simulated a ticket, etc. There's no
-        // pending "unrevealed" draw here, so any ticket outcome is safe to
-        // announce immediately (this is also what makes the Demo Panel's
-        // "Simulate Jackpot Win" button play its fanfare right away).
+        // demo-panel action, etc. Keep the revealed link list in sync right
+        // away (so a newly-placed WAITING link shows up immediately) and
+        // announce any outcome immediately — no pending reveal to protect.
+        setRevealedDraw((prev) => ({ ...prev, tickets: nextState.tickets }));
         applyTicketSounds(nextState.tickets);
         return;
       }
@@ -277,6 +284,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         pendingPublicRevealRef.current = {
           currentDraw: nextState.currentDraw,
           streamHistory: nextState.streamHistory,
+          tickets: nextState.tickets,
         };
         if (publicRevealFallbackTimeoutRef.current !== null) {
           window.clearTimeout(publicRevealFallbackTimeoutRef.current);
@@ -363,8 +371,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UseGameValue>(
     () => ({
       gameState,
-      activeTickets: gameState.tickets.filter((t) => !isTerminal(t.status)),
-      history: gameState.tickets.filter((t) => isTerminal(t.status)),
+      activeTickets: revealedDraw.tickets.filter((t) => !isTerminal(t.status)),
+      history: revealedDraw.tickets.filter((t) => isTerminal(t.status)),
       balance: gameState.balance,
       jackpotPools: gameState.jackpotPools,
       currentJackpotSequence: gameState.currentJackpotSequence,

@@ -616,7 +616,7 @@ export class ChainsGame {
       success: true,
       message: selection.isCombo
         ? `Combo bet placed: ${newTickets.length} possibilities, total stake $${totalStake.toFixed(2)}.`
-        : `Bet placed: 1 ticket, total stake $${totalStake.toFixed(2)}.`,
+        : `Bet placed: 1 link, total stake $${totalStake.toFixed(2)}.`,
       ticketIds: newTickets.map((t) => t.id),
       totalStake,
     };
@@ -649,11 +649,14 @@ export class ChainsGame {
     }
 
     if (phase === 'DRAWING') {
-      // The actual RNG result is determined by the engine the instant this
-      // phase begins. Any spinning/animation in the UI is purely cosmetic
-      // and reveals a result that has already been decided (Section 22).
+      // processDraw() already performs its own emit() at the end. Emitting
+      // again below would double-fire this exact state to subscribers —
+      // useGame.ts relies on exactly ONE emit per new draw to correctly
+      // defer ticket outcome sounds until the wheel visually lands.
       this.processDraw();
-    }
+      this.armTimer();
+      return;
+     }
 
     this.armTimer();
     this.emit();

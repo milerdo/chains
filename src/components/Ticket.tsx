@@ -145,7 +145,7 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
       )}
 
       {isLost && (
-        <p className="mt-2.5 font-mono text-[10px] text-red-300/70">Sequence broken — ticket closed.</p>
+        <p className="mt-2.5 font-mono text-[10px] text-red-300/70">Sequence broken — link closed.</p>
       )}
     </div>
   );
@@ -156,7 +156,7 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
 
   return (
     <section
-      aria-label="Your active tickets"
+      aria-label="Your active links"
       className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
       <button
@@ -165,7 +165,7 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
         className="flex w-full items-center justify-between"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
-          Your Tickets{tickets.length > 0 ? ` (${tickets.length})` : ''}
+          Your Links{tickets.length > 0 ? ` (${tickets.length})` : ''}
         </span>
         <span className={`text-white/40 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}>▾</span>
       </button>
@@ -174,7 +174,7 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
         <div className="mt-3.5 flex flex-col gap-2.5">
           {tickets.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
-              No active tickets. Place a bet during the next betting window.
+              No active links. Place a bet during the next betting window.
             </p>
           ) : (
             tickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} />)

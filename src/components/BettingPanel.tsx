@@ -77,7 +77,6 @@ export function BettingPanel() {
 
     if (enteredBettingOpen) {
       setHasBetThisRound(false);
-      setJackpotDigits(currentJackpotSequence);
     }
 
     if (!enteredBettingOpen || !autoBet) return;
@@ -178,14 +177,19 @@ export function BettingPanel() {
     playUiClick();
     setDigits(Array(MAX_DIGIT_SLOTS).fill(null));
     setIsCombo(false);
-    // Jackpot digits are auto-assigned now (Section 9) — Clear resets back
-    // to the round's generated combination rather than blanking it, since
-    // the player no longer has to fill it manually.
-    setJackpotDigits(currentJackpotSequence);
     setEditTarget({ kind: 'digit', index: 0 });
     setFeedback(null);
   }
-    const comboAvailable = detectedTier !== null && detectedTier !== 'LOW';
+
+  /** Jackpot digits now persist across rounds until the player edits them
+   * or rerolls — no longer auto-reseeded from the engine every round. */
+  function handleRerollJackpot() {
+    if (locked) return;
+    playUiClick();
+    setJackpotDigits([Math.floor(Math.random() * 10), Math.floor(Math.random() * 10)]);
+  }
+
+  const comboAvailable = detectedTier !== null && detectedTier !== 'LOW';
   const comboActive = comboAvailable && isCombo;
   const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
   const possibilityCount = comboActive ? countComboPossibilities(filledDigits) : 1;
@@ -303,70 +307,53 @@ export function BettingPanel() {
       {/* Combo — switch instead of checkbox, with inline explanation so the
           "any order" behavior is clear without a separate tooltip. */}
       {comboAvailable && (
-        <button
-          type="button"
-          onClick={() => {
-            if (locked) return;
-            playUiClick();
-            setIsCombo((c) => !c);
-          }}
-          disabled={locked}
+          <div
           className={[
-            'mt-2.5 flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 transition disabled:cursor-not-allowed disabled:opacity-40',
-            isCombo
-              ? 'border-[#eab308]/40 bg-[#eab308]/[0.06]'
-              : 'border-white/[0.07] bg-white/[0.02] hover:border-white/15',
+            'mt-2.5 rounded-xl border px-3.5 py-2.5 transition',
+            isCombo ? 'border-[#eab308]/40 bg-[#eab308]/[0.06]' : 'border-white/[0.07] bg-white/[0.02]',
           ].join(' ')}
         >
-          <span className="flex flex-col items-start gap-0.5">
-            <span className="flex items-center gap-2">
+          {/* grid, not flex+justify-between: the switch column is sized to
+              its own `auto` track and can never be compressed by the label
+              or badge — this is what was pushing the thumb outside its own
+              (shrunk) track before. */}
+          <button
+            type="button"
+            onClick={() => { if (locked) return; playUiClick(); setIsCombo((c) => !c); }}
+            disabled={locked}
+            className="grid w-full grid-cols-[1fr_auto] items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="flex flex-col items-start gap-0.5 text-left">
               <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
+              <span className="font-mono text-[10px] text-white/40">(Selected numbers in) any order</span>
+            </span>
+            <span
+              role="switch"
+              aria-checked={isCombo}
+              className={['relative block h-5 w-9 shrink-0 rounded-full transition-colors', isCombo ? 'bg-[#eab308]' : 'bg-white/15'].join(' ')}
+            >
               <span
-                role="switch"
-                aria-checked={isCombo}
-                className={[
-                  'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-                  isCombo ? 'bg-[#eab308]' : 'bg-white/15',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'absolute top-0.5 h-4 w-4 rounded-full bg-black shadow transition-transform',
-                    isCombo ? 'translate-x-4' : 'translate-x-0.5',
-                  ].join(' ')}
-                />
-              </span>
+                className={['absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-black shadow transition-transform', isCombo ? 'translate-x-4' : 'translate-x-0'].join(' ')}
+              />
             </span>
-            <span className="font-mono text-[10px] text-white/40">(Selected numbers in) any order</span>
-          </span>
+          </button>
           {isCombo && (
-            <span className="font-mono text-[11px] text-[#eab308]">
+            <p className="mt-1.5 text-right font-mono text-[11px] text-[#eab308]">
               {possibilityCount} possibilit{possibilityCount === 1 ? 'y' : 'ies'} · {formatCurrency(totalStake)}
-            </span>
+            </p>
           )}
-        </button>
+        </div>
       )}
       {/* Jackpot Combination — auto-assigned each round (Section 9), still
           editable. Widened padding/gap for readability now that slots are
           pre-filled rather than empty. */}
-      <div className="mt-4 rounded-2xl border border-[#eab308]/20 bg-[#eab308]/[0.04] p-4">
-        <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#eab308]/80">
-          Jackpot Combination
-        </span>
-        <div className="mt-2.5 flex items-center justify-center gap-4">
-          <JackpotSlot
-            value={jackpotDigits[0]}
-            focused={editTarget?.kind === 'jackpot' && editTarget.index === 0}
-            disabled={locked}
-            onClick={() => focusJackpotSlot(0)}
-          />
-          <span className="font-mono text-white/30">→</span>
-          <JackpotSlot
-            value={jackpotDigits[1]}
-            focused={editTarget?.kind === 'jackpot' && editTarget.index === 1}
-            disabled={locked}
-            onClick={() => focusJackpotSlot(1)}
-          />
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-[#eab308]/15 bg-[#eab308]/[0.03] px-3 py-2">
+        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#eab308]/70">Jackpot</span>
+        <div className="flex items-center gap-2">
+          <JackpotSlot small value={jackpotDigits[0]} focused={editTarget?.kind === 'jackpot' && editTarget.index === 0} disabled={locked} onClick={() => focusJackpotSlot(0)} />
+          <span className="font-mono text-xs text-white/25">→</span>
+          <JackpotSlot small value={jackpotDigits[1]} focused={editTarget?.kind === 'jackpot' && editTarget.index === 1} disabled={locked} onClick={() => focusJackpotSlot(1)} />
+          <button type="button" onClick={handleRerollJackpot} disabled={locked} aria-label="Reroll jackpot combination" className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/40 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30">⟳</button>
         </div>
       </div>
 
@@ -451,7 +438,7 @@ export function BettingPanel() {
               disabled={locked}
               className="rounded-xl border border-white/10 px-3 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-white/50 transition hover:border-white/25 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-30"
             >
-              Clear
+              Clear Table
             </button>
             <button
               type="button"
@@ -482,21 +469,17 @@ export function BettingPanel() {
 // ----------------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------------
-interface JackpotSlotProps {
-  value: number | null;
-  focused: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}
+interface JackpotSlotProps { value: number | null; focused: boolean; disabled: boolean; onClick: () => void; small?: boolean; }
 
-function JackpotSlot({ value, focused, disabled, onClick }: JackpotSlotProps) {
+
+function JackpotSlot({ value, focused, disabled, onClick, small }: JackpotSlotProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={[
-        'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
+        small ? 'flex h-8 w-8 items-center justify-center rounded-lg border font-mono text-sm font-bold tabular-nums transition' : 'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
         focused
           ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
           : value !== null

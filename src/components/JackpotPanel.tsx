@@ -50,22 +50,22 @@ interface TierMeta {
 
 const TIER_META: Record<JackpotTierName, TierMeta> = {
   MINI: {
-    label: 'MINI',
+    label: '3 IN A ROW',
     accent: 'text-[#fde68a]',
-    glow: 'shadow-[0_0_22px_-8px_rgba(234,179,8,0.35)]',
-    ring: 'border-[#eab308]/20',
+    glow: 'shadow-[0_0_14px_-8px_rgba(234,179,8,0.3)]',
+    ring: 'border-[#eab308]/15',
   },
   MIDI: {
-    label: 'MIDI',
+    label: '4 IN A ROW',
     accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_26px_-6px_rgba(251,191,36,0.4)]',
-    ring: 'border-[#eab308]/30',
+    glow: 'shadow-[0_0_16px_-6px_rgba(251,191,36,0.32)]',
+    ring: 'border-[#eab308]/20',
   },
   GRAND: {
-    label: 'GRAND',
+    label: '5 IN A ROW',
     accent: 'text-[#eab308]',
-    glow: 'shadow-[0_0_38px_-4px_rgba(234,179,8,0.6)]',
-    ring: 'border-[#eab308]/50',
+    glow: 'shadow-[0_0_20px_-4px_rgba(234,179,8,0.45)]',
+    ring: 'border-[#eab308]/30',
   },
 };
 
@@ -76,7 +76,7 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
   return (
     <div
       className={[
-        'relative flex-1 overflow-hidden rounded-2xl border bg-gradient-to-b from-white/[0.045] to-transparent px-3 py-3 backdrop-blur-sm transition-shadow duration-700 sm:px-4',
+        'relative flex-1 overflow-hidden rounded-lg border bg-gradient-to-b from-white/[0.03] to-transparent px-2 py-1.5 backdrop-blur-sm transition-shadow duration-700',
         meta.ring,
         meta.glow,
       ].join(' ')}
@@ -85,12 +85,12 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         <span className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-t from-[#eab308]/[0.07] to-transparent" />
       )}
       <div className="relative flex flex-col items-center text-center">
-        <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.4em] ${meta.accent}`}>
+        <span className={`font-mono text-[7px] font-semibold uppercase tracking-[0.12em] ${meta.accent}`}>
           {meta.label}
         </span>
         {/* Same font size/weight for MINI, MIDI, and GRAND — only the
             accent color and glow intensity differ between tiers. */}
-        <span className="mt-1 font-mono text-xl font-bold tabular-nums text-white sm:text-2xl">
+        <span className="mt-0.5 font-mono text-sm font-bold tabular-nums text-white">
           {formatCompactCurrency(animated)}
         </span>
       </div>
@@ -102,7 +102,7 @@ export function JackpotPanel() {
   const { jackpotPools } = useGame();
 
   return (
-    <section aria-label="Progressive jackpots" className="mx-auto flex w-full max-w-6xl gap-2 px-4 sm:gap-3 sm:px-6">
+    <section aria-label="Progressive jackpots" className="flex w-full gap-1.5">     
       <JackpotTile tierName="MINI" amount={jackpotPools.MINI} />
       <JackpotTile tierName="MIDI" amount={jackpotPools.MIDI} />
       <JackpotTile tierName="GRAND" amount={jackpotPools.GRAND} />

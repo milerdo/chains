@@ -91,7 +91,7 @@ export function DemoPanel() {
               <ReadoutChip label="Phase" value={phase.replace('_', ' ')} />
               <ReadoutChip label="Draw" value={formatDrawIndex(drawIndex)} />
               <ReadoutChip label="Balance" value={formatCurrency(balance)} />
-              <ReadoutChip label="Active tickets" value={String(activeTickets.length)} />
+              <ReadoutChip label="Active links" value={String(activeTickets.length)} />
               <ReadoutChip label="Speed" value={`x${speedMultiplier}`} />
               <ReadoutChip label="Engine" value={isRunning ? (isPaused ? 'paused' : 'running') : 'stopped'} />
             </div>
@@ -188,7 +188,7 @@ export function DemoPanel() {
                   </div>
 
                   <span className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/35">
-                    Simulated ticket
+                    Simulated link
                   </span>
                   <div className="flex gap-1.5">
                     {TICKET_TIERS.map((tier) => (
