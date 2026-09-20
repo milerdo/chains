@@ -44,7 +44,7 @@ import {
 } from 'react';
 import { ChainsGame } from '../game/engine';
 import { isTerminal } from '../game/ticket';
-import { playBaseWin, playJackpotFanfare, playLoss } from '../utils/audio';
+import { playBaseWin, playJackpotFanfare, playLoss, playStepMatch } from '../utils/audio';
 import type {
   BetRequest,
   DrawResult,
@@ -102,6 +102,8 @@ export interface UseGameValue {
   drawIndex: number;
   simulatedActivity: SimulatedActivity;
   forcedQueue: number[];
+  jackpotCelebration: { ticketId: string; tier: JackpotTierName; amount: number } | null;
+  dismissJackpotCelebration: () => void;
 
   placeBet: (request: BetRequest) => PlaceBetResult;
   forceNextDraw: (digit: number) => void;
@@ -154,6 +156,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [simulatedActivity, setSimulatedActivity] = useState<SimulatedActivity>(() => game.getSimulatedActivity());
   const [forcedQueue, setForcedQueue] = useState<number[]>(() => game.peekForcedDraws());
   const [timeRemaining, setTimeRemaining] = useState<number>(() => game.getState().timeRemainingMs);
+  const [jackpotCelebration, setJackpotCelebration] = useState<{
+    ticketId: string;
+    tier: JackpotTierName;
+    amount: number;
+  } | null>(null);
 
   // --- Reveal-delayed draw/stream state (public reveal) ----------------
   // Held back from the raw engine value until Wheel.tsx confirms its
@@ -183,6 +190,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Last status seen per ticket id, used to fire outcome sounds exactly
   // once per genuine transition (see applyTicketSounds below).
   const prevTicketStatusRef = useRef<Map<string, TicketStatus>>(new Map());
+  // Tracks each ticket's last-seen baseProgress/jackpotProgress so an
+  // intermediate digit match can be detected even when `status` itself
+  // doesn't change this draw (e.g. ACTIVE -> ACTIVE, one step further in).
+  const prevTicketProgressRef = useRef<Map<string, { baseProgress: number; jackpotProgress: number }>>(new Map());
   // Holds a pending "play the outcome sounds for this draw" closure,
   // queued the instant the wheel starts its landing approach but not
   // actually invoked until commitPublicReveal() fires — i.e. exactly when
@@ -242,11 +253,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const applyTicketSounds = (tickets: Ticket[]) => {
         for (const ticket of tickets) {
           const previousStatus = prevTicketStatusRef.current.get(ticket.id);
-          if (previousStatus === ticket.status) continue;
+          const previousProgress = prevTicketProgressRef.current.get(ticket.id);
+          const statusChanged = previousStatus !== ticket.status;
+          const baseAdvanced = previousProgress !== undefined && ticket.baseProgress > previousProgress.baseProgress;          
+          const jackpotAdvanced = previousProgress !== undefined && ticket.jackpotProgress > previousProgress.jackpotProgress;
+
           prevTicketStatusRef.current.set(ticket.id, ticket.status);
-          if (ticket.status === 'JACKPOT_WON') playJackpotFanfare();
-          else if (ticket.status === 'BASE_WON') playBaseWin();
-          else if (ticket.status === 'LOST' || ticket.status === 'JACKPOT_LOST') playLoss();
+          prevTicketProgressRef.current.set(ticket.id, {
+            baseProgress: ticket.baseProgress,
+            jackpotProgress: ticket.jackpotProgress,
+          });
+
+          if (statusChanged) {
+            if (ticket.status === 'JACKPOT_WON') {
+              playJackpotFanfare();
+              if (ticket.jackpotWinAmount !== null) {
+                setJackpotCelebration({ ticketId: ticket.id, tier: ticket.jackpotTier, amount: ticket.jackpotWinAmount });
+              }
+              continue;
+            }
+            if (ticket.status === 'BASE_WON') {
+              playBaseWin();
+              continue;
+            }
+            if (ticket.status === 'LOST' || ticket.status === 'JACKPOT_LOST') {
+              playLoss();
+              continue;
+            }
+          }
+          // A digit matched but the link isn't fully resolved yet (e.g.
+          // base step 1/3 -> 2/3, or jackpot step 1 -> 2 mid-qualification).
+          if (baseAdvanced || jackpotAdvanced) playStepMatch();
         }
       };
 
@@ -356,7 +393,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     skipNextRevealDelayRef.current = false;
     commitPublicReveal();
     prevTicketStatusRef.current.clear();
+    prevTicketProgressRef.current.clear();
+    setJackpotCelebration(null);
   }, [game, commitPublicReveal]);
+
+  const dismissJackpotCelebration = useCallback(() => setJackpotCelebration(null), []);
   const resetBalance = useCallback(() => game.resetBalance(), [game]);
   const simulateJackpotWin = useCallback(
     (tier: JackpotTierName) => {
@@ -392,6 +433,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       drawIndex: gameState.drawIndex,
       simulatedActivity,
       forcedQueue,
+      jackpotCelebration,
+      dismissJackpotCelebration,
       placeBet,
       forceNextDraw,
       forceDrawSequence,
@@ -413,6 +456,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       timeRemaining,
       simulatedActivity,
       forcedQueue,
+      jackpotCelebration,
+      dismissJackpotCelebration,
       placeBet,
       forceNextDraw,
       forceDrawSequence,

@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .table-ambience {
+    background-color: #121212;
+    background-image:
+      radial-gradient(ellipse 120% 70% at 50% -10%, rgba(234, 179, 8, 0.055), transparent 60%),
+      radial-gradient(ellipse 140% 90% at 50% 110%, rgba(0, 0, 0, 0.6), transparent 65%),
+      repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.012) 0px,
+        rgba(255, 255, 255, 0.012) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+  }
+}

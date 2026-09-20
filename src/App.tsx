@@ -18,6 +18,7 @@ import { TicketDrawer } from './components/Ticket';
 import { EmojiChat } from './components/EmojiChat';
 import { HelpModal } from './components/HelpModal';
 import { DemoPanel } from './components/DemoPanel';
+import { JackpotCelebration } from './components/JackpotCelebration';
 import type { GamePhase } from './game/types';
 
 type MobileTab = 'BET' | 'TABLE' | 'TICKETS';
@@ -43,7 +44,7 @@ function AppShell() {
   }, [phase]);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#121212] text-white/90">
+    <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
       <GameHeader onOpenHelp={() => setHelpOpen(true)} />
 
       {/* Desktop: fixed 3-column cabinet, no page scroll */}
@@ -95,6 +96,7 @@ function AppShell() {
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
       <DemoPanel />
+      <JackpotCelebration />
     </div>
   );
 }

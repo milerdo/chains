@@ -11,12 +11,9 @@ import { useState, type ReactNode } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency, formatDrawIndex } from '../utils/format';
-import type { JackpotTierName, TicketTier } from '../game/types';
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const SPEEDS = [1, 5, 20];
-const JACKPOT_TIERS: JackpotTierName[] = ['MINI', 'MIDI', 'GRAND'];
-const TICKET_TIERS: TicketTier[] = ['LOW', 'MEDIUM', 'HIGH'];
 
 export function DemoPanel() {
   const {
@@ -29,7 +26,6 @@ export function DemoPanel() {
     activeTickets,
     forcedQueue,
     forceNextDraw,
-    forceDrawSequence,
     clearForcedDraws,
     instantStep,
     setSpeed,
@@ -37,8 +33,6 @@ export function DemoPanel() {
     resumeGame,
     resetGame,
     resetBalance,
-    simulateJackpotWin,
-    createSimulatedTicket,
   } = useGame();
 
   const [open, setOpen] = useState(false);
@@ -59,16 +53,6 @@ export function DemoPanel() {
   });
   const handleResetBalance = withClick(resetBalance);
   const handleClearForced = withClick(clearForcedDraws);
-
-  const qualifyingTicket = activeTickets.find(
-    (t) => t.status === 'BASE_WON' || t.status === 'JACKPOT_STEP_1' || t.status === 'JACKPOT_STEP_2',
-  );
-
-  function handleForceJackpotSequence() {
-    playUiClick();
-    if (!qualifyingTicket) return;
-    forceDrawSequence(qualifyingTicket.jackpotSequence);
-  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40">
@@ -99,7 +83,7 @@ export function DemoPanel() {
               <ReadoutChip label="Engine" value={isRunning ? (isPaused ? 'paused' : 'running') : 'stopped'} />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Panel title="Force Next Draw">
                 <div className="grid grid-cols-5 gap-1.5">
                   {DIGITS.map((digit) => (
@@ -126,14 +110,6 @@ export function DemoPanel() {
                     clear
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleForceJackpotSequence}
-                  disabled={!qualifyingTicket}
-                  className="mt-2.5 w-full rounded-lg border border-[#eab308]/30 bg-[#eab308]/[0.06] py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-[#eab308] transition hover:bg-[#eab308]/[0.12] disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  Force Jackpot Sequence
-                </button>
               </Panel>
 
               <Panel title="Flow Control">
@@ -170,42 +146,6 @@ export function DemoPanel() {
                 >
                   {isPaused ? 'Resume' : 'Pause'}
                 </button>
-              </Panel>
-
-              <Panel title="Simulate">
-                <div className="flex flex-col gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/35">
-                    Jackpot win
-                  </span>
-                  <div className="flex gap-1.5">
-                    {JACKPOT_TIERS.map((tier) => (
-                      <button
-                        key={tier}
-                        type="button"
-                        onClick={withClick(() => simulateJackpotWin(tier))}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] py-1.5 font-mono text-[10px] font-semibold text-white/70 transition hover:border-[#eab308]/50 hover:text-[#eab308]"
-                      >
-                        {tier}
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-white/35">
-                    Simulated link
-                  </span>
-                  <div className="flex gap-1.5">
-                    {TICKET_TIERS.map((tier) => (
-                      <button
-                        key={tier}
-                        type="button"
-                        onClick={withClick(() => createSimulatedTicket(tier))}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] py-1.5 font-mono text-[10px] font-semibold text-white/70 transition hover:border-[#eab308]/50 hover:text-[#eab308]"
-                      >
-                        {tier}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </Panel>
             </div>
 

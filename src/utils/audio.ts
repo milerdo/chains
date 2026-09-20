@@ -139,6 +139,14 @@ export function playJackpotFanfare(): void {
   });
 }
 
+/** Short bright positive ping — played the instant a single digit in a
+ * ticket's sequence (base or jackpot) matches the drawn digit. Feedback
+ * for live progress, separate from the base/jackpot completion chimes. */
+export function playStepMatch(): void {
+  playTone({ frequency: 660, durationMs: 130, shape: 'sine', gain: 0.13, frequencyGlideTo: 880 });
+}
+
+
 /** Soft neutral click for general UI interactions (digit pad, demo panel
  * buttons, toggles). */
 export function playUiClick(): void {
