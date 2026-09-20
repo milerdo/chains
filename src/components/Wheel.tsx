@@ -249,9 +249,18 @@ export function Wheel() {
       aria-label="Live number stream"
       className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">Live Stream</span>
-        <span className="font-mono text-[11px] tracking-[0.2em] text-white/40">{formatDrawIndex(drawIndex)}</span>
+      <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
+        <span
+          className={[
+            'font-mono text-xs font-semibold uppercase tracking-[0.3em]',
+            phase === 'BETTING_OPEN' ? 'text-emerald-400' : phase === 'DRAWING' ? 'text-[#eab308]' : 'text-white/50',
+          ].join(' ')}
+        >
+          {PHASE_LABEL[phase]}
+        </span>
+        {showCountdown && (
+          <span className="font-mono text-sm tabular-nums text-white/70">00:{formatCountdown(timeRemaining)}</span>
+        )}
       </div>
 
       <div className="mt-5 flex flex-col items-center">
@@ -420,17 +429,14 @@ export function Wheel() {
       </div>
 
       <div className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
-        <span
-          className={[
-            'font-mono text-xs font-semibold uppercase tracking-[0.3em]',
-            phase === 'BETTING_OPEN' ? 'text-emerald-400' : phase === 'DRAWING' ? 'text-[#eab308]' : 'text-white/50',
-          ].join(' ')}
-        >
-          {PHASE_LABEL[phase]}
+        <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+          </span>
+          Live
         </span>
-        {showCountdown && (
-          <span className="font-mono text-sm tabular-nums text-white/70">00:{formatCountdown(timeRemaining)}</span>
-        )}
+        <span className="font-mono text-[11px] tracking-[0.2em] text-white/40">{formatDrawIndex(drawIndex)}</span>
       </div>
     </section>
   );

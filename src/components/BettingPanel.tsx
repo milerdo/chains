@@ -8,6 +8,8 @@ import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/ty
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
 const DEFAULT_AUTO_BET_ROUNDS = 5;
+const MIN_AUTO_BET_ROUNDS = 1;
+const MAX_AUTO_BET_ROUNDS = 50;
 
 const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   LOW: { odds: `${BASE_MULTIPLIERS.LOW}x`, description: '1 digit' },
@@ -160,19 +162,6 @@ export function BettingPanel() {
     advanceFocus(editTarget);
   }
 
-  function handleBackspace() {
-    if (locked || filledCount === 0) return;
-    playUiClick();
-    setFeedback(null);
-    const lastIndex = filledCount - 1;
-    setDigits((prev) => {
-      const next = [...prev];
-      next[lastIndex] = null;
-      return next;
-    });
-    setEditTarget({ kind: 'digit', index: lastIndex });
-  }
-
   function handleClear() {
     if (locked) return;
     playUiClick();
@@ -253,16 +242,14 @@ export function BettingPanel() {
       <div>
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Choose 1-3 Digits</span>
-          {filledCount > 0 && (
-            <button
-              type="button"
-              onClick={handleBackspace}
-              disabled={locked}
-              className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/35 underline decoration-dotted disabled:opacity-30"
-            >
-              ⌫ back
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={locked || filledCount === 0}
+             className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 underline decoration-dotted transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
+          >
+            Clear
+          </button>
         </div>
 
         <div className="mt-2 flex items-center justify-center gap-2">
@@ -330,7 +317,7 @@ export function BettingPanel() {
           >
             <span className="flex flex-col items-start gap-0.5 text-left">
               <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">Combo</span>
-              <span className="font-mono text-[10px] text-white/40">(Selected numbers in) any order</span>
+              <span className="font-mono text-[10px] text-white/40">Selected numbers in any order</span>
             </span>
             <span
               role="switch"
@@ -412,7 +399,7 @@ export function BettingPanel() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(DEFAULT_AUTO_BET_ROUNDS, r - 1))}
+              onClick={() => setAutoBetRounds((r) => Math.max(MIN_AUTO_BET_ROUNDS, r - 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -421,7 +408,7 @@ export function BettingPanel() {
             <span className="w-6 text-center font-mono text-sm font-bold tabular-nums text-white">{autoBetRounds}</span>
             <button
               type="button"
-              onClick={() => setAutoBetRounds((r) => Math.min(DEFAULT_AUTO_BET_ROUNDS, r + 1))}
+              onClick={() => setAutoBetRounds((r) => Math.min(MAX_AUTO_BET_ROUNDS, r + 1))}
               disabled={!isBettingOpen}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -444,12 +431,11 @@ export function BettingPanel() {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-3">
-        <div className="flex flex-col">
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">Total Stake</span>
-          <span className="font-mono text-lg font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
+      <div className="mt-4 flex items-center justify-center gap-5 border-t border-white/[0.06] pt-4">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.30em] text-white/40">Total Stake:</span>
+          <span className="font-mono text-xl font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
         </div>
-
         {autoBetActive && autoBet ? (
           <div className="flex items-center gap-2">
             <span className="rounded-xl border border-[#eab308]/30 bg-[#eab308]/10 px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]">
@@ -465,14 +451,6 @@ export function BettingPanel() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleClear}
-              disabled={locked}
-              className="rounded-xl border border-white/10 px-3 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-white/50 transition hover:border-white/25 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              Clear Table
-            </button>
             <button
               type="button"
               onClick={handleSubmit}

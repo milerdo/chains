@@ -51,7 +51,7 @@ interface TierMeta {
 const TIER_META: Record<JackpotTierName, TierMeta> = {
   MINI: {
     label: '1+2 IN A ROW',
-    accent: 'text-[#fde68a]',
+    accent: 'text-[#fbbf24]',
     glow: 'shadow-[0_0_14px_-8px_rgba(234,179,8,0.3)]',
     ring: 'border-[#eab308]/15',
   },
@@ -64,7 +64,7 @@ const TIER_META: Record<JackpotTierName, TierMeta> = {
   GRAND: {
     label: '3+2 IN A ROW',
     accent: 'text-[#eab308]',
-    glow: 'shadow-[0_0_20px_-4px_rgba(234,179,8,0.45)]',
+    glow: 'shadow-[0_0_18px_-4px_rgba(234,179,8,0.35)]',
     ring: 'border-[#eab308]/30',
   },
 };
