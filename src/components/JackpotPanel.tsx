@@ -52,20 +52,20 @@ const TIER_META: Record<JackpotTierName, TierMeta> = {
   MINI: {
     label: '3 IN A ROW',
     accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_14px_-8px_rgba(234,179,8,0.3)]',
-    ring: 'border-[#eab308]/15',
+    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
+    ring: 'border-[#eab308]/25',
   },
   MIDI: {
     label: '4 IN A ROW',
     accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_16px_-6px_rgba(251,191,36,0.32)]',
-    ring: 'border-[#eab308]/20',
+    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9]',
+    ring: 'border-[#eab308]/25',
   },
   GRAND: {
     label: '5 IN A ROW',
-    accent: 'text-[#eab308]',
-    glow: 'shadow-[0_0_18px_-4px_rgba(234,179,8,0.35)]',
-    ring: 'border-[#eab308]/30',
+    accent: 'text-[#fbbf24]',
+    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9]',
+    ring: 'border-[#eab308]/25',
   },
 };
 
@@ -90,7 +90,7 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         </span>
         {/* Same font size/weight for MINI, MIDI, and GRAND — only the
             accent color and glow intensity differ between tiers. */}
-        <span className="mt-0.5 font-mono text-sm font-bold tabular-nums text-white">
+        <span className="mt-0.2 font-mono text-sm-1.5 font-bold tabular-nums text-white">
           {formatCompactCurrency(animated)}
         </span>
       </div>

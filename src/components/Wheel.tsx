@@ -428,7 +428,7 @@ export function Wheel() {
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
+      <div className="mt-4 flex items-center justify-between px-4 py-2.5">
         <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />

@@ -4,16 +4,38 @@
 
 @layer utilities {
   .table-ambience {
-    background-color: #121212;
-    background-image:
-      radial-gradient(ellipse 120% 70% at 50% -10%, rgba(234, 179, 8, 0.055), transparent 60%),
-      radial-gradient(ellipse 140% 90% at 50% 110%, rgba(0, 0, 0, 0.6), transparent 65%),
+    background:
+      /* soft gold light coming from above */
+      radial-gradient(
+        ellipse 90% 55% at 50% -5%,
+        rgba(234, 179, 8, 0.10),
+        transparent 65%
+      ),
+
+      /* subtle warm light around the center */
+      radial-gradient(
+        ellipse 70% 65% at 50% 45%,
+        rgba(120, 90, 20, 0.045),
+        transparent 70%
+      ),
+
+      /* dark vignette */
+      radial-gradient(
+        ellipse 100% 100% at 50% 50%,
+        transparent 45%,
+        rgba(0, 0, 0, 0.55) 100%
+      ),
+
+      /* very subtle diagonal material texture */
       repeating-linear-gradient(
         135deg,
         rgba(255, 255, 255, 0.012) 0px,
         rgba(255, 255, 255, 0.012) 1px,
         transparent 1px,
-        transparent 4px
-      );
+        transparent 5px
+      ),
+
+      /* actual base */
+      #11110f;
   }
 }
