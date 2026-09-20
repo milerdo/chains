@@ -35,7 +35,11 @@ interface AutoBetState {
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function BettingPanel() {
+interface BettingPanelProps {
+  onLockChange?: (locked: boolean) => void;
+}
+
+export function BettingPanel({ onLockChange }: BettingPanelProps) {
   const { placeBet, phase, balance, currentJackpotSequence } = useGame();
 
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
@@ -100,6 +104,10 @@ export function BettingPanel() {
 
   const isBettingOpen = phase === 'BETTING_OPEN';
   const locked = !isBettingOpen || autoBetActive || hasBetThisRound;
+
+  useEffect(() => {
+    onLockChange?.(locked);
+  }, [locked, onLockChange]);
 
   const filledDigits = digits.filter((d): d is number => d !== null);
   const filledCount = filledDigits.length;

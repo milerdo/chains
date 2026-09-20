@@ -327,7 +327,7 @@ export function Wheel() {
                     d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
                     fill={isLanded ? '#eab308' : color}
                     stroke="#d4af5a"
-                    strokeWidth={1.5}
+                    strokeWidth={3}
                     style={{ transition: 'fill 150ms ease-out' }}
                   />
                 );
@@ -386,16 +386,23 @@ export function Wheel() {
             <g
               key={flapperTick}
               style={{
-                transformOrigin: `${CX}px 22px`,
+                transformOrigin: `${CX}px 20px`,
                 animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
-                ['--flapper-bounce' as string]: `${spinDirectionRef.current * -18}deg`,
+                ['--flapper-bounce' as string]: `${spinDirectionRef.current * -16}deg`,
               }}
             >
-              <polygon
-                points={`${CX - 9},16 ${CX + 9},16 ${CX},34`}
-                fill="#c9971f"
-                stroke="#5c4409"
+              <path
+                d={`M${CX - 7},17 Q${CX - 10},27 ${CX - 3},36 Q${CX},39 ${CX + 3},36 Q${CX + 10},27 ${CX + 7},17 Q${CX},13 ${CX - 7},17 Z`}
+                fill={`url(#pegGrad-${uid})`}
+                stroke="#4a3506"
+                strokeWidth={1.4}
+              />
+              <path
+                d={`M${CX},18 L${CX},34`}
+                stroke="#4a3506"
                 strokeWidth={1}
+                strokeLinecap="round"
+                opacity={0.5}
               />
             </g>
 

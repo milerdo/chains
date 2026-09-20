@@ -4,38 +4,37 @@
 
 @layer utilities {
   .table-ambience {
-    background:
-      /* soft gold light coming from above */
+    /* Base dark mahogany-noir table color */
+    background-color: #0c0b09;
+
+    background-image:
+      /* 1. Organic felt micro-grain (eliminates grid pixelation & moiré) */
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='feltNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23feltNoise)' opacity='0.045'/%3E%3C/svg%3E"),
+
+      /* 2. Top spotlight glow (overhead casino lamp pool) */
       radial-gradient(
-        ellipse 90% 55% at 50% -5%,
-        rgba(234, 179, 8, 0.10),
-        transparent 65%
+        ellipse 75% 45% at 50% -5%,
+        rgba(234, 179, 8, 0.22) 0%,
+        rgba(180, 110, 15, 0.10) 50%,
+        transparent 80%
       ),
 
-      /* subtle warm light around the center */
+      /* 3. Deep table illumination (warm golden-felt center) */
       radial-gradient(
-        ellipse 70% 65% at 50% 45%,
-        rgba(120, 90, 20, 0.045),
-        transparent 70%
+        ellipse 90% 70% at 50% 45%,
+        rgba(115, 82, 32, 0.25) 0%,
+        rgba(65, 45, 20, 0.14) 45%,
+        rgba(20, 18, 14, 0.05) 75%,
+        transparent 100%
       ),
 
-      /* dark vignette */
+      /* 4. Cinematic vignette (dark edges framing the play area) */
       radial-gradient(
-        ellipse 100% 100% at 50% 50%,
-        transparent 45%,
-        rgba(0, 0, 0, 0.55) 100%
-      ),
+        ellipse 110% 110% at 50% 50%,
+        transparent 35%,
+        rgba(0, 0, 0, 0.85) 100%
+      );
 
-      /* very subtle diagonal material texture */
-      repeating-linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.012) 0px,
-        rgba(255, 255, 255, 0.012) 1px,
-        transparent 1px,
-        transparent 5px
-      ),
-
-      /* actual base */
-      #11110f;
+    background-blend-mode: overlay, normal, normal, normal;
   }
 }

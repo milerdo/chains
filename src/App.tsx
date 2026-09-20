@@ -35,6 +35,7 @@ function AppShell() {
   const [mobileTab, setMobileTab] = useState<MobileTab>(() => phaseDefaultTab(phase));
   const prevPhaseRef = useRef<GamePhase>(phase);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
+  const [bettingLocked, setBettingLocked] = useState(false);
 
   useEffect(() => {
     if (phase !== prevPhaseRef.current) {
@@ -51,17 +52,21 @@ function AppShell() {
       <main className="hidden min-h-0 flex-1 lg:flex lg:flex-col lg:overflow-hidden">
         <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
           <div className="min-h-0 overflow-y-auto pr-1">
-            <BettingPanel />
+            <EmojiChat />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <JackpotPanel />
             {isDesktop && <Wheel />}
           </div>
-          <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <TicketDrawer tickets={activeTickets} />
+          <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
+              <BettingPanel onLockChange={setBettingLocked} />
             </div>
-            <EmojiChat />
+            {bettingLocked && (
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <TicketDrawer tickets={activeTickets} />
+              </div>
+            )}
           </div>
         </div>
       </main>
