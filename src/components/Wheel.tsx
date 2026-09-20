@@ -165,18 +165,33 @@ export function Wheel() {
       finalApproachRafRef.current = null;
     }
 
-    // Effect 2 — landing: ticks/target/step all become direction-aware.
+    // Physical safety margin from each wedge boundary (peg location). The
+    // flapper can only come to rest once past a peg's contact zone, so a
+    // landing angle within this margin of either boundary is not physically
+    // plausible and must be excluded either side.
+    const PEG_SAFE_MARGIN_DEG = 6;
 
 
     const targetDigit = wheelTargetDraw!.digit; // see section 2 below for the rename
     const wasInstant = performance.now() - spinStartTimeRef.current < INSTANT_THRESHOLD_MS;
-    const currentAtStart = digitAtSpinAngle(spinAngleRef.current);
     const direction = spinDirectionRef.current;
-    const rawTicks =
+    const currentAngle = spinAngleRef.current;
+    // Random resting point inside the wedge, but never within
+    // PEG_SAFE_MARGIN_DEG of either boundary peg — so the flapper can
+    // visibly settle off-center (never robotically dead-center) while
+    // never plausibly straddling a peg/border.
+    const maxOffset = HOLE_STEP_DEG / 2 - PEG_SAFE_MARGIN_DEG;
+    const restOffsetDeg = (Math.random() * 2 - 1) * maxOffset;
+    const targetCenterAngle = targetDigit * HOLE_STEP_DEG + restOffsetDeg;
+
+    let distanceDeg =
       direction === 1
-        ? (targetDigit - currentAtStart + 10) % 10
-        : (currentAtStart - targetDigit + 10) % 10;
-    const ticks = rawTicks === 0 ? HOLE_COUNT : rawTicks;
+        ? (((targetCenterAngle - currentAngle) % 360) + 360) % 360
+        : (((currentAngle - targetCenterAngle) % 360) + 360) % 360;
+
+    if (distanceDeg < HOLE_STEP_DEG) distanceDeg += 360;
+    const targetAngle = direction === 1 ? currentAngle + distanceDeg : currentAngle - distanceDeg;
+
 
     function land(finalAngle: number) {
       spinAngleRef.current = finalAngle;
@@ -190,19 +205,17 @@ export function Wheel() {
     }
 
     if (wasInstant) {
-      land(spinAngleRef.current + direction * ticks * HOLE_STEP_DEG);
+      land(targetAngle);
       return;
     }
 
-    const distanceDeg = ticks * HOLE_STEP_DEG;
     const v0 = Math.max(60, lastAngularSpeedRef.current);
     const approachDurationMs = Math.min(
       MAX_APPROACH_MS,
       Math.max(MIN_APPROACH_MS, ((2 * distanceDeg) / v0) * 1000),
     );
-    const targetAngle = spinAngleRef.current + direction * distanceDeg;
 
-    const startAngle = spinAngleRef.current;
+    const startAngle = currentAngle;
     const startTime = performance.now();
     let lastDigit = digitAtSpinAngle(startAngle);
 
@@ -289,6 +302,11 @@ export function Wheel() {
                 <stop offset="55%" stopColor="#d9c088" />
                 <stop offset="100%" stopColor="#6b4f10" />
               </radialGradient>
+              <radialGradient id={`flapperGrad-${uid}`} cx="35%" cy="25%" r="80%">
++              <stop offset="0%" stopColor="#ffffff" />
++              <stop offset="55%" stopColor="#d6dbe3" />
++              <stop offset="100%" stopColor="#3a3f47" />
++            </radialGradient>
             </defs>
 
             {/* Fixed outer frame — never rotates */}
@@ -386,24 +404,18 @@ export function Wheel() {
             <g
               key={flapperTick}
               style={{
-                transformOrigin: `${CX}px 20px`,
+                transformOrigin: `${CX}px 19px`,
                 animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
                 ['--flapper-bounce' as string]: `${spinDirectionRef.current * -16}deg`,
               }}
             >
               <path
-                d={`M${CX - 7},17 Q${CX - 10},27 ${CX - 3},36 Q${CX},39 ${CX + 3},36 Q${CX + 10},27 ${CX + 7},17 Q${CX},13 ${CX - 7},17 Z`}
-                fill={`url(#pegGrad-${uid})`}
-                stroke="#4a3506"
-                strokeWidth={1.4}
+                d={`M${CX - 7},14 Q${CX - 11},31 ${CX - 3},43 Q${CX},47 ${CX + 3},43 Q${CX + 11},31 ${CX + 7},14 Q${CX},10 ${CX - 7},14 Z`}
+                fill={`url(#flapperGrad-${uid})`}
+                stroke="#1f2937"
+                strokeWidth={1.5}
               />
-              <path
-                d={`M${CX},18 L${CX},34`}
-                stroke="#4a3506"
-                strokeWidth={1}
-                strokeLinecap="round"
-                opacity={0.5}
-              />
+              <path d={`M${CX},16 L${CX},41`} stroke="#1f2937" strokeWidth={1} strokeLinecap="round" opacity={0.45} />
             </g>
 
             <style>{`

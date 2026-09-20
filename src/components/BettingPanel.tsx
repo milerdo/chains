@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
@@ -37,10 +37,11 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 interface BettingPanelProps {
   onLockChange?: (locked: boolean) => void;
+  onAutoBetChange?: (state: { roundsRemaining: number; roundsTotal: number; stop: () => void } | null) => void;
+
 }
 
-export function BettingPanel({ onLockChange }: BettingPanelProps) {
-  const { placeBet, phase, balance, currentJackpotSequence } = useGame();
+  export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProps) {  const { placeBet, phase, balance, currentJackpotSequence } = useGame();
 
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
   const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>(currentJackpotSequence);
@@ -236,10 +237,21 @@ export function BettingPanel({ onLockChange }: BettingPanelProps) {
   }
 
   function handleStopAutoBet() {
+    stopAutoBet();
+  }
+
+  const stopAutoBet = useCallback(() => {
     playUiClick();
     setAutoBet(null);
     setFeedback({ type: 'success', message: 'Auto Bet stopped.' });
-  }
+    }, []);
+
+    useEffect(() => {
+      if (!onAutoBetChange) return;
+      onAutoBetChange(
+        autoBet ? { roundsRemaining: autoBet.roundsRemaining, roundsTotal: autoBet.roundsTotal, stop: stopAutoBet } : null,
+      );
+    }, [autoBet, onAutoBetChange, stopAutoBet]);
 
   return (
     <section

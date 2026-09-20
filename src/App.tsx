@@ -36,6 +36,11 @@ function AppShell() {
   const prevPhaseRef = useRef<GamePhase>(phase);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
   const [bettingLocked, setBettingLocked] = useState(false);
+  const [autoBetInfo, setAutoBetInfo] = useState<{
+    roundsRemaining: number;
+    roundsTotal: number;
+    stop: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (phase !== prevPhaseRef.current) {
@@ -59,8 +64,22 @@ function AppShell() {
             {isDesktop && <Wheel />}
           </div>
           <div className="flex min-h-0 flex-col overflow-hidden">
+            {autoBetInfo && (
+              <div className="mb-2 flex shrink-0 items-center justify-between rounded-xl border border-[#eab308]/30 bg-[#eab308]/10 px-3 py-2">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]">
+                  Auto Bet {autoBetInfo.roundsTotal - autoBetInfo.roundsRemaining}/{autoBetInfo.roundsTotal}
+                </span>
+                <button
+                  type="button"
+                  onClick={autoBetInfo.stop}
+                  className="rounded-lg border border-[#eab308]/50 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308] transition hover:bg-[#eab308]/20"
+                >
+                  Stop
+                </button>
+              </div>
+            )}
             <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
-              <BettingPanel onLockChange={setBettingLocked} />
+              <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
             </div>
             {bettingLocked && (
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">

@@ -58,6 +58,8 @@ Do not install new libraries unless there is a clear reason.
 
 **Layout warning:** `<Wheel />` is currently mounted twice at once (desktop 3-col grid + mobile tabbed view), toggled via CSS breakpoints, not conditional unmounting. Any component rendered this way MUST use `useId()` (or another per-instance-unique mechanism) for any raw SVG `id`/`url(#...)` reference — duplicate ids across the two mounted instances previously caused gradient fills to silently fail to render below the `lg` breakpoint. Check for this pattern before adding new SVG defs anywhere in the app.
 
+**Update:** `<Wheel />`'s actual DOM mount is now gated by `useMediaQuery('(min-width: 1024px)')` in `App.tsx` (see Section 13) rather than CSS alone, because the CSS-only approach also caused every sound effect and `reportWheelLanded()` call to double-fire. The `useId()` requirement above still stands regardless (defense in depth / in case this gating is ever changed), but the audio double-fire bug is fixed at the mount level now.
+
 ## 4. Architecture
 
 Keep game logic independent of React.
@@ -231,6 +233,98 @@ When asked to begin a new session:
 - Propose a practical implementation plan.
 
 Wait for approval before major architectural changes.
+
+## 13. Patterns established this session (read before touching Wheel, DemoPanel, App layout, or sound)
+
+**Dual-mount hazard is not just an SVG-id problem.** Section 3's warning about
+`<Wheel />` being mounted twice (desktop grid + mobile tab via CSS `hidden`/
+`lg:hidden`) also caused a real bug: every tick/settle/flapper sound and
+every `reportWheelLanded()` call fired TWICE per draw, since CSS-hiding
+still leaves the component mounted and running. Fixed by gating the actual
+mount (not just visibility) behind a real viewport check:
+
+- New hook: `src/hooks/useMediaQuery.ts` — wraps `window.matchMedia`.
+- `App.tsx` now does `{isDesktop && <Wheel />}` / `{!isDesktop && <Wheel />}`
+  instead of relying on CSS alone for `<Wheel />` specifically.
+- `JackpotPanel` and other side-effect-free components are still fine to
+  dual-mount via CSS only — only components with audio/animation/callback
+  side effects need this treatment. Apply this same pattern to any future
+  component that plays sound, runs `requestAnimationFrame`, or calls a
+  callback like `reportWheelLanded()`.
+
+**Reveal-gating pipeline now covers celebration + step sounds too.**
+`useGame.ts`'s `applyTicketSounds` closure (invoked only from
+`commitPublicReveal`, per the existing gating rule in Section 4) now also:
+- Fires `playStepMatch()` for a mid-sequence digit match (base or jackpot
+  step advancing) even when `status` itself doesn't change this draw —
+  tracked via a new `prevTicketProgressRef` (baseProgress/jackpotProgress
+  per ticket id), separate from the existing `prevTicketStatusRef`.
+- Sets `jackpotCelebration` state (full-screen overlay trigger) at the
+  `JACKPOT_WON` status-change branch, same commit point as the fanfare
+  sound. Never set outside `commitPublicReveal`.
+- Both refs are cleared in `resetGame()` alongside `prevTicketStatusRef`.
+
+**`resetGame()` bypasses the reveal delay.** Previously used the same
+delayed-reveal path as a real draw, so Demo Panel's Reset button lagged
+visually for up to `PUBLIC_REVEAL_FALLBACK_MS`. Now sets
+`skipNextRevealDelayRef.current = true` around `game.reset()` (same flag
+`instantStep()` uses) and calls `commitPublicReveal()` immediately after.
+Follow this same pattern for any future instant/demo action that should
+never wait on the normal draw-reveal timing.
+
+**Wheel landing is intentionally NOT exact-center and NOT near a peg.**
+The landing angle is `targetDigit * HOLE_STEP_DEG + restOffsetDeg`, where
+`restOffsetDeg` is randomized within `±(HOLE_STEP_DEG/2 - PEG_SAFE_MARGIN_DEG)`
+(`PEG_SAFE_MARGIN_DEG = 6`). This is deliberate physical realism — do not
+"fix" this back to an exact-center or exact-ticks landing; that was tried
+and reverted per direct feedback. `digitAtSpinAngle()`'s bucket width (±18°
+per digit) guarantees the randomized offset still always resolves to the
+correct digit.
+
+**Flapper is a tapered paddle shape (SVG `<path>`), not a `<polygon>`
+triangle.** Uses its own `flapperGrad-${uid}` radial gradient (cool
+steel-white) deliberately distinct from the wheel's warm gold palette, for
+contrast. Follow the same per-instance `useId()` suffixing rule from
+Section 3 if this gradient is ever touched.
+
+**Right-column swap pattern (BettingPanel ↔ TicketDrawer).** `App.tsx`
+desktop layout: left column = `EmojiChat`, middle = `JackpotPanel` +
+`Wheel`, right column = `BettingPanel` XOR `TicketDrawer`, swapped based on
+a `bettingLocked` boolean lifted into `AppShell` state.
+
+- `BettingPanel` takes an optional `onLockChange` prop and reports its own
+  `locked` value (`!isBettingOpen || autoBetActive || hasBetThisRound`) up
+  via `useEffect`. It stays MOUNTED (CSS `hidden`, never unmounted) while
+  `TicketDrawer` is shown over it — this is required so its internal timers
+  and phase-entry effects (which are what eventually flip `locked` back to
+  `false`) keep running. Do not conditionally unmount `BettingPanel`.
+- `BettingPanel` also takes an optional `onAutoBetChange` prop, reporting
+  `{ roundsRemaining, roundsTotal, stop }` (or `null`) whenever its
+  internal `autoBet` state changes. `App.tsx` renders a small persistent
+  "Auto Bet N/M · Stop" bar ABOVE the swapped area (outside the
+  `bettingLocked` hide toggle) using this — this exists specifically
+  because Auto Bet's own Stop button lives inside `BettingPanel`, which
+  gets hidden the instant autoplay starts (`autoBetActive` → `locked`).
+  Without this bar, autoplay is unstoppable once started. Any future
+  control the player must always be able to reach regardless of which
+  panel is showing should follow this same "lift to a persistent bar
+  outside the swap" pattern, not live inside the swapped component.
+- Both `onLockChange`/`onAutoBetChange` are wired ONLY into the desktop
+  `<BettingPanel>` instance, never the mobile one — mobile's dedicated
+  `TICKETS` tab already solves the same problem, and wiring both instances
+  would have two independent `BettingPanel`s racing to write the same
+  lifted state.
+
+**`GameHistory` and the old "Simulate" block are Demo-Panel-only now.**
+`GameHistory` (Draw History / Your History tabs) is intentionally NOT in
+the main player-facing layout — mounted inside `DemoPanel.tsx` under a
+"Draw & Link History" heading instead, per explicit decision this session.
+The old `DemoPanel` "Simulate" panel (jackpot-win / simulated-link buttons)
+was removed entirely from the UI — `simulateJackpotWin` and
+`createSimulatedTicket` still exist on `ChainsGame`/`useGame.ts`, just
+unwired from any button. `MultiplayerSim.tsx` remains an intentionally
+unmounted, unreferenced file — do not wire it in; the recent-digits strip
+under the Wheel was judged sufficient "live table" signal on its own.
 
 ## Final principle
 
