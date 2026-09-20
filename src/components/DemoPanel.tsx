@@ -60,11 +60,14 @@ export function DemoPanel() {
   const handleResetBalance = withClick(resetBalance);
   const handleClearForced = withClick(clearForcedDraws);
 
+  const qualifyingTicket = activeTickets.find(
+    (t) => t.status === 'BASE_WON' || t.status === 'JACKPOT_STEP_1' || t.status === 'JACKPOT_STEP_2',
+  );
+
   function handleForceJackpotSequence() {
     playUiClick();
-    const withJackpot = activeTickets.find((t) => t.jackpotSequence);
-    if (!withJackpot) return;
-    forceDrawSequence(withJackpot.jackpotSequence);
+    if (!qualifyingTicket) return;
+    forceDrawSequence(qualifyingTicket.jackpotSequence);
   }
 
   return (
@@ -126,7 +129,7 @@ export function DemoPanel() {
                 <button
                   type="button"
                   onClick={handleForceJackpotSequence}
-                  disabled={activeTickets.length === 0}
+                  disabled={!qualifyingTicket}
                   className="mt-2.5 w-full rounded-lg border border-[#eab308]/30 bg-[#eab308]/[0.06] py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-[#eab308] transition hover:bg-[#eab308]/[0.12] disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   Force Jackpot Sequence

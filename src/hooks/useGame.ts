@@ -351,9 +351,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const pauseGame = useCallback(() => game.pause(), [game]);
   const resumeGame = useCallback(() => game.resume(), [game]);
   const resetGame = useCallback(() => {
+    skipNextRevealDelayRef.current = true;
     game.reset();
+    skipNextRevealDelayRef.current = false;
+    commitPublicReveal();
     prevTicketStatusRef.current.clear();
-  }, [game]);
+  }, [game, commitPublicReveal]);
   const resetBalance = useCallback(() => game.resetBalance(), [game]);
   const simulateJackpotWin = useCallback(
     (tier: JackpotTierName) => {

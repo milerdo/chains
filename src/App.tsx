@@ -26,11 +26,14 @@ function phaseDefaultTab(phase: GamePhase): MobileTab {
   return phase === 'BETTING_OPEN' ? 'BET' : 'TABLE';
 }
 
+import { useMediaQuery } from './hooks/useMediaQuery';
+
 function AppShell() {
   const { activeTickets, phase } = useGame();
   const [helpOpen, setHelpOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>(() => phaseDefaultTab(phase));
   const prevPhaseRef = useRef<GamePhase>(phase);
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
 
   useEffect(() => {
     if (phase !== prevPhaseRef.current) {
@@ -51,7 +54,7 @@ function AppShell() {
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <JackpotPanel />
-            <Wheel />
+            {isDesktop && <Wheel />}
           </div>
           <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -69,7 +72,7 @@ function AppShell() {
           {mobileTab === 'TABLE' && (
         <div className="flex flex-col gap-3">
           <JackpotPanel />
-          <Wheel />
+          {!isDesktop && <Wheel />}
         </div>
       )}
           {mobileTab === 'TICKETS' && (
