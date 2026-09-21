@@ -10,7 +10,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GameProvider, useGame } from './hooks/useGame';
-import { GameHeader } from './components/GameHeader';
+import { GameHeader, ChainsMark } from './components/GameHeader';
+import { LeftColumnControls } from './components/LeftColumnControls';
 import { JackpotPanel } from './components/JackpotPanel';
 import { Wheel } from './components/Wheel';
 import { BettingPanel } from './components/BettingPanel';
@@ -51,15 +52,21 @@ function AppShell() {
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
-      <GameHeader onOpenHelp={() => setHelpOpen(true)} />
+      <GameHeader />
 
       {/* Desktop: fixed 3-column cabinet, no page scroll */}
       <main className="hidden min-h-0 flex-1 lg:flex lg:flex-col lg:overflow-hidden">
         <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
-          <div className="min-h-0 overflow-y-auto pr-1">
-            <EmojiChat />
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <EmojiChat />
+            </div>
+            <LeftColumnControls onOpenHelp={() => setHelpOpen(true)} />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="flex shrink-0 justify-center">
++              <ChainsMark />
++            </div>
             <JackpotPanel />
             {isDesktop && <Wheel />}
           </div>
@@ -103,7 +110,9 @@ function AppShell() {
           {mobileTab === 'TICKETS' && (
             <div className="flex flex-col gap-4">
               <TicketDrawer tickets={activeTickets} />
-              <EmojiChat />
+              <div className="flex h-[420px] flex-col">
+                <EmojiChat />
+              </div>
             </div>
           )}
         </div>

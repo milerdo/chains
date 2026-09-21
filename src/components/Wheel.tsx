@@ -12,9 +12,9 @@ import type { GamePhase } from '../game/types';
 
 const PHASE_LABEL: Record<GamePhase, string> = {
   BETTING_OPEN: 'BETTING OPEN',
-  BETTING_CLOSED: 'BETTING CLOSED',
-  DRAWING: 'DRAWING',
-  RESULT: 'RESULT',
+  BETTING_CLOSED: 'GOOD LUCK',
+  DRAWING: 'GOOD LUCK',
+  RESULT: 'GOOD LUCK',
 };
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
@@ -31,11 +31,7 @@ const RIVET_R = 136;
 const RIVET_COUNT = 26;
 const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
 
-// Digit -> wedge color, matching the reference wheel's G/R/B sector pattern.
-const WEDGE_COLORS = [
-  '#1e6b3e', '#8a1f1f', '#1f3f82', '#8a1f1f', '#1e6b3e',
-  '#1f3f82', '#8a1f1f', '#1e6b3e', '#1f3f82', '#8a1f1f',
-];
+import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
 
 // --- Animation timing ----------------------------------------------------
 const MAX_SPIN_SPEED_DEG_PER_SEC = 280; // ~0.78 rev/sec cruise — brisk but mechanical
@@ -266,7 +262,7 @@ export function Wheel() {
         <span
           className={[
             'font-mono text-xs font-semibold uppercase tracking-[0.3em]',
-            phase === 'BETTING_OPEN' ? 'text-emerald-400' : phase === 'DRAWING' ? 'text-[#eab308]' : 'text-white/50',
+            phase === 'BETTING_OPEN' ? 'text-emerald-400' : 'text-[#eab308]',
           ].join(' ')}
         >
           {PHASE_LABEL[phase]}

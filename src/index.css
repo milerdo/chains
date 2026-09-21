@@ -4,37 +4,16 @@
 
 @layer utilities {
   .table-ambience {
-    /* Base dark mahogany-noir table color */
     background-color: #0c0b09;
-
     background-image:
-      /* 1. Organic felt micro-grain (eliminates grid pixelation & moiré) */
+      /* 1. felt micro-grain (unchanged) */
       url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='feltNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23feltNoise)' opacity='0.045'/%3E%3C/svg%3E"),
-
-      /* 2. Top spotlight glow (overhead casino lamp pool) */
-      radial-gradient(
-        ellipse 75% 45% at 50% -5%,
-        rgba(234, 179, 8, 0.22) 0%,
-        rgba(180, 110, 15, 0.10) 50%,
-        transparent 80%
-      ),
-
-      /* 3. Deep table illumination (warm golden-felt center) */
-      radial-gradient(
-        ellipse 90% 70% at 50% 45%,
-        rgba(115, 82, 32, 0.25) 0%,
-        rgba(65, 45, 20, 0.14) 45%,
-        rgba(20, 18, 14, 0.05) 75%,
-        transparent 100%
-      ),
-
-      /* 4. Cinematic vignette (dark edges framing the play area) */
-      radial-gradient(
-        ellipse 110% 110% at 50% 50%,
-        transparent 35%,
-        rgba(0, 0, 0, 0.85) 100%
-      );
-
-    background-blend-mode: overlay, normal, normal, normal;
+      /* 2. top spotlight glow (unchanged) */
+      radial-gradient(ellipse 80% 50% at 50% -5%, rgba(234, 179, 8, 0.24) 0%, rgba(180, 110, 15, 0.10) 45%, transparent 75%),
+      /* 3. single top-to-bottom fade, full-bleed — replaces the old symmetric vignette */
+      linear-gradient(to bottom, rgba(20, 18, 14, 0) 0%, rgba(14, 12, 10, 0.55) 55%, rgba(5, 4, 3, 0.93) 100%);
+    background-size: 200px 200px, cover, cover;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-blend-mode: overlay, normal, normal;
   }
 }

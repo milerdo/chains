@@ -4,6 +4,7 @@ import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
 import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
+import { DIGIT_COLORS } from '../utils/digitColors';
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
@@ -275,18 +276,20 @@ interface BettingPanelProps {
         <div className="mt-2 flex items-center justify-center gap-2">
           {digits.map((digit, i) => {
             const isFocused = editTarget?.kind === 'digit' && editTarget.index === i;
+            const filled = digit !== null;
             return (
               <button
                 key={i}
                 type="button"
                 onClick={() => focusDigitSlot(i)}
                 disabled={locked}
+                style={filled && !isFocused ? { backgroundColor: `${DIGIT_COLORS[digit]}33`, borderColor: DIGIT_COLORS[digit] } : undefined}
                 className={[
                   'flex h-11 w-11 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
                   isFocused
                     ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
-                    : digit !== null
-                      ? 'border-white/15 bg-white/[0.04] text-white'
+                    : filled
+                      ? 'text-white'
                       : 'border-dashed border-white/15 text-white/25',
                 ].join(' ')}
               >
@@ -509,19 +512,21 @@ interface JackpotSlotProps {
 }
 
 function JackpotSlot({ value, focused, disabled, onClick, small }: JackpotSlotProps) {
+  const filled = value !== null;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      style={filled && !focused ? { backgroundColor: `${DIGIT_COLORS[value]}33`, borderColor: DIGIT_COLORS[value] } : undefined}
       className={[
         small
           ? 'flex h-8 w-8 items-center justify-center rounded-lg border font-mono text-sm font-bold tabular-nums transition'
           : 'flex h-12 w-12 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition',
         focused
           ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
-          : value !== null
-            ? 'border-[#eab308]/30 bg-white/[0.04] text-white'
+          : filled
+            ? 'text-white'
             : 'border-dashed border-white/15 text-white/25',
       ].join(' ')}
     >
@@ -551,7 +556,8 @@ function DigitPad({ active, onPress }: DigitPadProps) {
           type="button"
           onClick={() => onPress(digit)}
           disabled={!active}
-          className="flex h-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-base font-semibold tabular-nums text-white/80 transition hover:border-[#eab308]/50 hover:bg-[#eab308]/10 hover:text-[#eab308] active:scale-95"
+          style={{ backgroundColor: `${DIGIT_COLORS[digit]}26`, borderColor: `${DIGIT_COLORS[digit]}80` }}
+          className="flex h-10 items-center justify-center rounded-lg border font-mono text-base font-semibold tabular-nums text-white transition hover:brightness-125 active:scale-95"
         >
           {digit}
         </button>
