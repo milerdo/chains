@@ -42,8 +42,8 @@ interface BettingPanelProps {
 
 }
 
-  export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProps) {  const { placeBet, phase, balance, currentJackpotSequence } = useGame();
-
+export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProps) {
+  const { placeBet, phase, balance, currentJackpotSequence, hasBetThisRound } = useGame();
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
   const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>(currentJackpotSequence);
   const [isCombo, setIsCombo] = useState(false);
@@ -51,14 +51,6 @@ interface BettingPanelProps {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [autoBetRounds, setAutoBetRounds] = useState(DEFAULT_AUTO_BET_ROUNDS);
   const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
-  // Locks the form the instant a bet is successfully submitted, until the
-  // NEXT betting round opens. Fixes the bug where hitting Clear after a
-  // successful submit let the player keep re-building and re-submitting
-  // bets in the same round, past the 3-ticket-per-sequence cap (the cap
-  // itself was always enforced correctly — nothing stopped the player from
-  // just submitting several separate bets before it kicked in).
-  const [hasBetThisRound, setHasBetThisRound] = useState(false);
-
   const autoBetActive = autoBet !== null;
   const prevPhaseRef = useRef<GamePhase>(phase);
 
@@ -85,7 +77,6 @@ interface BettingPanelProps {
     prevPhaseRef.current = phase;
 
     if (enteredBettingOpen) {
-      setHasBetThisRound(false);
     }
 
     if (!enteredBettingOpen || !autoBet) return;
@@ -208,9 +199,6 @@ interface BettingPanelProps {
       playUiClick();
       setFeedback({ type: 'success', message: result.message });
       setEditTarget(null);
-      // Locks the form for the rest of this round — see hasBetThisRound
-      // comment above for why this is required.
-      setHasBetThisRound(true);
     } else {
       setFeedback({ type: 'error', message: result.message });
     }
@@ -226,7 +214,6 @@ interface BettingPanelProps {
     }
     playUiClick();
     setEditTarget(null);
-    setHasBetThisRound(true);
     const roundsRemaining = autoBetRounds - 1;
     setFeedback({
       type: 'success',

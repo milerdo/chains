@@ -103,6 +103,7 @@ export interface UseGameValue {
   simulatedActivity: SimulatedActivity;
   forcedQueue: number[];
   jackpotCelebration: { ticketId: string; tier: JackpotTierName; amount: number } | null;
+  hasBetThisRound: boolean;
   dismissJackpotCelebration: () => void;
 
   placeBet: (request: BetRequest) => PlaceBetResult;
@@ -367,7 +368,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [game]);
 
-  const placeBet = useCallback((request: BetRequest) => game.placeBet(request), [game]);
+  const [hasBetThisRound, setHasBetThisRound] = useState(false);
+
+  useEffect(() => {
+    if (gameState.phase === 'BETTING_OPEN') setHasBetThisRound(false);
+  }, [gameState.phase]);
+
+  const placeBet = useCallback(
+    (request: BetRequest) => {
+      const result = game.placeBet(request);
+      if (result.success) setHasBetThisRound(true);
+      return result;
+    },
+    [game],
+  );
   const forceNextDraw = useCallback((digit: number) => game.forceNextDraw(digit), [game]);
   const forceDrawSequence = useCallback((digits: number[]) => game.forceDrawSequence(digits), [game]);
   const clearForcedDraws = useCallback(() => game.clearForcedDraws(), [game]);
@@ -447,6 +461,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       resetBalance,
       simulateJackpotWin,
       createSimulatedTicket,
+      hasBetThisRound
     }),
     [
       gameState,
