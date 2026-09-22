@@ -20,21 +20,16 @@ import { EmojiChat } from './components/EmojiChat';
 import { HelpModal } from './components/HelpModal';
 import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
+import { MobileFooter } from './components/MobileFooter';
 import type { GamePhase } from './game/types';
-
-type MobileTab = 'BET' | 'TABLE' | 'TICKETS';
-
-function phaseDefaultTab(phase: GamePhase): MobileTab {
-  return phase === 'BETTING_OPEN' ? 'BET' : 'TABLE';
-}
-
 import { useMediaQuery } from './hooks/useMediaQuery';
 
 function AppShell() {
   const { activeTickets, phase } = useGame();
   const [helpOpen, setHelpOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>(() => phaseDefaultTab(phase));
   const prevPhaseRef = useRef<GamePhase>(phase);
+  const betPanelRef = useRef<HTMLDivElement>(null);
+  const tablePanelRef = useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
   const [bettingLocked, setBettingLocked] = useState(false);
   const [autoBetInfo, setAutoBetInfo] = useState<{
@@ -46,7 +41,8 @@ function AppShell() {
   useEffect(() => {
     if (phase !== prevPhaseRef.current) {
       prevPhaseRef.current = phase;
-      setMobileTab(phaseDefaultTab(phase));
+      const target = phase === 'BETTING_OPEN' ? betPanelRef.current : tablePanelRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
     }
   }, [phase]);
 
@@ -97,55 +93,27 @@ function AppShell() {
         </div>
       </main>
 
-      {/* Mobile/tablet: tabbed cabinet */}
+      {/* Mobile/tablet: swipeable cabinet (BET / TABLE / LINKS), scroll-snap */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {mobileTab === 'BET' && <BettingPanel />}
-          {mobileTab === 'TABLE' && (
-        <div className="flex flex-col gap-3">
-          <JackpotPanel />
-          {!isDesktop && <Wheel />}
+        <div className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden">
+          <div ref={betPanelRef} className="min-h-0 w-full shrink-0 snap-start overflow-y-auto px-4 py-4">
+            <BettingPanel />
+          </div>
+          <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-3 overflow-y-auto px-4 py-4">
+            <JackpotPanel />
+            {!isDesktop && <Wheel />}
+          </div>
+          <div className="min-h-0 w-full shrink-0 snap-start overflow-y-auto px-4 py-4">
+            <TicketDrawer tickets={activeTickets} />
+          </div>
         </div>
-      )}
-          {mobileTab === 'TICKETS' && (
-            <div className="flex flex-col gap-4">
-              <TicketDrawer tickets={activeTickets} />
-              <div className="flex h-[420px] flex-col">
-                <EmojiChat />
-              </div>
-            </div>
-          )}
-        </div>
-        <nav className="flex border-t border-white/10 bg-[#141414]">
-          <MobileTabButton label="Bet" active={mobileTab === 'BET'} onClick={() => setMobileTab('BET')} />
-          <MobileTabButton label="Table" active={mobileTab === 'TABLE'} onClick={() => setMobileTab('TABLE')} />
-          <MobileTabButton
-            label={`Links${activeTickets.length > 0 ? ` (${activeTickets.length})` : ''}`}
-            active={mobileTab === 'TICKETS'}
-            onClick={() => setMobileTab('TICKETS')}
-          />
-        </nav>
+        <MobileFooter onOpenHelp={() => setHelpOpen(true)} />
       </main>
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
       <DemoPanel />
       <JackpotCelebration />
     </div>
-  );
-}
-
-function MobileTabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex-1 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.15em] transition',
-        active ? 'text-[#eab308]' : 'text-white/40',
-      ].join(' ')}
-    >
-      {label}
-    </button>
   );
 }
 
