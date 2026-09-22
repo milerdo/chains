@@ -1,19 +1,14 @@
-// ============================================================================
-// CHAINS — TicketCard + TicketDrawer
-// Renders a single ticket's live progress (base sequence -> jackpot
-// qualification -> resolution) and a collapsible drawer listing every
-// active ticket. Purely presentational: every value here is read straight
-// off the Ticket object the engine produces, never recomputed.
-// ============================================================================
-
 import { useState } from 'react';
 import type { Ticket, TicketStatus } from '../game/types';
 import { formatSignedCurrency } from '../utils/format';
 import { LinkChain } from './ChainLinks';
 
+// WAITING/ACTIVE get no label at all now — the chain circles already show
+// live progress. Non-empty labels only for states that add information the
+// chain can't (a resolved outcome, or "you're in qualification now").
 const STATUS_META: Record<TicketStatus, { label: string; tone: string }> = {
-  WAITING: { label: 'ACTIVE', tone: 'text-[#eab308]' },
-  ACTIVE: { label: 'ACTIVE', tone: 'text-[#eab308]' },
+  WAITING: { label: '', tone: '' },
+  ACTIVE: { label: '', tone: '' },
   LOST: { label: 'LOSS', tone: 'text-red-400' },
   BASE_WON: { label: 'JACKPOT QUALIFICATION', tone: 'text-emerald-400' },
   JACKPOT_STEP_1: { label: 'JACKPOT QUALIFICATION', tone: 'text-emerald-400' },
@@ -32,7 +27,7 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
     <div
       className={[
-        'rounded-2xl border p-3.5 transition-colors duration-300',
+        'flex h-full min-h-0 flex-col justify-center gap-1 rounded-2xl border px-3.5 py-2 transition-colors duration-300',
         isJackpotWon
           ? 'border-[#eab308] bg-[#eab308]/[0.08] shadow-[0_0_28px_-6px_rgba(234,179,8,0.55)]'
           : isLost
@@ -42,48 +37,25 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
               : 'border-white/[0.08] bg-white/[0.02]',
       ].join(' ')}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {(ticket.status === 'WAITING' || ticket.status === 'ACTIVE') && (
-           <span className="font-mono text-[10px] text-white/35">
-            STEP {ticket.baseProgress}/{ticket.baseSequence.length}
-          </span>
-          )}
-        </div>
-        <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.2em] ${meta.tone}`}>
+      {meta.label && (
+        <span className={`self-end font-mono text-[10px] font-semibold uppercase tracking-[0.2em] ${meta.tone}`}>
           {meta.label}
         </span>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <LinkChain ticket={ticket} size="sm" />
+        {ticket.baseWinAmount !== null && (
+          <span
+            className={[
+              'shrink-0 font-mono text-xs font-bold tabular-nums',
+              isJackpotWon ? 'text-[#eab308]' : 'text-emerald-300',
+            ].join(' ')}
+          >
+            {formatSignedCurrency(isJackpotWon && ticket.jackpotWinAmount !== null ? ticket.jackpotWinAmount : ticket.baseWinAmount)}
+          </span>
+        )}
       </div>
-
-      <div className="mt-2.5">
-        <LinkChain ticket={ticket} size="md" />
-      </div>
-
-      {(ticket.baseWinAmount !== null) && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-400/10 px-2.5 py-1.5">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-300">
-            Base Win Locked
-          </span>
-          <span className="font-mono text-xs font-bold tabular-nums text-emerald-300">
-            {formatSignedCurrency(ticket.baseWinAmount)}
-          </span>
-        </div>
-      )}
-
-      {isJackpotWon && ticket.jackpotWinAmount !== null && (
-        <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-[#eab308]/15 px-2.5 py-1.5">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308]">
-            {ticket.jackpotTier} JACKPOT
-          </span>
-          <span className="font-mono text-xs font-bold tabular-nums text-[#eab308]">
-            {formatSignedCurrency(ticket.jackpotWinAmount)}
-          </span>
-        </div>
-      )}
-
-      {isLost && (
-        <p className="mt-2.5 font-mono text-[10px] text-red-300/70">Sequence broken — link closed.</p>
-      )}
     </div>
   );
 }
@@ -93,28 +65,28 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
 
   return (
     <section
-      aria-label="Your active links"
-      className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
+      aria-label="Active links"
+      className="flex h-full min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
-      <button
-        type="button"
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex w-full items-center justify-between"
-      >
+      <button type="button" onClick={() => setCollapsed((c) => !c)} className="flex w-full shrink-0 items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
-          Your Links{tickets.length > 0 ? ` (${tickets.length})` : ''}
+          Active Links{tickets.length > 0 ? ` (${tickets.length})` : ''}
         </span>
         <span className={`text-white/40 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}>▾</span>
       </button>
 
       {!collapsed && (
-        <div className="mt-3.5 flex flex-col gap-2.5">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2">
           {tickets.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
               No active links. Place a bet during the next betting window.
             </p>
           ) : (
-            tickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} />)
+            tickets.map((ticket) => (
+              <div key={ticket.id} className="min-h-0 flex-1">
+                <TicketCard ticket={ticket} />
+              </div>
+            ))
           )}
         </div>
       )}

@@ -399,6 +399,67 @@ forgotten):**
 - Possible remaining polish items on chain-circle sizing/spacing at `xs` size
   in the footer strip on very narrow viewports — not yet tested below ~360px.
 
+## 15. Patterns established this session (Active Links redesign, wheel texture, mobile fixes)
+
+**Link digit color now matches the wheel/digit-pad palette.** `ChainCircle`
+in `ChainLinks.tsx` pulls its background tint from `DIGIT_COLORS` (the same
+shared array `Wheel.tsx` and `BettingPanel.tsx`'s digit pad already used) at
+every progress state — state (pending/current/matched/failed) is expressed
+via border color + glow/pulse only, never by overriding the digit's own
+color. Any future circle/chip UI showing a digit should follow this same
+split (identity color = fill, progress state = border) rather than
+reinventing a separate palette.
+
+**"Active Links" fits without scrolling by design, not by accident.**
+`TicketDrawer`'s card list is a `flex flex-col` container where each
+`TicketCard` sits in a `min-h-0 flex-1` wrapper — this is what makes up to
+~8 concurrent links (the realistic max under the existing 3-per-sequence /
+3-tier concurrency rules) divide the available vertical space evenly with
+no scrollbar, and degrade to thinner rows rather than breaking past 8. Do
+not reintroduce a fixed card height + `overflow-y-auto` here; that was the
+pre-redesign approach and is exactly what this was built to replace. The
+outer `overflow-hidden` wrappers in `App.tsx` (both the desktop swap area
+and the mobile links panel) are required for this to actually reach full
+height — if you add a new sibling above/below `TicketDrawer` in either of
+those containers, make sure it doesn't reintroduce a forced scroll.
+
+**Jackpot-strip-vs-inline was tried both ways this session; inline won.**
+A once-per-round shared jackpot readout (rendered once above the card
+list) was built and then explicitly reverted once the 8-card layout freed
+up enough per-card width — see the IMPLEMENTATION LOG entry. `LinkChain`'s
+`showJackpot` prop and its `flex flex-wrap` fallback exist specifically so
+each card can independently drop jackpot digits to a second line on the
+rare narrow-card case, rather than overflowing. Do not re-derive a shared
+strip without confirming first — it's a deliberate reversal, not something
+that was simply never built.
+
+**Wheel texture is intentionally two SEPARATE fixed (non-rotating) layers,
+not wedge-level.** (1) A brushed-metal rim ring using an SVG
+`feTurbulence`+`feColorMatrix` filter, stroked between `RIM_OUTER_R` and
+`RIM_INNER_R`. (2) A full-disc specular sheen — a single low-opacity
+(~0.14 peak) wide radial-gradient circle at `r={RIM_INNER_R}`, placed
+directly after the rotating `<g>` closes so it overlays the spinning disc
+without itself rotating. A smaller/offset specular ellipse was tried first
+and explicitly rejected as looking like a UI glow rather than ambient
+light — do not shrink the specular layer back down. Wedge-level texture
+(noise on the individual color fills) was discussed and deliberately
+deferred as a lower-priority/higher-risk follow-up, not forgotten.
+
+**Flapper is now smaller/thinner/darker — this is the approved final
+look**, not a placeholder. Gradient stops are gunmetal (light gray -> mid
+gray -> near-black), down from a prior near-white/steel palette. Follow
+the existing per-instance `flapperGrad-${uid}` id-suffixing rule (Section 3)
+if this is ever touched again.
+
+**Mobile now shows balance (via `GameHeader`, `lg:hidden`) and the table
+chat sheet opens to a real `80dvh` flex-column height with safe-area
+bottom padding** — both were gaps found by hands-on mobile testing, not
+spec omissions. If any future bottom-sheet-style mobile overlay is added,
+follow the same `h-[80dvh] flex flex-col overflow-hidden` +
+`pb-[env(safe-area-inset-bottom,0px)]` pattern rather than a bare
+`max-h-*` block.
+
+
 ## Final principle
 
 Preserve the CHAINS concept.

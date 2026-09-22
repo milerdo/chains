@@ -1,12 +1,4 @@
-// ============================================================================
-// CHAINS — ChainLinks
-// Shared "chain of circles" visual: base sequence + jackpot sequence as one
-// continuous connected chain. Circles turn green as each digit matches;
-// gold + pulsing on the current step; red on failure. Jackpot combination
-// is always shown (grayed until qualification starts), not just on win.
-// Used by TicketCard (full size) and MobileFooter (compact strip).
-// ============================================================================
-
+import { DIGIT_COLORS } from '../utils/digitColors';
 import type { Ticket } from '../game/types';
 
 type CircleState = 'pending' | 'matched' | 'failed' | 'current';
@@ -26,11 +18,28 @@ function jackpotCircleState(ticket: Ticket, index: number): CircleState {
   return 'pending';
 }
 
-const STYLES: Record<CircleState, string> = {
-  matched: 'border-emerald-400 bg-emerald-400/20 text-emerald-300',
-  failed: 'border-red-400 bg-red-400/15 text-red-300',
-  current: 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.18)] animate-pulse',
-  pending: 'border-white/15 bg-white/[0.03] text-white/40',
+/** Background stays tinted to the digit's own wheel color at every state
+ * (that's the "match the wheel" identity); border/ring carries the
+ * match-progress signal (pending/current/matched/failed) on top of it. */
+function circleColors(digit: number, state: CircleState): { bg: string; border: string } {
+  const c = DIGIT_COLORS[digit];
+  switch (state) {
+    case 'matched':
+      return { bg: `${c}40`, border: '#34d399' };
+    case 'failed':
+      return { bg: `${c}20`, border: '#f87171' };
+    case 'current':
+      return { bg: `${c}40`, border: '#eab308' };
+    default:
+      return { bg: `${c}1a`, border: `${c}66` };
+  }
+}
+
+const TEXT: Record<CircleState, string> = {
+  matched: 'text-white',
+  failed: 'text-red-100',
+  current: 'text-white',
+  pending: 'text-white/55',
 };
 
 interface CircleProps {
@@ -41,12 +50,15 @@ interface CircleProps {
 
 export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
   const dims = size === 'xs' ? 'h-5 w-5 text-[10px]' : size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
+  const { bg, border } = circleColors(digit, state);
   return (
     <span
+      style={{ backgroundColor: bg, borderColor: border }}
       className={[
         'flex shrink-0 items-center justify-center rounded-full border font-mono font-bold tabular-nums transition-colors',
         dims,
-        STYLES[state],
+        state === 'current' ? 'shadow-[0_0_0_3px_rgba(234,179,8,0.18)] animate-pulse' : '',
+        TEXT[state],
       ].join(' ')}
     >
       {digit}
@@ -62,7 +74,10 @@ function Link({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
 interface LinkChainProps {
   ticket: Ticket;
   size?: 'xs' | 'sm' | 'md';
-  /** Omit jackpot digits entirely for very tight spaces. Default true. */
+  /** Whether to render the jackpot digits inline on this chain at all.
+   * Default true for backward compat (mobile footer strip); TicketCard
+   * now passes this explicitly only for qualifying/resolved-jackpot
+   * tickets, since the round's jackpot combo is shown once elsewhere. */
   showJackpot?: boolean;
 }
 

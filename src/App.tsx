@@ -82,9 +82,9 @@ function AppShell() {
               <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
             </div>
             {bettingLocked && (
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <TicketDrawer tickets={activeTickets} />
-              </div>
+             </div>
             )}
           </div>
         </div>
@@ -100,7 +100,7 @@ function AppShell() {
             <JackpotPanel />
             {!isDesktop && <Wheel />}
           </div>
-          <div className="min-h-0 w-full shrink-0 snap-start overflow-y-auto px-4 py-4">
+          <div className="flex min-h-0 w-full shrink-0 snap-start flex-col overflow-hidden px-4 py-4">
             <TicketDrawer tickets={activeTickets} />
           </div>
         </div>

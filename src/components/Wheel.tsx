@@ -298,16 +298,36 @@ export function Wheel() {
                 <stop offset="100%" stopColor="#6b4f10" />
               </radialGradient>
               <radialGradient id={`flapperGrad-${uid}`} cx="35%" cy="25%" r="80%">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="55%" stopColor="#d6dbe3" />
-              <stop offset="100%" stopColor="#3a3f47" />
+                <stop offset="0%" stopColor="#c7ccd3" />
+                <stop offset="55%" stopColor="#6b7280" />
+                <stop offset="100%" stopColor="#1f2328" />
+              </radialGradient>
+             <radialGradient id={`specularGrad-${uid}`} cx="42%" cy="30%" r="85%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+              <stop offset="55%" stopColor="#ffffff" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
             </radialGradient>
+              <filter id={`rimNoise-${uid}`}>
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves={2} stitchTiles="stitch" result="noise" />
+                <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.5  0 0 0 0.07 0" />
+              </filter>
             </defs>
 
             {/* Fixed outer frame — never rotates */}
             <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} />
             <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
-
+            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} />
+            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
+            <circle
+              cx={CX}
+              cy={CY}
+              r={(RIM_OUTER_R + RIM_INNER_R) / 2}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth={RIM_OUTER_R - RIM_INNER_R + 4}
+              filter={`url(#rimNoise-${uid})`}
+              opacity={0.55}
+            />
             {/* Fixed rivets */}
             {Array.from({ length: RIVET_COUNT }, (_, i) => {
               const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
@@ -391,6 +411,7 @@ export function Wheel() {
               {/* Hub */}
                <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
             </g>
+            <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#specularGrad-${uid})`} />
 
             {/* Fixed pivot + flapper — always at top, never orbits. Tip
                 reaches exactly to the peg ring so it visually makes
@@ -405,12 +426,12 @@ export function Wheel() {
               }}
             >
               <path
-                d={`M${CX - 7},14 Q${CX - 11},31 ${CX - 3},43 Q${CX},47 ${CX + 3},43 Q${CX + 11},31 ${CX + 7},14 Q${CX},10 ${CX - 7},14 Z`}
+                d={`M${CX - 5},15 Q${CX - 8},29 ${CX - 2},40 Q${CX},43 ${CX + 2},40 Q${CX + 8},29 ${CX + 5},15 Q${CX},12 ${CX - 5},15 Z`}
                 fill={`url(#flapperGrad-${uid})`}
-                stroke="#1f2937"
-                strokeWidth={1.5}
+                stroke="#14171b"
+                strokeWidth={1.2}
               />
-              <path d={`M${CX},16 L${CX},41`} stroke="#1f2937" strokeWidth={1} strokeLinecap="round" opacity={0.45} />
+              <path d={`M${CX},17 L${CX},38`} stroke="#14171b" strokeWidth={0.75} strokeLinecap="round" opacity={0.4} />
             </g>
 
             <style>{`
