@@ -326,6 +326,79 @@ unwired from any button. `MultiplayerSim.tsx` remains an intentionally
 unmounted, unreferenced file — do not wire it in; the recent-digits strip
 under the Wheel was judged sufficient "live table" signal on its own.
 
+
+## 14. Patterns established this session (chain-circle UI, mobile footer, dual-mount bet lock)
+
+**Active Links redesigned as a connected chain of circles, not chip rows.**
+New file `src/components/ChainLinks.tsx` exports `ChainCircle` (single circle,
+states: `pending` / `matched` / `failed` / `current`) and `LinkChain` (renders
+a ticket's full base sequence + jackpot sequence as ONE continuous chain,
+divided by a small "JP" label). Jackpot digits are now ALWAYS visible in the
+chain (grayed/pending before qualification starts), not just shown once
+qualification begins — this is a deliberate spec extension beyond Section 9/14,
+approved this session. `Ticket.tsx`'s old `DigitChip`/`baseChipState`/
+`jackpotChipState`/`CheckMark`/`CrossMark` were deleted (replaced by
+`LinkChain`) — do not recreate them; extend `ChainLinks.tsx` instead if the
+chain visual needs new states.
+
+**`ChainLinks.tsx` is now the single source of truth for link-progress
+visuals** — used by both `TicketCard` (desktop drawer, `size="md"`) and
+`MobileFooter` (sticky footer strip, `size="xs"`, per CLAUDE.md "no duplicate
+components" rule). Any future surface showing link progress (e.g. a future
+history view) should reuse `LinkChain`, not reimplement chip rendering.
+
+**Mobile bottom nav replaced.** The old BET/TABLE/LINKS tab bar (non-functional
+per user report) is gone. `App.tsx`'s mobile `<main>` is now three full-width
+snap-scroll panels (`overflow-x-auto snap-x snap-mandatory`, refs
+`betPanelRef`/`tablePanelRef`) instead of conditionally-rendered tab content.
+Phase changes now `scrollIntoView` the relevant panel (BETTING_OPEN -> bet
+panel, anything else -> table panel) instead of setting tab state. New file
+`src/components/MobileFooter.tsx` is a sticky bar with: sound toggle (left),
+help button (left), a live horizontal-scroll strip of `LinkChain` (`size="xs"`)
+for every active ticket (center), and a chat button (right) that opens
+`EmojiChat` in a slide-up sheet. `EmojiChat.tsx` itself is unchanged — it's
+just rendered inside a modal wrapper now on mobile, still rendered directly in
+the desktop left column as before (two render sites, same component, same
+localStorage-backed state — this is fine, `EmojiChat` has no per-instance lock
+state unlike `BettingPanel`, see next entry).
+
+**No page-dot / progress indicator added yet for the 3 swipeable mobile
+panels** — flagged as a known gap, not forgotten.
+
+**Fixed: desktop + mobile could each place an independent bet in the same
+round.** Root cause: `App.tsx`'s desktop and mobile `<main>` blocks are BOTH
+always mounted (Tailwind `hidden`/`lg:hidden` is visibility-only, same
+dual-mount trap `<Wheel />` already had per Section 3/13's original entry) —
+so the desktop and mobile `<BettingPanel>` were two separate component
+instances, each with its own local `hasBetThisRound` state. Fixed by lifting
+the lock into `useGame.ts`: `hasBetThisRound` is now engine-round-scoped
+state inside `GameProvider` (reset via a `useEffect` keyed on
+`gameState.phase === 'BETTING_OPEN'`, set by the `placeBet` wrapper on
+success), exposed on `UseGameValue`, and consumed by `BettingPanel` instead
+of a local `useState`. **`autoBet` is still per-instance** (desktop-only,
+unchanged from the existing "only wired to desktop `BettingPanel`" design) —
+same class of risk, smaller blast radius, explicitly NOT fixed this session,
+pending a decision on whether Auto Bet should also become instance-shared or
+stay desktop-exclusive by design.
+
+**Fixed: flapper double-click ("pinball") on landing.** `Wheel.tsx`'s `land()`
+previously called `fireFlapperClick()` unconditionally right after the final
+approach-step's own boundary-crossing click had already fired moments
+earlier, producing two rapid clicks read as a bounce. Removed the
+`fireFlapperClick()` call from `land()` — `playDrawSettle()` alone now
+carries the landing sound; the mechanical ticking during approach is still
+handled entirely by the boundary-crossing clicks in the step loop (unchanged).
+If a "pinball" feel reappears, look at the step loop's `t < 1` guard and
+`digitAtSpinAngle` boundary math (Section 13's original entry) before
+re-adding a click here — do not add a second click back to `land()`.
+
+**Open/minor issues carried into next session (explicitly deferred, not
+forgotten):**
+- `autoBet` per-instance desktop/mobile inconsistency (see above).
+- No swipe-position indicator on mobile's 3 panels.
+- Possible remaining polish items on chain-circle sizing/spacing at `xs` size
+  in the footer strip on very narrow viewports — not yet tested below ~360px.
+
 ## Final principle
 
 Preserve the CHAINS concept.
