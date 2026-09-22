@@ -194,7 +194,6 @@ export function Wheel() {
       setDisplayRotation(finalAngle);
       setCurrentDigit(targetDigit);
       setJustLanded(true);
-      fireFlapperClick();
       playDrawSettle();
       reportWheelLanded(); // see section 2 below
       window.setTimeout(() => setJustLanded(false), 650);
