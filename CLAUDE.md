@@ -176,7 +176,7 @@ Use a realistic mechanical 0–9 wheel with:
 - Physical-looking movement.
 - Clear final digit.
 
-Keep animation timing configurable (`DRAW_ANIMATION_DURATION` in `constants.ts`; currently 9.5s — increased from the original 8s per demo feedback, betting duration unchanged). SVG render size increased to 340×340 (was 260×260) for visual presence — geometry/viewBox math is untouched, only the rendered `width`/`height`.
+Keep animation timing configurable (`DRAW_ANIMATION_DURATION` in `constants.ts`; currently 5s , betting duration unchanged). SVG render size increased to 340×340 (was 260×260) for visual presence — geometry/viewBox math is untouched, only the rendered `width`/`height`.
 
 Do not spend excessive tokens on visual polish before the game is functional.
 

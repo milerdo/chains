@@ -298,10 +298,10 @@ export function Wheel() {
                 <stop offset="100%" stopColor="#6b4f10" />
               </radialGradient>
               <radialGradient id={`flapperGrad-${uid}`} cx="35%" cy="25%" r="80%">
-+              <stop offset="0%" stopColor="#ffffff" />
-+              <stop offset="55%" stopColor="#d6dbe3" />
-+              <stop offset="100%" stopColor="#3a3f47" />
-+            </radialGradient>
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="55%" stopColor="#d6dbe3" />
+              <stop offset="100%" stopColor="#3a3f47" />
+            </radialGradient>
             </defs>
 
             {/* Fixed outer frame — never rotates */}

@@ -61,8 +61,8 @@ function AppShell() {
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex shrink-0 justify-center">
-+              <ChainsMark />
-+            </div>
+              <ChainsMark />
+            </div>
             <JackpotPanel />
             {isDesktop && <Wheel />}
           </div>
