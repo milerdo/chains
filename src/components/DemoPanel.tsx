@@ -55,7 +55,7 @@ export function DemoPanel() {
   const handleClearForced = withClick(clearForcedDraws);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40">
+    <div className="fixed inset-x-0 z-40 bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-0">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <button
           type="button"

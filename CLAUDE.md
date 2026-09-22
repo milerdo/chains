@@ -459,6 +459,18 @@ follow the same `h-[80dvh] flex flex-col overflow-hidden` +
 `pb-[env(safe-area-inset-bottom,0px)]` pattern rather than a bare
 `max-h-*` block.
 
+**MobileFooter / DemoPanel
+- Fixed `DemoPanel` overlapping `MobileFooter` on mobile and intercepting footer taps.
+- `DemoPanel` now sits above the mobile footer and returns to `bottom-0` on `lg+`.
+- Increased mobile footer button hit targets from 36px to 44px.
+- Added safe-area bottom padding for mobile devices.
+
+**Table Chat
+- Fixed chat sheet layout so `EmojiChat` has a properly bounded flex container.
+- Message list now scrolls within the available space while emoji controls and input remain pinned/reachable.
+- Increased chat dialog z-index to `z-[55]` so it sits above normal modals but below jackpot celebration overlays.
+- No changes were required to `EmojiChat.tsx`.
+
 
 ## Final principle
 

@@ -33,73 +33,78 @@ export function MobileFooter({ onOpenHelp }: MobileFooterProps) {
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2 border-t border-white/10 bg-[#141414] px-2 py-2">
-        <button
-          type="button"
-          onClick={handleToggleSound}
-          aria-label={soundOn ? 'Mute sound' : 'Unmute sound'}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70"
-        >
-          {soundOn ? '🔊' : '🔇'}
-        </button>
-        <button
-          type="button"
-          onClick={handleOpenHelp}
-          aria-label="How to play"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-sm font-semibold text-white/70"
-        >
-          ?
-        </button>
+      <div className="flex shrink-0 items-center gap-2 border-t border-white/10 bg-[#141414] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] pt-2">
+  <button
+    type="button"
+    onClick={handleToggleSound}
+    aria-label={soundOn ? 'Mute sound' : 'Unmute sound'}
+    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70"
+  >
+    {soundOn ? '🔊' : '🔇'}
+  </button>
+  <button
+    type="button"
+    onClick={handleOpenHelp}
+    aria-label="How to play"
+    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-sm font-semibold text-white/70"
+  >
+    ?
+  </button>
 
         <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto pl-1">
-          {activeTickets.length === 0 ? (
+            {activeTickets.length === 0 ? (
             <span className="font-mono text-[10px] text-white/25">No active links</span>
-          ) : (
+            ) : (
             activeTickets.map((ticket) => (
-              <div key={ticket.id} className="shrink-0">
+                <div key={ticket.id} className="shrink-0">
                 <LinkChain ticket={ticket} size="xs" />
-              </div>
+                </div>
             ))
-          )}
+            )}
         </div>
 
         <button
-          type="button"
-          onClick={() => {
+            type="button"
+            onClick={() => {
             playUiClick();
             setChatOpen(true);
-          }}
-          aria-label="Open table chat"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eab308]/40 bg-[#eab308]/10 text-[#eab308]"
+            }}
+            aria-label="Open table chat"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#eab308]/40 bg-[#eab308]/10 text-[#eab308]"
         >
-          💬
+            💬
         </button>
-      </div>
+        </div>
 
-     {chatOpen && (
+        {chatOpen && (
         <div
-            className="fixed inset-0 z-50 flex items-end bg-black/60"
+            className="fixed inset-0 z-[55] flex items-end bg-black/60"
             role="dialog"
             aria-modal="true"
             aria-label="Table chat"
             onClick={() => setChatOpen(false)}
         >
-            <div
+        <div
             className="flex h-[80dvh] max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#141414] pb-[env(safe-area-inset-bottom,0px)]"
             onClick={(e) => e.stopPropagation()}
-            >
-            <div className="flex shrink-0 items-center justify-between px-4 py-3">
-                <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white/60">Table Chat</span>
-                <button type="button" onClick={() => setChatOpen(false)} aria-label="Close" className="text-white/50">
-                ✕
-                </button>
-            </div>
-            <div className="min-h-0 flex-1 px-3 pb-3">
-                <EmojiChat />
-            </div>
-            </div>
+        >
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+        <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white/60">Table Chat</span>
+        <button
+            type="button"
+            onClick={() => setChatOpen(false)}
+            aria-label="Close"
+            className="flex h-9 w-9 items-center justify-center text-white/50"
+        >
+         ✕
+        </button>
         </div>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
+            <EmojiChat />
+        </div>
+       </div>
+      </div>
+     )}
     </>
   );
 }
