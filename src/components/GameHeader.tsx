@@ -6,11 +6,18 @@
 // CHAINS wordmark lives inside the app now (see App.tsx's ChainsBadge).
 // ============================================================================
 
+import { useGame } from '../hooks/useGame';
+import { Balance } from './Balance';
+
 export function GameHeader() {
+  const { balance } = useGame();
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#121212]/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <HostMark />
+        <div className="lg:hidden">
+          <Balance balance={balance} />
+        </div>
       </div>
     </header>
   );

@@ -472,7 +472,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
                   : 'cursor-not-allowed bg-white/[0.06] text-white/25',
               ].join(' ')}
             >
-              {isCombo ? 'Confirm Combo' : 'Place Bet'}
+              {isCombo ? 'Confirm Combo Bet' : 'Place Bet'}
             </button>
           </div>
         )}

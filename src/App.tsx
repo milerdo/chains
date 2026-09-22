@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GameProvider, useGame } from './hooks/useGame';
-import { GameHeader, ChainsMark } from './components/GameHeader';
+import { GameHeader } from './components/GameHeader';
 import { LeftColumnControls } from './components/LeftColumnControls';
 import { JackpotPanel } from './components/JackpotPanel';
 import { Wheel } from './components/Wheel';
@@ -60,9 +60,6 @@ function AppShell() {
             <LeftColumnControls onOpenHelp={() => setHelpOpen(true)} />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="flex shrink-0 justify-center">
-              <ChainsMark />
-            </div>
             <JackpotPanel />
             {isDesktop && <Wheel />}
           </div>

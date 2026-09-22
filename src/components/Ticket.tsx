@@ -12,7 +12,7 @@ import { formatSignedCurrency } from '../utils/format';
 import { LinkChain } from './ChainLinks';
 
 const STATUS_META: Record<TicketStatus, { label: string; tone: string }> = {
-  WAITING: { label: 'QUEUED', tone: 'text-white/40' },
+  WAITING: { label: 'ACTIVE', tone: 'text-[#eab308]' },
   ACTIVE: { label: 'ACTIVE', tone: 'text-[#eab308]' },
   LOST: { label: 'LOSS', tone: 'text-red-400' },
   BASE_WON: { label: 'JACKPOT QUALIFICATION', tone: 'text-emerald-400' },
@@ -44,11 +44,10 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold tracking-[0.15em] text-white">{ticket.tier}</span>
           {(ticket.status === 'WAITING' || ticket.status === 'ACTIVE') && (
-            <span className="font-mono text-[10px] text-white/35">
-              STEP {ticket.baseProgress}/{ticket.baseSequence.length}
-            </span>
+           <span className="font-mono text-[10px] text-white/35">
+            STEP {ticket.baseProgress}/{ticket.baseSequence.length}
+          </span>
           )}
         </div>
         <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.2em] ${meta.tone}`}>

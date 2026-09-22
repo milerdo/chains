@@ -68,15 +68,17 @@ interface LinkChainProps {
 
 export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChainProps) {
   return (
-    <div className="flex items-center">
-      {ticket.baseSequence.map((digit, i) => (
-        <span key={`b-${i}`} className="flex items-center">
-          {i > 0 && <Link size={size} />}
-          <ChainCircle digit={digit} state={baseCircleState(ticket, i)} size={size} />
-        </span>
-      ))}
+    <div className="flex flex-wrap items-center gap-y-1.5">
+      <span className="flex items-center">
+        {ticket.baseSequence.map((digit, i) => (
+          <span key={`b-${i}`} className="flex items-center">
+            {i > 0 && <Link size={size} />}
+            <ChainCircle digit={digit} state={baseCircleState(ticket, i)} size={size} />
+          </span>
+        ))}
+      </span>
       {showJackpot && (
-        <>
+        <span className="flex items-center">
           <Link size={size} />
           {size !== 'xs' && (
             <span className="mx-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-white/25">JP</span>
@@ -88,7 +90,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
               <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
             </span>
           ))}
-        </>
+        </span>
       )}
     </div>
   );

@@ -76,30 +76,30 @@ export function MobileFooter({ onOpenHelp }: MobileFooterProps) {
         </button>
       </div>
 
-      {chatOpen && (
+     {chatOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/60"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Table chat"
-          onClick={() => setChatOpen(false)}
+            className="fixed inset-0 z-50 flex items-end bg-black/60"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Table chat"
+            onClick={() => setChatOpen(false)}
         >
-          <div
-            className="max-h-[75vh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#141414]"
+            <div
+            className="flex h-[80dvh] max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#141414] pb-[env(safe-area-inset-bottom,0px)]"
             onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white/60">Table Chat</span>
-              <button type="button" onClick={() => setChatOpen(false)} aria-label="Close" className="text-white/50">
+            >
+            <div className="flex shrink-0 items-center justify-between px-4 py-3">
+                <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white/60">Table Chat</span>
+                <button type="button" onClick={() => setChatOpen(false)} aria-label="Close" className="text-white/50">
                 ✕
-              </button>
+                </button>
             </div>
-            <div className="max-h-[60vh] px-3 pb-3">
-              <EmojiChat />
+            <div className="min-h-0 flex-1 px-3 pb-3">
+                <EmojiChat />
             </div>
-          </div>
+            </div>
         </div>
-      )}
+        )}
     </>
   );
 }
