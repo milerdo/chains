@@ -58,13 +58,13 @@ const TIER_META: Record<JackpotTierName, TierMeta> = {
   MIDI: {
     label: '4 IN A ROW',
     accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9]',
+    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
     ring: 'border-[#eab308]/25',
   },
   GRAND: {
     label: '5 IN A ROW',
     accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9]',
+    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
     ring: 'border-[#eab308]/25',
   },
 };
@@ -90,7 +90,7 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         </span>
         {/* Same font size/weight for MINI, MIDI, and GRAND — only the
             accent color and glow intensity differ between tiers. */}
-        <span className="mt-0.2 font-mono text-sm-1.5 font-bold tabular-nums text-white">
+        <span className="mt-1 font-mono text-sm-1 font-bold tabular-nums text-white">
           {formatCompactCurrency(animated)}
         </span>
       </div>
