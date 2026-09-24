@@ -547,17 +547,33 @@ export class ChainsGame {
     if (!request || !Array.isArray(request.selections) || request.selections.length === 0) {
       return this.betFailure('Select a tier (LOW, MEDIUM, or HIGH) before placing a bet.');
     }
-    if (request.selections.length > 1) {
+    // All selections in one request must share the same tier (Section 6's
+    // "one volatility tier per round" rule is about TIER, not selection
+    // count) — this is what lets LOW multi-pick submit N independent $1
+    // LOW selections in a single atomic request, generalized from the
+    // prior single-selection-only shape.
+    const tiers = new Set(request.selections.map((s) => s.tier));
+    if (tiers.size > 1) {
       return this.betFailure('Only one volatility tier (LOW, MEDIUM, or HIGH) may be selected per betting round.');
     }
+    const tier = request.selections[0].tier;
 
-    const [selection] = request.selections;
+    // Multi-selection requests are the LOW-multi-pick mechanic specifically
+    // — deliberately kept distinct from Combo (which permutes ONE typed
+    // sequence into possibilities). Mixing the two in one request would
+    // blur that distinction, so it's rejected explicitly rather than
+    // silently allowed.
+    if (request.selections.length > 1 && request.selections.some((s) => s.isCombo)) {
+      return this.betFailure('Combo bets cannot be combined with multiple picks in the same request.');
+    }
 
     try {
-      if (selection.isCombo) {
-        validateComboDigits(selection.tier, selection.digits);
-      } else {
-        validateBaseDigits(selection.tier, selection.digits);
+      for (const selection of request.selections) {
+        if (selection.isCombo) {
+          validateComboDigits(selection.tier, selection.digits);
+        } else {
+          validateBaseDigits(selection.tier, selection.digits);
+        }
       }
       validateJackpotSequence(request.jackpotSequence);
     } catch (error) {
@@ -565,17 +581,28 @@ export class ChainsGame {
     }
 
     // Straight bets are a single "possibility" (the sequence as entered);
-    // combo bets expand into every unique ordering (Section 5b). Either
-    // way, everything downstream treats `possibilities` uniformly.
-    const possibilities: number[][] = selection.isCombo
-      ? expandComboPossibilities(selection.digits)
-      : [selection.digits];
+    // combo bets expand into every unique ordering (Section 5b); a
+    // multi-selection LOW-pick request contributes one possibility per
+    // selection. Every downstream step treats `possibilities` uniformly,
+    // same as before.
+    const possibilities: number[][] = request.selections.flatMap((selection) =>
+      selection.isCombo ? expandComboPossibilities(selection.digits) : [selection.digits],
+    );
 
+    // Concurrency cap check now accounts for possibilities repeated WITHIN
+    // this same request too (e.g. a LOW multi-pick batch containing the
+    // same digit twice), not just against already-active tickets — a
+    // request that would itself push a sequence over the cap is rejected
+    // atomically, same as a request that collides with existing tickets.
+    const requestCountBySequence = new Map<string, number>();
     for (const possibility of possibilities) {
-      const activeCount = countActiveWithSameSequence(this.tickets, selection.tier, possibility);
-      if (activeCount >= MAX_CONCURRENT_TICKETS_PER_SEQUENCE) {
+      const key = possibility.join(',');
+      const countInRequest = (requestCountBySequence.get(key) ?? 0) + 1;
+      requestCountBySequence.set(key, countInRequest);
+      const activeCount = countActiveWithSameSequence(this.tickets, tier, possibility);
+      if (activeCount + countInRequest > MAX_CONCURRENT_TICKETS_PER_SEQUENCE) {
         return this.betFailure(
-          `Maximum of ${MAX_CONCURRENT_TICKETS_PER_SEQUENCE} concurrent ${selection.tier} tickets on ` +
+          `Maximum of ${MAX_CONCURRENT_TICKETS_PER_SEQUENCE} concurrent ${tier} tickets on ` +
             `${possibility.join(' → ')} already running. Wait for one to resolve before betting it again.`,
         );
       }
@@ -587,25 +614,33 @@ export class ChainsGame {
     }
 
     const startDrawIndex = this.drawIndex + 1;
-    const comboGroupId = selection.isCombo ? this.generateComboGroupId() : null;
-    const newTickets: Ticket[] = possibilities.map((digits) =>
-      createTicket({
-        tier: selection.tier,
-        digits,
-        jackpotSequence: request.jackpotSequence,
-        startDrawIndex,
-        createdAtDrawIndex: this.drawIndex,
-        stake: this.config.ticketStake,
-        comboGroupId,
-        comboDigits: selection.isCombo ? selection.digits : null,
-      }),
-    );
+    // Build tickets selection-by-selection so each combo selection keeps
+    // its own comboGroupId/comboDigits, while multi-pick selections (never
+    // combo, per the guard above) get null for both — explicitly NOT
+    // grouped together, per your confirmed "no combo-style grouping for
+    // multi-pick" decision.
+    const newTickets: Ticket[] = request.selections.flatMap((selection) => {
+      const selectionPossibilities = selection.isCombo ? expandComboPossibilities(selection.digits) : [selection.digits];
+      const comboGroupId = selection.isCombo ? this.generateComboGroupId() : null;
+      return selectionPossibilities.map((digits) =>
+        createTicket({
+          tier: selection.tier,
+          digits,
+          jackpotSequence: request.jackpotSequence,
+          startDrawIndex,
+          createdAtDrawIndex: this.drawIndex,
+          stake: this.config.ticketStake,
+          comboGroupId,
+          comboDigits: selection.isCombo ? selection.digits : null,
+        }),
+      );
+    });
 
     // Jackpot funding is contributed once per possibility, since the total
     // confirmed stake is what Section 18 bases contributions on (mirrors
     // the existing per-ticket contribution for straight bets).
     for (let i = 0; i < possibilities.length; i += 1) {
-      this.jackpotManager.contribute(selection.tier, this.config.ticketStake);
+      this.jackpotManager.contribute(tier, this.config.ticketStake);
     }
 
     this.balance = roundCurrency(this.balance - totalStake);
@@ -614,9 +649,12 @@ export class ChainsGame {
 
     return {
       success: true,
-      message: selection.isCombo
-        ? `Combo bet placed: ${newTickets.length} links, total stake $${totalStake.toFixed(2)}.`
-        : `Bet placed: 1 link, total stake $${totalStake.toFixed(2)}.`,
+       message:
+       request.selections.length > 1
+          ? `${newTickets.length} links placed, total stake $${totalStake.toFixed(2)}.`
+          : request.selections[0].isCombo
+            ? `Combo bet placed: ${newTickets.length} links, total stake $${totalStake.toFixed(2)}.`
+            : `Bet placed: 1 link, total stake $${totalStake.toFixed(2)}.`,
       ticketIds: newTickets.map((t) => t.id),
       totalStake,
     };

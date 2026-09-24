@@ -3,6 +3,7 @@ import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
 import { calculateComboStake, countComboPossibilities } from '../game/combo';
+import { calculateTotalStake } from '../game/payouts';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
 import { DIGIT_COLORS } from '../utils/digitColors';
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
@@ -11,6 +12,13 @@ const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, sp
 const DEFAULT_AUTO_BET_ROUNDS = 5;
 const MIN_AUTO_BET_ROUNDS = 1;
 const MAX_AUTO_BET_ROUNDS = 50;
+
+/** LOW multi-pick: up to 3 independent $1 LOW picks batched into one
+ * atomic request (Milestone 4). Matches MAX_CONCURRENT_TICKETS_PER_SEQUENCE
+ * and the existing 3-digit-slot ceiling used by HIGH, so the whole betting
+ * UI shares one consistent "max 3" rule rather than an unexplained
+ * different number for LOW specifically. */
+const MAX_LOW_PICKS = 3;
 
 const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   LOW: { odds: `${BASE_MULTIPLIERS.LOW}x`, description: '1 digit' },
@@ -44,6 +52,11 @@ interface BettingPanelProps {
 
 export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProps) {
   const { placeBet, phase, balance, currentJackpotSequence, hasBetThisRound } = useGame();
+  // Additional LOW picks beyond digits[0] (the main slot's digit is always
+  // pick #1). Distinct affordance from Combo on purpose — Combo permutes
+  // ONE typed sequence; this batches several independent 1-digit tickets.
+  const [lowPicks, setLowPicks] = useState<number[]>([]);
+  const [addingPick, setAddingPick] = useState(false);
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
   const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>(currentJackpotSequence);
   const [isCombo, setIsCombo] = useState(false);
@@ -105,6 +118,11 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
   const filledDigits = digits.filter((d): d is number => d !== null);
   const filledCount = filledDigits.length;
   const detectedTier = tierForDigitCount(filledCount);
+
+  const isLowTier = detectedTier === 'LOW';
+  // The main digit slot's value is always pick #1; lowPicks holds the rest.
+  const allLowPicks = isLowTier && filledDigits.length === 1 ? [filledDigits[0], ...lowPicks] : [];
+  const canAddMorePicks = isLowTier && allLowPicks.length < MAX_LOW_PICKS;
 
   function focusDigitSlot(index: number) {
     if (locked) return;
@@ -168,6 +186,8 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     playUiClick();
     setDigits(Array(MAX_DIGIT_SLOTS).fill(null));
     setIsCombo(false);
+    setLowPicks([]);
+    setAddingPick(false);
     setEditTarget({ kind: 'digit', index: 0 });
     setFeedback(null);
   }
@@ -180,15 +200,34 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     setJackpotDigits([Math.floor(Math.random() * 10), Math.floor(Math.random() * 10)]);
   }
 
+   function handleAddPick(digit: number) {
+    if (locked || !canAddMorePicks) return;
+    playUiClick();
+    setLowPicks((prev) => [...prev, digit]);
+    setAddingPick(false);
+  }
+
+  function handleRemovePick(index: number) {
+    if (locked) return;
+    playUiClick();
+    setLowPicks((prev) => prev.filter((_, i) => i !== index));
+  }
+
   const comboAvailable = detectedTier !== null && detectedTier !== 'LOW';
   const comboActive = comboAvailable && isCombo;
   const jackpotComplete = jackpotDigits[0] !== null && jackpotDigits[1] !== null;
   const possibilityCount = comboActive ? countComboPossibilities(filledDigits) : 1;
-  const totalStake = detectedTier === null ? 0 : comboActive ? calculateComboStake(filledDigits) : TICKET_STAKE;
+  const lowPickCount = isLowTier ? allLowPicks.length : 1;
+  const totalStake =
+    detectedTier === null ? 0 : comboActive ? calculateComboStake(filledDigits) : isLowTier ? calculateTotalStake(lowPickCount) : TICKET_STAKE;
   const canSubmit = isBettingOpen && !autoBetActive && !hasBetThisRound && detectedTier !== null && jackpotComplete && balance >= totalStake;
 
   function buildRequest(): BetRequest {
     const tier = detectedTier as TicketTier;
+    if (isLowTier && allLowPicks.length > 1) {
+      const selections: BetSelection[] = allLowPicks.map((digit) => ({ tier: 'LOW', digits: [digit], isCombo: false }));
+      return { selections, jackpotSequence: jackpotDigits as [number, number] };
+    }
     const selection: BetSelection = { tier, digits: filledDigits, isCombo: comboActive };
     return { selections: [selection], jackpotSequence: jackpotDigits as [number, number] };
   }
@@ -353,6 +392,85 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         </div>
       )}
 
+      {/* LOW multi-pick — deliberately NOT styled like the Combo block
+          above: chips + an inline "+ Add" digit picker, not a toggle, so
+          it can never be mistaken for permuting one sequence. Only shows
+          once tier is LOW (comboAvailable already excludes LOW, so this
+          and the Combo block never render at the same time). */}
+      {isLowTier && (
+        <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3.5 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">
+              LOW Picks
+            </span>
+            <span className="font-mono text-[10px] text-white/40">
+              {allLowPicks.length}/{MAX_LOW_PICKS}
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {allLowPicks.map((digit, i) => (
+              <span
+                key={`${digit}-${i}`}
+                style={{ backgroundColor: `${DIGIT_COLORS[digit]}33`, borderColor: DIGIT_COLORS[digit] }}
+                className="flex items-center gap-1 rounded-lg border px-2 py-1 font-mono text-xs font-bold tabular-nums text-white"
+              >
+                {digit}
+                {/* Pick #1 (the main slot's digit) is removed via Clear,
+                    not here — only additional picks (index > 0) get an
+                    individual remove control. */}
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePick(i - 1)}
+                    disabled={locked}
+                    aria-label={`Remove pick ${digit}`}
+                    className="text-white/50 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+            ))}
+
+            {canAddMorePicks && !locked && (
+              <button
+                type="button"
+                onClick={() => {
+                  playUiClick();
+                  setAddingPick((a) => !a);
+                }}
+                className="rounded-lg border border-dashed border-[#eab308]/50 px-2 py-1 font-mono text-xs font-bold text-[#eab308] transition hover:bg-[#eab308]/10"
+             >
+                + Add another pick
+              </button>
+            )}
+          </div>
+
+          {addingPick && (
+            <div className="mt-2 grid grid-cols-5 gap-1.5">
+              {DIGITS.map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  onClick={() => handleAddPick(digit)}
+                  style={{ backgroundColor: `${DIGIT_COLORS[digit]}26`, borderColor: `${DIGIT_COLORS[digit]}80` }}
+                  className="flex h-9 items-center justify-center rounded-lg border font-mono text-sm font-semibold tabular-nums text-white transition hover:brightness-125 active:scale-95"
+                >
+                  {digit}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {allLowPicks.length > 1 && (
+            <p className="mt-1.5 text-right font-mono text-[10px] text-[#eab308]">
+              {allLowPicks.length} links · {formatCurrency(totalStake)}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Jackpot Combination — compact single row. Persists across rounds
           until edited or rerolled (Section 9 note in IMPLEMENTATION LOG).
           Intentionally minimal: the jackpot is a secondary/bonus feature,
@@ -472,7 +590,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
                   : 'cursor-not-allowed bg-white/[0.06] text-white/25',
               ].join(' ')}
             >
-              {isCombo ? 'Confirm Combo Bet' : 'Place Bet'}
+              {isCombo ? 'Confirm Combo Bet' : allLowPicks.length > 1 ? `Place ${allLowPicks.length} Bets` : 'Place Bet'}
             </button>
           </div>
         )}

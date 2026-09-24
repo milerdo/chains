@@ -7,7 +7,7 @@
 // createSimulatedTicket, reset, resetBalance). No game math lives here.
 // ============================================================================
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency, formatDrawIndex } from '../utils/format';
@@ -15,7 +15,11 @@ import { formatCurrency, formatDrawIndex } from '../utils/format';
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const SPEEDS = [1, 5, 20];
 
-export function DemoPanel() {
+interface DemoPanelProps {
+  isOpen: boolean;
+}
+
+export function DemoPanel({ isOpen }: DemoPanelProps) {
   const {
     phase,
     drawIndex,
@@ -35,8 +39,6 @@ export function DemoPanel() {
     resetBalance,
   } = useGame();
 
-  const [open, setOpen] = useState(false);
-
   function withClick<T extends unknown[]>(fn: (...args: T) => void) {
     return (...args: T) => {
       playUiClick();
@@ -54,25 +56,11 @@ export function DemoPanel() {
   const handleResetBalance = withClick(resetBalance);
   const handleClearForced = withClick(clearForcedDraws);
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-x-0 z-40 bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-0">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <button
-          type="button"
-          onClick={() => {
-            playUiClick();
-            setOpen((o) => !o);
-          }}
-          className="mx-auto flex items-center gap-2 rounded-t-xl border border-b-0 border-white/10 bg-[#181818] px-4 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-white/50 transition hover:text-[#eab308]"
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${open ? 'bg-[#eab308]' : 'bg-white/30'}`} />
-          Demo Panel
-          <span className="text-white/30">{open ? '▾' : '▴'}</span>
-        </button>
-      </div>
-
-      {open && (
-        <div className="border-t border-white/10 bg-[#141414]/98 backdrop-blur-md">
+     <div className="border-t border-white/10 bg-[#141414]/98 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-white/45">
               <ReadoutChip label="Phase" value={phase.replace('_', ' ')} />
@@ -167,7 +155,6 @@ export function DemoPanel() {
             </div>
           </div>
         </div>
-      )}
     </div>
   );
 }

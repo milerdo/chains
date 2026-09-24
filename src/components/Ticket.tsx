@@ -76,14 +76,14 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
       </button>
 
       {!collapsed && (
-        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {tickets.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
               No active links. Place a bet during the next betting window.
             </p>
           ) : (
             tickets.map((ticket) => (
-              <div key={ticket.id} className="min-h-0 flex-1">
+              <div key={ticket.id} className="min-h-0 flex-1 max-h-[104px]">
                 <TicketCard ticket={ticket} />
               </div>
             ))

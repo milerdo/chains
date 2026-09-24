@@ -11,13 +11,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameProvider, useGame } from './hooks/useGame';
 import { GameHeader } from './components/GameHeader';
-import { LeftColumnControls } from './components/LeftColumnControls';
+ // LeftColumnControls retired — its job (help/sound/balance) moved into
+ // GameHeader's desktop control cluster.
 import { JackpotPanel } from './components/JackpotPanel';
 import { Wheel } from './components/Wheel';
 import { BettingPanel } from './components/BettingPanel';
 import { TicketDrawer } from './components/Ticket';
 import { EmojiChat } from './components/EmojiChat';
 import { HelpModal } from './components/HelpModal';
+import { BetHistoryModal } from './components/BetHistoryModal';
 import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
@@ -27,6 +29,8 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 function AppShell() {
   const { activeTickets, phase } = useGame();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false); 
+  const [demoOpen, setDemoOpen] = useState(false);
   const prevPhaseRef = useRef<GamePhase>(phase);
   const betPanelRef = useRef<HTMLDivElement>(null);
   const tablePanelRef = useRef<HTMLDivElement>(null);
@@ -48,16 +52,17 @@ function AppShell() {
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
-      <GameHeader />
+      <GameHeader
+        onOpenHelp={() => setHelpOpen(true)}
+        onOpenHistory={() => setHistoryOpen(true)}
+        onToggleDemo={() => setDemoOpen((o) => !o)}
+      />
 
       {/* Desktop: fixed 3-column cabinet, no page scroll */}
       <main className="hidden min-h-0 flex-1 lg:flex lg:flex-col lg:overflow-hidden">
         <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <EmojiChat />
-            </div>
-            <LeftColumnControls onOpenHelp={() => setHelpOpen(true)} />
+            <EmojiChat />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <JackpotPanel />
@@ -104,11 +109,16 @@ function AppShell() {
             <TicketDrawer tickets={activeTickets} />
           </div>
         </div>
-        <MobileFooter onOpenHelp={() => setHelpOpen(true)} />
+       <MobileFooter
+          onOpenHelp={() => setHelpOpen(true)}
+          onOpenHistory={() => setHistoryOpen(true)}
+          onToggleDemo={() => setDemoOpen((o) => !o)}
+        />
       </main>
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
-      <DemoPanel />
+      <BetHistoryModal isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
+      <DemoPanel isOpen={demoOpen} />
       <JackpotCelebration />
     </div>
   );

@@ -26,9 +26,16 @@ function outcomeMeta(ticket: Ticket): { label: string; amount: number; tone: 'wi
   return { label: 'BASE WIN', amount: ticket.baseWinAmount ?? 0, tone: 'win' };
 }
 
-export function GameHistory() {
+interface GameHistoryProps {
+  /** Which tab shows first. Defaults to 'GLOBAL' — unchanged for any
+   * existing call site that doesn't pass this. */
+  defaultTab?: Tab;
+}
+
+export function GameHistory({ defaultTab = 'GLOBAL' }: GameHistoryProps = {}) {
+
   const { streamHistory, history } = useGame();
-  const [tab, setTab] = useState<Tab>('GLOBAL');
+  const [tab, setTab] = useState<Tab>(defaultTab);
 
   function selectTab(next: Tab) {
     playUiClick();
