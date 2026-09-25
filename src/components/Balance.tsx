@@ -29,7 +29,7 @@ export function Balance({ balance }: BalanceProps) {
   return (
     <div
       className={[
-        'flex flex-col items-end rounded-xl border px-3 py-1.5 transition-colors duration-500',
+        'flex items-center rounded-xl border px-3 py-1.5 transition-colors duration-500',
         flash === 'up'
           ? 'border-emerald-400/40 bg-emerald-400/[0.07]'
           : flash === 'down'
@@ -37,7 +37,6 @@ export function Balance({ balance }: BalanceProps) {
             : 'border-white/10 bg-white/[0.03]',
       ].join(' ')}
     >
-      <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/40">Balance</span>
       <span
         className={[
           'font-mono text-base font-semibold tabular-nums transition-colors duration-500 sm:text-lg',

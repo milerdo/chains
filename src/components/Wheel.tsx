@@ -7,15 +7,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playDrawSettle, playTick } from '../utils/audio';
-import { formatCountdown, formatDrawIndex } from '../utils/format';
+import { formatDrawIndex } from '../utils/format';
 import type { GamePhase } from '../game/types';
-
-const PHASE_LABEL: Record<GamePhase, string> = {
-  BETTING_OPEN: 'BETTING OPEN',
-  BETTING_CLOSED: 'GOOD LUCK',
-  DRAWING: 'GOOD LUCK',
-  RESULT: 'GOOD LUCK',
-};
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
@@ -64,7 +57,7 @@ function easeOutQuad(t: number): number {
 }
 
 export function Wheel() {
-  const { phase, wheelTargetDraw, speedMultiplier, timeRemaining, streamHistory, drawIndex, reportWheelLanded } = useGame();
+  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, drawIndex, reportWheelLanded } = useGame();
   // Unique per-mount suffix for this instance's gradient defs — two Wheel
   // instances are mounted at once (desktop + mobile tab), and duplicate
   // SVG ids across them caused refs to resolve into a display:none
@@ -250,26 +243,12 @@ export function Wheel() {
   );
 
   const recentDigits = streamHistory.slice(-6);
-  const showCountdown = phase === 'BETTING_OPEN';
 
   return (
     <section
       aria-label="Live number stream"
       className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
-        <span
-          className={[
-            'font-mono text-xs font-semibold uppercase tracking-[0.3em]',
-            phase === 'BETTING_OPEN' ? 'text-emerald-400' : 'text-[#eab308]',
-          ].join(' ')}
-        >
-          {PHASE_LABEL[phase]}
-        </span>
-        {showCountdown && (
-          <span className="font-mono text-sm tabular-nums text-white/70">00:{formatCountdown(timeRemaining)}</span>
-        )}
-      </div>
 
       <div className="mt-5 flex flex-col items-center">
         {/* Shadow lives on this static wrapper, NOT on the svg that

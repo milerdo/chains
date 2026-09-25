@@ -8,14 +8,16 @@
 import { useState } from 'react';
 import { isAudioEnabled, playUiClick, toggleAudioEnabled } from '../utils/audio';
 import { EmojiChat } from './EmojiChat';
+import { Balance } from './Balance';
 
 interface MobileFooterProps {
+  balance: number;
   onOpenHelp: () => void;
   onOpenHistory: () => void;
   onToggleDemo: () => void;
 }
 
- export function MobileFooter({ onOpenHelp, onOpenHistory, onToggleDemo }: MobileFooterProps) {
+ export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo }: MobileFooterProps) {
   const [soundOn, setSoundOn] = useState(() => isAudioEnabled());
   const [chatOpen, setChatOpen] = useState(false);
 
@@ -57,8 +59,6 @@ interface MobileFooterProps {
           ?
         </button>
 
-        <div className="flex-1" />
-
         <button
           type="button"
           onClick={handleOpenHistory}
@@ -81,6 +81,10 @@ interface MobileFooterProps {
         >
           💬
         </button>
+
+        <div className="flex-1" />
+
+        <Balance balance={balance} />
       </div>
 
       {chatOpen && (

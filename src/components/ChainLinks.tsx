@@ -49,7 +49,7 @@ interface CircleProps {
 }
 
 export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
-  const dims = size === 'xs' ? 'h-5 w-5 text-[10px]' : size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
+  const dims = size === 'xs' ? 'h-6 w-6 text-[11px]' : size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
   const { bg, border } = circleColors(digit, state);
   return (
     <span
@@ -67,7 +67,7 @@ export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
 }
 
 function Link({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
-  const width = size === 'xs' ? 'w-1.5' : size === 'sm' ? 'w-2' : 'w-3';
+const width = size === 'xs' ? 'w-2' : size === 'sm' ? 'w-2' : 'w-3';
   return <span className={`h-[2px] shrink-0 ${width} bg-white/15`} />;
 }
 

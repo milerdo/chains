@@ -23,11 +23,17 @@ import { BetHistoryModal } from './components/BetHistoryModal';
 import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
+import { PhaseStatus } from './components/PhaseStatus';
 import type { GamePhase } from './game/types';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
 function AppShell() {
-  const { activeTickets, phase } = useGame();
+  const { activeTickets, phase, timeRemaining, hasBetThisRound, balance } = useGame();
+  // Drives PhaseStatus on mobile, where there's no lifted per-instance
+  // lock signal (BettingPanel's own onLockChange is desktop-only per
+  // CLAUDE.md §13). Approximates the same "can the player still bet"
+  // condition BettingPanel computes internally.
+  const mobileLocked = phase !== 'BETTING_OPEN' || hasBetThisRound;
   const [helpOpen, setHelpOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false); 
   const [demoOpen, setDemoOpen] = useState(false);
@@ -83,6 +89,7 @@ function AppShell() {
                 </button>
               </div>
             )}
+            <PhaseStatus locked={bettingLocked} timeRemaining={timeRemaining} />
             <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
               <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
             </div>
@@ -99,6 +106,7 @@ function AppShell() {
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
         <div className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden">
           <div ref={betPanelRef} className="min-h-0 w-full shrink-0 snap-start overflow-y-auto px-4 py-4">
+            <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
             <BettingPanel />
           </div>
           <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-3 overflow-y-auto px-4 py-4">
@@ -106,10 +114,12 @@ function AppShell() {
             {!isDesktop && <Wheel />}
           </div>
           <div className="flex min-h-0 w-full shrink-0 snap-start flex-col overflow-hidden px-4 py-4">
+            <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
             <TicketDrawer tickets={activeTickets} />
           </div>
         </div>
        <MobileFooter
+          balance={balance}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenHistory={() => setHistoryOpen(true)}
           onToggleDemo={() => setDemoOpen((o) => !o)}
