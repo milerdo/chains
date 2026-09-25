@@ -44,7 +44,7 @@ import {
 } from 'react';
 import { ChainsGame } from '../game/engine';
 import { isTerminal } from '../game/ticket';
-import { playBaseWin, playJackpotFanfare, playLoss, playStepMatch } from '../utils/audio';
+import { playBaseWin, playJackpotFanfare, playStepMatch } from '../utils/audio';
 import type {
   BetRequest,
   DrawResult,
@@ -278,7 +278,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
               continue;
             }
             if (ticket.status === 'LOST' || ticket.status === 'JACKPOT_LOST') {
-              playLoss();
               continue;
             }
           }

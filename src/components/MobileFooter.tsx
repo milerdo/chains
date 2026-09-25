@@ -74,10 +74,13 @@ interface MobileFooterProps {
           type="button"
           onClick={() => {
             playUiClick();
-            setChatOpen(true);
+            setChatOpen((o) => !o);
           }}
           aria-label="Open table chat"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#eab308]/40 bg-[#eab308]/10 text-[#eab308]"
+          className={[
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition',
+            chatOpen ? 'border-[#eab308] bg-[#eab308]/20 text-[#eab308]' : 'border-[#eab308]/40 bg-[#eab308]/10 text-[#eab308]',
+          ].join(' ')}
         >
           💬
         </button>
@@ -89,7 +92,7 @@ interface MobileFooterProps {
 
       {chatOpen && (
         <div
-          className="fixed inset-0 z-[55] flex items-end bg-black/60"
+          className="fixed inset-x-0 top-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] z-[55] flex items-end bg-black/60"
           role="dialog"
           aria-modal="true"
           aria-label="Table chat"

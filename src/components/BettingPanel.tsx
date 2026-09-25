@@ -26,6 +26,12 @@ const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
   HIGH: { odds: `${BASE_MULTIPLIERS.HIGH}x`, description: '3 digits' },
 };
 
+const TIER_DISPLAY_LABEL: Record<TicketTier, string> = {
+  LOW: 'LOW VOLATILITY',
+  MEDIUM: 'MEDIUM VOLATILITY',
+  HIGH: 'HIGH VOLATILITY',
+};
+
 /** Section 5a: the number of digits entered IS the tier selection — no
  * separate chip/toggle. 0 filled slots = no tier yet. */
 function tierForDigitCount(count: number): TicketTier | null {
@@ -287,13 +293,12 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     >
       {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
       <div>
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/40">Choose 1-3 Digits</span>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={handleClear}
             disabled={locked || filledCount === 0}
-             className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 underline decoration-dotted transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
+             className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]/80 underline decoration-dotted transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
           >
             Clear
           </button>
@@ -329,7 +334,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
           {detectedTier ? (
             <>
               <span className="rounded-full bg-[#eab308]/15 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#eab308]">
-                {detectedTier}
+                {TIER_DISPLAY_LABEL[detectedTier]}
               </span>
               <span className="font-mono text-[11px] text-white/40">
                 {TIER_META[detectedTier].odds} total return
@@ -399,11 +404,8 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
           and the Combo block never render at the same time). */}
       {isLowTier && (
         <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3.5 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-white">
-              LOW Picks
-            </span>
-            <span className="font-mono text-[10px] text-white/40">
+          <div className="flex items-center justify-end">
+            <span className="font-mono text-sm font-bold tabular-nums text-white/70">
               {allLowPicks.length}/{MAX_LOW_PICKS}
             </span>
           </div>
@@ -559,9 +561,9 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-center gap-5 border-t border-white/[0.06] pt-4">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.30em] text-white/40">Total Stake:</span>
+      <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 flex items-center justify-between gap-3 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-4 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.30em] text-white/40">Total Stake</span>
           <span className="font-mono text-xl font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
         </div>
         {autoBetActive && autoBet ? (
@@ -578,21 +580,19 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={[
-                'rounded-xl px-6 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.2em] transition',
-                canSubmit
-                  ? 'bg-[#eab308] text-black shadow-[0_0_24px_-6px_rgba(234,179,8,0.7)] hover:bg-[#facc15]'
-                  : 'cursor-not-allowed bg-white/[0.06] text-white/25',
-              ].join(' ')}
-            >
-              {isCombo ? 'Confirm Combo Bet' : allLowPicks.length > 1 ? `Place ${allLowPicks.length} Bets` : 'Place Bet'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className={[
+              'flex h-11 min-w-[168px] items-center justify-center rounded-xl px-4 font-mono text-xs font-bold uppercase tracking-[0.2em] transition',
+              canSubmit
+                ? 'bg-[#eab308] text-black shadow-[0_0_24px_-6px_rgba(234,179,8,0.7)] hover:bg-[#facc15]'
+                : 'cursor-not-allowed bg-white/[0.06] text-white/25',
+            ].join(' ')}
+          >
+            {isCombo ? 'Confirm Combo Bet' : allLowPicks.length > 1 ? `Place ${allLowPicks.length} Bets` : 'Place Bet'}
+          </button>
         )}
       </div>
 

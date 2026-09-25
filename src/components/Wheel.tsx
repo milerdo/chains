@@ -7,7 +7,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playDrawSettle, playTick } from '../utils/audio';
-import { formatDrawIndex } from '../utils/format';
 import type { GamePhase } from '../game/types';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
@@ -57,7 +56,7 @@ function easeOutQuad(t: number): number {
 }
 
 export function Wheel() {
-  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, drawIndex, reportWheelLanded } = useGame();
+  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded } = useGame();
   // Unique per-mount suffix for this instance's gradient defs — two Wheel
   // instances are mounted at once (desktop + mobile tab), and duplicate
   // SVG ids across them caused refs to resolve into a display:none
@@ -442,16 +441,6 @@ export function Wheel() {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between px-4 py-2.5">
-        <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-          </span>
-          Live
-        </span>
-        <span className="font-mono text-[11px] tracking-[0.2em] text-white/40">{formatDrawIndex(drawIndex)}</span>
-      </div>
     </section>
   );
 }
