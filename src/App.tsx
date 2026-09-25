@@ -24,6 +24,7 @@ import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
 import { PhaseStatus } from './components/PhaseStatus';
+import { LinkChain } from './components/ChainLinks';
 import type { GamePhase } from './game/types';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
@@ -117,6 +118,22 @@ function AppShell() {
           <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-3 overflow-y-auto px-4 py-4">
             <JackpotPanel />
             {!isDesktop && <Wheel />}
+            {/* Fixed height + sticky, and ALWAYS rendered (even with zero
+                active links) — this is what stops the wheel above from
+                shifting when links appear/disappear. */}
+            <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-white/10 bg-[#141414]/95 px-4 py-2 backdrop-blur-sm">
+              <div className="flex h-16 items-center gap-3 overflow-x-auto">
+                {activeTickets.length === 0 ? (
+                  <span className="font-mono text-[11px] text-white/25">No active links</span>
+                ) : (
+                  activeTickets.map((ticket) => (
+                    <div key={ticket.id} className="shrink-0">
+                      <LinkChain ticket={ticket} size="sm" />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex min-h-0 w-full shrink-0 snap-start flex-col overflow-hidden px-4 py-4">
             <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />

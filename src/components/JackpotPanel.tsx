@@ -50,19 +50,19 @@ interface TierMeta {
 
 const TIER_META: Record<JackpotTierName, TierMeta> = {
   MINI: {
-    label: '3 IN A ROW',
+    label: 'LOW',
     accent: 'text-[#fbbf24]',
     glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
     ring: 'border-[#eab308]/25',
   },
   MIDI: {
-    label: '4 IN A ROW',
+    label: 'MIDI',
     accent: 'text-[#fbbf24]',
     glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
     ring: 'border-[#eab308]/25',
   },
   GRAND: {
-    label: '5 IN A ROW',
+    label: 'HIGH',
     accent: 'text-[#fbbf24]',
     glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
     ring: 'border-[#eab308]/25',

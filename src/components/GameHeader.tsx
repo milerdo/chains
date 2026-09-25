@@ -9,7 +9,6 @@
 import { useState, type ReactNode } from 'react';
 import { useGame } from '../hooks/useGame';
 import { Balance } from './Balance';
-import { LinkChain } from './ChainLinks';
 import { isAudioEnabled, playUiClick, toggleAudioEnabled } from '../utils/audio';
 
 interface GameHeaderProps {
@@ -21,7 +20,7 @@ interface GameHeaderProps {
 }
 
  export function GameHeader({ onOpenHelp, onOpenHistory, onToggleDemo }: GameHeaderProps) {
-  const { balance, activeTickets } = useGame();
+  const { balance } = useGame();
   const [soundOn, setSoundOn] = useState(() => isAudioEnabled());
 
   function handleToggleSound() {
@@ -64,20 +63,6 @@ interface GameHeaderProps {
           <Balance balance={balance} />
         </div>
       </div>
-
-      {/* Mobile: full-width active links row — only rendered when there's
-          something to show, so an empty round doesn't reserve pixels. */}
-      {activeTickets.length > 0 && (
-        <div className="border-t border-white/[0.05] px-4 py-2 lg:hidden">
-          <div className="flex items-center gap-3 overflow-x-auto">
-            {activeTickets.map((ticket) => (
-              <div key={ticket.id} className="shrink-0">
-                <LinkChain ticket={ticket} size="xs" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </header>
   );
 }

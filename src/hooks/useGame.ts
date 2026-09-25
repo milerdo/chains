@@ -162,6 +162,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     tier: JackpotTierName;
     amount: number;
   } | null>(null);
+  // Ticket ids whose LOST/JACKPOT_LOST transition is being held visible
+  // briefly (red-X flash) before dropping into history. Pure display
+  // delay — does not touch engine state.
+  const [flashingFailedIds, setFlashingFailedIds] = useState<Set<string>>(new Set());
+  const failedFlashTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   // --- Reveal-delayed draw/stream state (public reveal) ----------------
   // Held back from the raw engine value until Wheel.tsx confirms its
@@ -278,6 +283,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
               continue;
             }
             if (ticket.status === 'LOST' || ticket.status === 'JACKPOT_LOST') {
+              setFlashingFailedIds((prev) => {
+                const next = new Set(prev);
+                next.add(ticket.id);
+                return next;
+              });
+              const existing = failedFlashTimeoutsRef.current.get(ticket.id);
+              if (existing !== undefined) window.clearTimeout(existing);
+              const timeoutId = window.setTimeout(() => {
+                setFlashingFailedIds((prev) => {
+                  const next = new Set(prev);
+                  next.delete(ticket.id);
+                  return next;
+                });
+                failedFlashTimeoutsRef.current.delete(ticket.id);
+              }, 900);
+              failedFlashTimeoutsRef.current.set(ticket.id, timeoutId);
               continue;
             }
           }
@@ -408,6 +429,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     prevTicketStatusRef.current.clear();
     prevTicketProgressRef.current.clear();
     setJackpotCelebration(null);
+    failedFlashTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
+    failedFlashTimeoutsRef.current.clear();
+    setFlashingFailedIds(new Set());
   }, [game, commitPublicReveal]);
 
   const dismissJackpotCelebration = useCallback(() => setJackpotCelebration(null), []);
@@ -428,8 +452,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UseGameValue>(
     () => ({
       gameState,
-      activeTickets: revealedDraw.tickets.filter((t) => !isTerminal(t.status)),
-      history: revealedDraw.tickets.filter((t) => isTerminal(t.status)),
+      activeTickets: revealedDraw.tickets.filter((t) => !isTerminal(t.status) || flashingFailedIds.has(t.id)),
+      history: revealedDraw.tickets.filter((t) => isTerminal(t.status) && !flashingFailedIds.has(t.id)),
       balance: gameState.balance,
       jackpotPools: gameState.jackpotPools,
       currentJackpotSequence: gameState.currentJackpotSequence,
@@ -465,6 +489,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [
       gameState,
       revealedDraw,
+      flashingFailedIds,
       wheelTargetDraw,
       reportWheelLanded,
       timeRemaining,

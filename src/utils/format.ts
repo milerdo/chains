@@ -29,10 +29,10 @@ export function formatSequence(digits: readonly number[]): string {
   return digits.join(' → ');
 }
 
-/** Seconds remaining, floored to a 2-digit string ("07", "00"). */
+/** Seconds remaining as a one-decimal string ("10.0", "9.9", "0.0"). */
 export function formatCountdown(ms: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  return totalSeconds.toString().padStart(2, '0');
+  const totalSeconds = Math.max(0, ms / 1000);
+  return totalSeconds.toFixed(1);
 }
 
 export function formatPercent(fraction: number, decimals = 2): string {

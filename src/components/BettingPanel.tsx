@@ -25,9 +25,15 @@ const TIER_META: Record<TicketTier, { odds: string; description: string }> = {
 };
 
 const TIER_DISPLAY_LABEL: Record<TicketTier, string> = {
-  LOW: 'LOW VOLATILITY',
-  MEDIUM: 'MEDIUM VOLATILITY',
-  HIGH: 'HIGH VOLATILITY',
+  LOW: 'LOW',
+  MEDIUM: 'MIDI',
+  HIGH: 'HIGH',
+};
+
+const JACKPOT_LABEL: Record<TicketTier, string> = {
+  LOW: 'Mini Jackpot',
+  MEDIUM: 'Midi Jackpot',
+  HIGH: 'High Jackpot',
 };
 
 /** Section 5a: the number of digits entered IS the tier selection — no
@@ -180,7 +186,11 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         return next;
       });
     } else if (editTarget.kind === 'lowPick') {
-      if (canAddMorePicks) setLowPicks((prev) => [...prev, digit]);
+      if (canAddMorePicks && !allLowPicks.includes(digit)) {
+        setLowPicks((prev) => [...prev, digit]);
+      } else if (allLowPicks.includes(digit)) {
+        setFeedback({ type: 'error', message: 'Already picked.' });
+      }
       setEditTarget(null);
       return;
     } else {
@@ -272,7 +282,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
       message: `${result.message} — Auto Bet started (${rounds} round${rounds === 1 ? '' : 's'}).`,
     });
     if (roundsRemaining > 0) {
-+      setAutoBet({ template: request, roundsRemaining, roundsTotal: rounds });
+      setAutoBet({ template: request, roundsRemaining, roundsTotal: rounds });
     }
   }
 
@@ -437,7 +447,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
                     : 'border-dashed border-[#eab308]/50 text-[#eab308] hover:bg-[#eab308]/10',
                 ].join(' ')}
               >
-                + Add another pick
+                Pick another
               </button>
             )}
             <span className="ml-auto font-mono text-sm font-bold tabular-nums text-white/70">
@@ -458,7 +468,9 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
           Intentionally minimal: the jackpot is a secondary/bonus feature,
           not the main game loop. */}
       <div className="mt-2 flex items-center justify-between rounded-xl border border-[#eab308]/15 bg-[#eab308]/[0.03] px-3 py-1.5">
-        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#eab308]/70">Jackpot</span>
+        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#eab308]/70">
+          {detectedTier ? JACKPOT_LABEL[detectedTier] : 'Jackpot'}
+        </span>
         <div className="flex items-center gap-2">
           <JackpotSlot
             small
@@ -509,7 +521,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
             type="button"
             onClick={handleClear}
             disabled={locked || filledCount === 0}
-            className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
+            className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
           >
             Clear
           </button>
@@ -645,9 +657,9 @@ function DigitPad({ active, onPress }: DigitPadProps) {
           type="button"
           onClick={() => onPress(digit)}
           disabled={!active}
-          style={{ backgroundColor: `${DIGIT_COLORS[digit]}26`, borderColor: `${DIGIT_COLORS[digit]}80` }}
-          className="flex h-10 items-center justify-center rounded-lg border font-mono text-base font-semibold tabular-nums text-white transition hover:brightness-125 active:scale-95"
-        >
+          style={{ backgroundColor: `${DIGIT_COLORS[digit]}80`, borderColor: `${DIGIT_COLORS[digit]}80` }}
+          className="flex h-10 items-center justify-center rounded-lg border font-mono text-lg font-bold tabular-nums text-white transition hover:brightness-125 active:scale-95"        
+          >
           {digit}
         </button>
       ))}

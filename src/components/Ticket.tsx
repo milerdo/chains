@@ -83,7 +83,7 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
             </p>
           ) : (
             tickets.map((ticket) => (
-              <div key={ticket.id} className="min-h-0 flex-1 max-h-[104px]">
+              <div key={ticket.id} className="min-h-0 flex-1 max-h-[52px]">
                 <TicketCard ticket={ticket} />
               </div>
             ))

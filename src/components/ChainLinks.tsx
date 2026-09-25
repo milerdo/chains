@@ -55,13 +55,18 @@ export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
     <span
       style={{ backgroundColor: bg, borderColor: border }}
       className={[
-        'flex shrink-0 items-center justify-center rounded-full border font-mono font-bold tabular-nums transition-colors',
+        'relative flex shrink-0 items-center justify-center rounded-full border font-mono font-bold tabular-nums transition-colors',
         dims,
-        state === 'current' ? 'shadow-[0_0_0_3px_rgba(234,179,8,0.18)] animate-pulse' : '',
+        state === 'current' ? 'border-[3px] shadow-[0_0_0_3px_rgba(234,179,8,0.18)] animate-pulse' : '',
         TEXT[state],
       ].join(' ')}
     >
       {digit}
+      {state === 'failed' && (
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-sm font-black text-red-400">
+          ✕
+        </span>
+      )}
     </span>
   );
 }
