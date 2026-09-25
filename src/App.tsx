@@ -92,6 +92,11 @@ function AppShell() {
             <PhaseStatus locked={bettingLocked} timeRemaining={timeRemaining} />
             <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
               <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
+              {activeTickets.length > 0 && (
+                <div className="mt-3">
+                  <TicketDrawer tickets={activeTickets} />
+                </div>
+              )}
             </div>
             {bettingLocked && (
               <div className="min-h-0 flex-1 overflow-hidden">

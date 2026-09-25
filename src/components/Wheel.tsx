@@ -241,7 +241,7 @@ export function Wheel() {
     [],
   );
 
-  const recentDigits = streamHistory.slice(-6);
+  const recentDigits = streamHistory.slice(-10);
 
   return (
     <section
@@ -423,7 +423,7 @@ export function Wheel() {
           </svg>
         </div>
 
-        <div className="mt-4 flex items-center gap-1.5">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
           {recentDigits.length === 0 && (
             <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
           )}

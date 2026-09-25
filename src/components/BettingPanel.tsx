@@ -9,9 +9,7 @@ import { DIGIT_COLORS } from '../utils/digitColors';
 import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
-const DEFAULT_AUTO_BET_ROUNDS = 5;
-const MIN_AUTO_BET_ROUNDS = 1;
-const MAX_AUTO_BET_ROUNDS = 50;
+const AUTO_BET_PRESETS = [5, 10, 25, 50];
 
 /** LOW multi-pick: up to 3 independent $1 LOW picks batched into one
  * atomic request (Milestone 4). Matches MAX_CONCURRENT_TICKETS_PER_SEQUENCE
@@ -41,7 +39,7 @@ function tierForDigitCount(count: number): TicketTier | null {
   return null;
 }
 
-type EditTarget = { kind: 'digit'; index: number } | { kind: 'jackpot'; index: 0 | 1 } | null;
+type EditTarget = { kind: 'digit'; index: number } | { kind: 'jackpot'; index: 0 | 1 } | { kind: 'lowPick' } | null;
 interface AutoBetState {
   template: BetRequest;
   roundsRemaining: number;
@@ -62,13 +60,12 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
   // pick #1). Distinct affordance from Combo on purpose — Combo permutes
   // ONE typed sequence; this batches several independent 1-digit tickets.
   const [lowPicks, setLowPicks] = useState<number[]>([]);
-  const [addingPick, setAddingPick] = useState(false);
+  const [autoBetPickerOpen, setAutoBetPickerOpen] = useState(false);
   const [digits, setDigits] = useState<(number | null)[]>(() => Array(MAX_DIGIT_SLOTS).fill(null));
   const [jackpotDigits, setJackpotDigits] = useState<[number | null, number | null]>(currentJackpotSequence);
   const [isCombo, setIsCombo] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget>({ kind: 'digit', index: 0 });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [autoBetRounds, setAutoBetRounds] = useState(DEFAULT_AUTO_BET_ROUNDS);
   const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
   const autoBetActive = autoBet !== null;
   const prevPhaseRef = useRef<GamePhase>(phase);
@@ -157,11 +154,16 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         return;
       }
       setEditTarget(null);
-    } else {
+    } else if (current.kind === 'jackpot') {
       if (current.index === 0) {
         setEditTarget({ kind: 'jackpot', index: 1 });
         return;
       }
+      setEditTarget(null);
+      } else {
+      // 'lowPick' never actually reaches here — handleDigitPress returns
+      // early for it without calling advanceFocus — this branch exists
+      // purely so the function stays exhaustively typed.
       setEditTarget(null);
     }
   }
@@ -177,6 +179,10 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         next[editTarget.index] = digit;
         return next;
       });
+    } else if (editTarget.kind === 'lowPick') {
+      if (canAddMorePicks) setLowPicks((prev) => [...prev, digit]);
+      setEditTarget(null);
+      return;
     } else {
       setJackpotDigits((prev) => {
         const next: [number | null, number | null] = [prev[0], prev[1]];
@@ -193,7 +199,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     setDigits(Array(MAX_DIGIT_SLOTS).fill(null));
     setIsCombo(false);
     setLowPicks([]);
-    setAddingPick(false);
+    setAutoBetPickerOpen(false);
     setEditTarget({ kind: 'digit', index: 0 });
     setFeedback(null);
   }
@@ -206,11 +212,10 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     setJackpotDigits([Math.floor(Math.random() * 10), Math.floor(Math.random() * 10)]);
   }
 
-   function handleAddPick(digit: number) {
+   function focusAddPick() {
     if (locked || !canAddMorePicks) return;
     playUiClick();
-    setLowPicks((prev) => [...prev, digit]);
-    setAddingPick(false);
+    setEditTarget({ kind: 'lowPick' });
   }
 
   function handleRemovePick(index: number) {
@@ -244,12 +249,13 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
       playUiClick();
       setFeedback({ type: 'success', message: result.message });
       setEditTarget(null);
+      setAutoBetPickerOpen(false);
     } else {
       setFeedback({ type: 'error', message: result.message });
     }
   }
 
-  function handleStartAutoBet() {
+  function handleStartAutoBet(rounds: number) {
     if (!canSubmit) return;
     const request = buildRequest();
     const result = placeBet(request);
@@ -259,13 +265,14 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     }
     playUiClick();
     setEditTarget(null);
-    const roundsRemaining = autoBetRounds - 1;
+    setAutoBetPickerOpen(false);
+    const roundsRemaining = rounds - 1;
     setFeedback({
       type: 'success',
-      message: `${result.message} — Auto Bet started (${autoBetRounds} round${autoBetRounds === 1 ? '' : 's'}).`,
+      message: `${result.message} — Auto Bet started (${rounds} round${rounds === 1 ? '' : 's'}).`,
     });
     if (roundsRemaining > 0) {
-      setAutoBet({ template: request, roundsRemaining, roundsTotal: autoBetRounds });
++      setAutoBet({ template: request, roundsRemaining, roundsTotal: rounds });
     }
   }
 
@@ -293,16 +300,6 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     >
       {/* Number Entry — Section 5a: tier is auto-detected by digit count */}
       <div>
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={handleClear}
-            disabled={locked || filledCount === 0}
-             className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]/80 underline decoration-dotted transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
-          >
-            Clear
-          </button>
-        </div>
 
         <div className="mt-2 flex items-center justify-center gap-2">
           {digits.map((digit, i) => {
@@ -404,13 +401,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
           and the Combo block never render at the same time). */}
       {isLowTier && (
         <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3.5 py-2.5">
-          <div className="flex items-center justify-end">
-            <span className="font-mono text-sm font-bold tabular-nums text-white/70">
-              {allLowPicks.length}/{MAX_LOW_PICKS}
-            </span>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {allLowPicks.map((digit, i) => (
               <span
                 key={`${digit}-${i}`}
@@ -435,35 +426,24 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
               </span>
             ))}
 
-            {canAddMorePicks && !locked && (
+          {canAddMorePicks && !locked && (
               <button
                 type="button"
-                onClick={() => {
-                  playUiClick();
-                  setAddingPick((a) => !a);
-                }}
-                className="rounded-lg border border-dashed border-[#eab308]/50 px-2 py-1 font-mono text-xs font-bold text-[#eab308] transition hover:bg-[#eab308]/10"
-             >
+                onClick={focusAddPick}
+                className={[
+                  'rounded-lg border px-2 py-1 font-mono text-xs font-bold transition',
+                  editTarget?.kind === 'lowPick'
+                    ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)]'
+                    : 'border-dashed border-[#eab308]/50 text-[#eab308] hover:bg-[#eab308]/10',
+                ].join(' ')}
+              >
                 + Add another pick
               </button>
             )}
+            <span className="ml-auto font-mono text-sm font-bold tabular-nums text-white/70">
+              {allLowPicks.length}/{MAX_LOW_PICKS}
+            </span>
           </div>
-
-          {addingPick && (
-            <div className="mt-2 grid grid-cols-5 gap-1.5">
-              {DIGITS.map((digit) => (
-                <button
-                  key={digit}
-                  type="button"
-                  onClick={() => handleAddPick(digit)}
-                  style={{ backgroundColor: `${DIGIT_COLORS[digit]}26`, borderColor: `${DIGIT_COLORS[digit]}80` }}
-                  className="flex h-9 items-center justify-center rounded-lg border font-mono text-sm font-semibold tabular-nums text-white transition hover:brightness-125 active:scale-95"
-                >
-                  {digit}
-                </button>
-              ))}
-            </div>
-          )}
 
           {allLowPicks.length > 1 && (
             <p className="mt-1.5 text-right font-mono text-[10px] text-[#eab308]">
@@ -523,51 +503,49 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
         </p>
       )}
 
-      {!autoBetActive && (
-        <div className="mt-2 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/40">Auto Bet Rounds</span>
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setAutoBetRounds((r) => Math.max(MIN_AUTO_BET_ROUNDS, r - 1))}
-              disabled={!isBettingOpen}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              −
-            </button>
-            <span className="w-6 text-center font-mono text-sm font-bold tabular-nums text-white">{autoBetRounds}</span>
-            <button
-              type="button"
-              onClick={() => setAutoBetRounds((r) => Math.min(MAX_AUTO_BET_ROUNDS, r + 1))}
-              disabled={!isBettingOpen}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 font-mono text-sm text-white/60 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              onClick={handleStartAutoBet}
-              disabled={!canSubmit}
-              className={[
-                'rounded-lg border px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] transition',
-                canSubmit
-                  ? 'border-[#eab308]/50 text-[#eab308] hover:bg-[#eab308]/10'
-                  : 'cursor-not-allowed border-white/10 text-white/25',
-              ].join(' ')}
-            >
-              Auto Bet
-            </button>
+       {!autoBetActive && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={locked || filledCount === 0}
+            className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:text-[#eab308] disabled:text-white/25 disabled:opacity-100"
+          >
+            Clear
+          </button>
+          <div className="flex items-center gap-1.5">
+            {autoBetPickerOpen ? (
+              AUTO_BET_PRESETS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => handleStartAutoBet(n)}
+                  disabled={!canSubmit}
+                  className="flex h-8 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] font-mono text-xs font-bold text-white/70 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  {n}
+                </button>
+              ))
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  playUiClick();
+                  setAutoBetPickerOpen(true);
+                }}
+                disabled={!canSubmit}
+                className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-white/60 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                Auto Bet
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 flex items-center justify-between gap-3 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-4 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.30em] text-white/40">Total Stake</span>
-          <span className="font-mono text-xl font-bold tabular-nums text-white">{formatCurrency(totalStake)}</span>
-        </div>
+      <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-4 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
         {autoBetActive && autoBet ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="rounded-xl border border-[#eab308]/30 bg-[#eab308]/10 px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.15em] text-[#eab308]">
               {autoBet.roundsTotal - autoBet.roundsRemaining}/{autoBet.roundsTotal} rounds
             </span>
@@ -585,13 +563,19 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
             onClick={handleSubmit}
             disabled={!canSubmit}
             className={[
-              'flex h-11 min-w-[168px] items-center justify-center rounded-xl px-4 font-mono text-xs font-bold uppercase tracking-[0.2em] transition',
+              'flex h-12 w-full items-center justify-center rounded-xl px-4 font-mono text-sm font-bold uppercase tracking-[0.2em] transition',
               canSubmit
                 ? 'bg-[#eab308] text-black shadow-[0_0_24px_-6px_rgba(234,179,8,0.7)] hover:bg-[#facc15]'
                 : 'cursor-not-allowed bg-white/[0.06] text-white/25',
             ].join(' ')}
           >
-            {isCombo ? 'Confirm Combo Bet' : allLowPicks.length > 1 ? `Place ${allLowPicks.length} Bets` : 'Place Bet'}
+            {detectedTier === null
+              ? 'Select Digits'
+              : isCombo
+                ? `Place ${formatCurrency(totalStake)} Combo Bet`
+                : allLowPicks.length > 1
+                  ? `Place ${allLowPicks.length} Bets — ${formatCurrency(totalStake)}`
+                  : `Place ${formatCurrency(totalStake)} Bet`}
           </button>
         )}
       </div>
