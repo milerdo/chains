@@ -7,10 +7,10 @@ interface PhaseStatusProps {
 
 export function PhaseStatus({ locked, timeRemaining }: PhaseStatusProps) {
   return (
-    <div className="mb-3 flex shrink-0 items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
+    <div className="mb-3 flex shrink-0 items-center justify-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
       <span
         className={[
-          'min-w-[118px] font-mono text-xs font-semibold uppercase tracking-[0.3em]',
+          'font-mono text-xs font-semibold uppercase tracking-[0.3em]',
           locked ? 'text-[#eab308]' : 'text-emerald-400',
         ].join(' ')}
       >

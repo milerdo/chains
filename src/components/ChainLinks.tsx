@@ -49,7 +49,7 @@ interface CircleProps {
 }
 
 export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
-  const dims = size === 'xs' ? 'h-6 w-6 text-[11px]' : size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
+  const dims = size === 'xs' ? 'h-6 w-6 text-[11px]' : size === 'sm' ? 'h-8 w-8 text-sm' : 'h-9 w-9 text-sm';
   const { bg, border } = circleColors(digit, state);
   return (
     <span

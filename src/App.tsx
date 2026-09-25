@@ -115,29 +115,31 @@ function AppShell() {
             <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
             <BettingPanel />
           </div>
-          <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-3 overflow-y-auto px-4 py-4">
+          <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-1 overflow-y-auto px-4 py-2">
             <JackpotPanel />
             {!isDesktop && <Wheel />}
-            {/* Fixed height + sticky, and ALWAYS rendered (even with zero
-                active links) — this is what stops the wheel above from
-                shifting when links appear/disappear. */}
-            <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-white/10 bg-[#141414]/95 px-4 py-2 backdrop-blur-sm">
-              <div className="flex h-16 items-center gap-3 overflow-x-auto">
-                {activeTickets.length === 0 ? (
-                  <span className="font-mono text-[11px] text-white/25">No active links</span>
-                ) : (
-                  activeTickets.map((ticket) => (
-                    <div key={ticket.id} className="shrink-0">
-                      <LinkChain ticket={ticket} size="sm" />
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
           <div className="flex min-h-0 w-full shrink-0 snap-start flex-col overflow-hidden px-4 py-4">
             <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
             <TicketDrawer tickets={activeTickets} />
+          </div>
+        </div>
+        {/* Active links — docked directly above the footer, fixed compact
+            height so it never shifts layout above it (Wheel included) and
+            never overlaps scrolled content the way a sticky-in-panel strip
+            did. Jackpot digits omitted here (compact height); full jackpot
+            detail is still shown in the LINKS panel's TicketDrawer cards. */}
+        <div className="shrink-0 border-t border-white/10 bg-[#141414]/95 px-4 backdrop-blur-sm">
+          <div className="flex h-10 items-center gap-3 overflow-x-auto">
+            {activeTickets.length === 0 ? (
+              <span className="font-mono text-[11px] text-white/25">No active links</span>
+            ) : (
+              activeTickets.map((ticket) => (
+                <div key={ticket.id} className="shrink-0">
+                  <LinkChain ticket={ticket} size="sm" showJackpot={false} />
+                </div>
+              ))
+            )}
           </div>
         </div>
        <MobileFooter

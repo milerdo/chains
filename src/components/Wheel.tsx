@@ -249,7 +249,7 @@ export function Wheel() {
       className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
 
-      <div className="mt-5 flex flex-col items-center">
+      <div className="mt-1 flex flex-col items-center">
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
@@ -423,7 +423,7 @@ export function Wheel() {
           </svg>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
           {recentDigits.length === 0 && (
             <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
           )}

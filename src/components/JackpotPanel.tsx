@@ -90,7 +90,7 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
         </span>
         {/* Same font size/weight for MINI, MIDI, and GRAND — only the
             accent color and glow intensity differ between tiers. */}
-        <span className="mt-1 font-mono text-sm-1 font-bold tabular-nums text-white">
+        <span className="mt-0.5 font-mono text-base font-bold tabular-nums text-white">
           {formatCompactCurrency(animated)}
         </span>
       </div>
