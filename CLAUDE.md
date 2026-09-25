@@ -341,6 +341,7 @@ approved this session. `Ticket.tsx`'s old `DigitChip`/`baseChipState`/
 `LinkChain`) — do not recreate them; extend `ChainLinks.tsx` instead if the
 chain visual needs new states.
 
+**[Stale — see Section 18]** The link-strip-inside-MobileFooter description above was already superseded once (moved to GameHeader, per Section 16) and has since been superseded again (moved to its own fixed-height bar docked above MobileFooter — neither inside the footer nor inside GameHeader). Section 18 has the current, hopefully-final layout. Don't trust this bullet for where mobile active-links currently render.
 **`ChainLinks.tsx` is now the single source of truth for link-progress
 visuals** — used by both `TicketCard` (desktop drawer, `size="md"`) and
 `MobileFooter` (sticky footer strip, `size="xs"`, per CLAUDE.md "no duplicate
@@ -478,6 +479,8 @@ Controls consolidated into one cluster — LeftColumnControls.tsx is GONE. Help 
 
 Mobile active-links display moved from MobileFooter to GameHeader. GameHeader now renders a full-width row of LinkChain (size="xs") for every active ticket directly below its top bar, mobile-only (lg:hidden). MobileFooter no longer shows any ticket/link data at all — it's a pure utility bar. If a future change needs to show link progress on mobile, extend GameHeader's row, don't put it back in the footer.
 
+**[Superseded — see Section 18]** This moved a third time. GameHeader no longer renders an active-links row at all (removed — it was conditionally rendered and its appearance/disappearance was shifting the Wheel's position). Mobile active-links now live in a dedicated, always-rendered, fixed-height bar docked directly above MobileFooter, as a sibling in App.tsx's mobile layout — not in GameHeader, not in MobileFooter. The "extend GameHeader's row" guidance above no longer applies; extend the new docked bar instead if this needs to change again.
+
 Balance renders exactly once per breakpoint. Desktop: inside GameHeader's cluster. Mobile: GameHeader's own lg:hidden block. There is no LeftColumnControls copy anymore. If you ever see Balance imported into a third location, that's a bug — check for accidental duplication before shipping.
 
 DemoPanel is now a controlled component, not self-toggling. It takes isOpen: boolean and renders null when closed — no more internal useState for open/collapsed, no more persistent docked toggle-bar sitting above the mobile footer at all times. State (demoOpen) is lifted into AppShell in App.tsx, opened via a Demo button in the same cluster as Help/History (both breakpoints), same lifting pattern already used for helpOpen/historyOpen. This was done specifically because the old persistent bar depended on a hardcoded mobile bottom-offset (bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))]) that had to be manually kept in sync with MobileFooter's height — since the panel no longer persists when closed, that fragility is gone. If DemoPanel's open-state layout changes in the future (e.g. new content that changes its rendered height while open), there's no longer a closed-state offset to worry about, but double check the open-state positioning still reads correctly on mobile.
@@ -573,6 +576,73 @@ to LOST/JACKPOT_LOST are still fully tracked (the sound call was simply
 deleted from that branch, which now falls through with no side effect).
 `playLoss` itself still exists in `utils/audio.ts`, unused — don't delete
 the function, and don't reconnect it without being asked again.
+
+## 18. Patterns established this session (loss-flash flag, mobile active-links relocation #3, digit-pad/jackpot legibility, terminology)
+
+**Loss/failure now gets a brief visible flash before the link disappears.**
+`useGame.ts` added `flashingFailedIds` (Set<string>) + `failedFlashTimeoutsRef`,
+set inside `applyTicketSounds` at the exact same LOST/JACKPOT_LOST branch that
+already existed (previously a no-op `continue`, per the "Loss sound removed"
+entry in Section 17). A ticket id stays in the set for 900ms before its own
+timeout removes it. `activeTickets`/`history` both check this set so a
+flashing-failed ticket is temporarily held in the active list instead of
+immediately dropping into history. `ChainCircle` renders a red "✕" over the
+failing digit when `state === 'failed'`. This is a genuine extension of the
+existing reveal-gating pattern (Section 4) — any future "show it briefly
+before it's gone" UI need should follow this same set-plus-timeout shape
+rather than inventing a new mechanism. Known gap: timeouts are cleared on
+`resetGame()` but not on component unmount — acceptable given the short
+window, revisit if useGame.ts's unmount cleanup is ever touched anyway.
+
+**Mobile active-links has moved a third time — see the correction notes on
+Sections 13 and 16 above.** Current state: a fixed-height, always-rendered
+bar (shows "No active links" text when empty, specifically so it never
+changes height) docked directly above `MobileFooter` in `App.tsx`, sibling
+to the swipeable panel container so it's visible on all three panels. Uses
+`LinkChain size="sm" showJackpot={false}`. If this needs to move again,
+update Section 18 directly rather than leaving another stale claim in 13/16.
+
+**Terminology: display-only MEDIUM → "MIDI" rename.** `TIER_DISPLAY_LABEL`
+in BettingPanel and `TIER_META` labels in JackpotPanel now show "LOW" /
+"MIDI" / "HIGH" (dropping "VOLATILITY" / "N IN A ROW" suffixes entirely).
+This follows the exact same rule as the Ticket/Link rename in Section 11:
+cosmetic only. The internal `TicketTier` enum value is still `'MEDIUM'`,
+`JackpotTierName` is still `'MIDI'` (that one was already MIDI internally —
+no enum touched anywhere). Do not rename the enum to match the display
+string.
+
+**BettingPanel's jackpot label is now dynamic**, not the static word
+"Jackpot" — `JACKPOT_LABEL` maps the currently-detected tier to "Mini
+Jackpot" / "Midi Jackpot" / "High Jackpot", falling back to "Jackpot" pre-
+selection.
+
+**LOW multi-pick now rejects a digit that's already picked** (including the
+main slot), with a feedback toast, rather than silently allowing a
+duplicate. This is a UI restriction only — the engine has never enforced
+distinct digits within a multi-pick batch, and still doesn't; duplicate
+picks were always valid at the ticket/concurrency-cap level, this just
+stops the player from doing it by accident. "+ Add another pick" was also
+relabeled "Pick another" (shorter, same affordance/position).
+
+**Active Links card height cap is now 52px** (`Ticket.tsx`'s per-card
+`max-h-[*]`), down from 76px, down from the original 104px estimate — see
+the corrected entry in ChainsContext.txt's IMPLEMENTATION LOG. Set directly
+by hands-on viewing this time, not an estimate — treat 52px as correct
+until someone says otherwise.
+
+**Misc legibility/spacing fixes, no behavioral change:** digit pad buttons
+bigger/bolder text + background opacity raised to match border opacity;
+`ChainCircle`'s `sm` size enlarged (h-7→h-8) and its `current` state given
+a 3px border instead of the default 1px; Clear button restyled to match
+Auto Bet's bordered-chip look; `PhaseStatus` label+timer now centered as one
+group (the old `min-w-[118px]` anti-reflow hack on the label is gone,
+unneeded once centered); Wheel's internal top margins tightened (more of it
+visible without scrolling, less dead space above the mobile active-links
+bar); `JackpotPanel`'s pool amount had a bogus `text-sm-1` class (not a real
+Tailwind utility) — fixed to `text-base`, likely the main cause of the
+"jackpot numbers aren't readable" report. Timer format changed from
+floored/padded whole seconds ("07s") to one-decimal ("10.0s", "9.9s") via
+`formatCountdown`.
 
 ## Final principle
 
