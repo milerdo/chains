@@ -500,6 +500,80 @@ Confirmed NO changes to BASE_SEQUENCE_LENGTH.LOW, TIER_TO_JACKPOT, JACKPOT_SEQUE
 
 Known pre-existing gap surfaced (not caused) by the multi-pick work — flagged, not fixed: engine.test.ts has a test ("rejects a second bet with a different tier placed in the same still-open round") that calls ChainsGame.placeBet() twice directly and expects the second call (different tier) to fail. No engine-level state actually enforces that — the real lock (hasBetThisRound) lives only in useGame.ts's React layer (see the Section 14/15 entries above re: the desktop/mobile dual-mount bet-lock fix). This test's premise appears to predate that fix, or was never actually engine-enforced. Needs a decision in a future session — either correct the test's premise (accept that engine-level placeBet calls don't enforce cross-call tier-locking on their own) or add genuine engine-side locking if that's actually wanted. Do not "fix" this silently by adding engine-level round-locking as a side effect of an unrelated future change — it's a deliberate flag for a dedicated decision.
 
+## 17. Patterns established this session (balance relocation, phase status
+component, inline tickets-while-betting fix, betting panel restructure)
+
+**Balance now lives in MobileFooter on mobile, not GameHeader.** This
+directly supersedes a claim in Section 16 ("Balance renders exactly once
+per breakpoint... Mobile: GameHeader's own lg:hidden block"). That is now
+FALSE — check the actual current file before trusting it, same caution
+Section 16 itself gave about GameHistory. Current truth: desktop =
+GameHeader's cluster (unchanged), mobile = MobileFooter, right-aligned
+after a flex-1 spacer. Still exactly one instance per breakpoint, just a
+different location on mobile.
+
+**Phase/countdown display is no longer part of Wheel.tsx.** New
+`PhaseStatus.tsx` component, mounted three times (desktop right column,
+mobile bet panel, mobile tickets panel), driven by a locked/timeRemaining
+prop pair rather than reading phase directly. Desktop passes the existing
+lifted `bettingLocked`; mobile computes its own `mobileLocked` in App.tsx
+since there's no per-instance callback wired on the mobile BettingPanel.
+Wheel.tsx now renders ONLY the wheel graphic + recent-digits strip —
+no phase bar, no Live/draw-index bar. Do not add either back to Wheel.tsx;
+extend PhaseStatus or add a new small component instead, following this
+same "phase chrome lives outside Wheel" pattern.
+
+**Active tickets must be visible WHENEVER the betting panel is visible,
+on both breakpoints.** This was a real bug (not just polish) surfaced by
+testing: Section 6's rebet-while-qualifying rule means BettingPanel can
+be interactable again while other tickets are still live, but the old
+desktop XOR-swap and mobile swipe-only-tickets-panel both hid active
+tickets in exactly that situation. Fix: TicketDrawer is rendered INLINE
+under BettingPanel on both breakpoints (conditional on
+activeTickets.length > 0), IN ADDITION to its pre-existing standalone
+mounts (desktop's post-lock swap slot, mobile's dedicated tickets swipe
+panel). This redundancy is intentional — do not remove one mount thinking
+the other makes it redundant; they serve different scroll positions the
+player is at.
+
+**LOW multi-pick input reuses the single DigitPad, does not spawn a
+second one.** `EditTarget` (in BettingPanel.tsx) gained a `{ kind:
+'lowPick' }` variant. "+ Add another pick" calls `focusAddPick()`, which
+just retargets the SAME DigitPad already on screen — a digit press there
+appends to `lowPicks` state and clears the target. There is no longer a
+second inline digit grid anywhere in BettingPanel. If extending
+EditTarget further (e.g. for a future input mode), follow this same
+"retarget the existing pad" pattern rather than building parallel pads —
+Section 3's dual-mount SVG-id warning is a different problem, but the
+underlying "don't duplicate an interactive surface" principle is the same
+spirit.
+
+**Auto Bet is now preset-based, not a stepper.** The old +/- stepper
+(`autoBetRounds` state, `MIN_AUTO_BET_ROUNDS`/`MAX_AUTO_BET_ROUNDS`
+constants from Section 16's own log entry) is GONE — fully replaced by
+four fixed preset buttons (5/10/25/50) that appear when "Auto Bet" is
+tapped once. Tapping a preset places the bet AND starts autoplay in one
+action for that exact count. `handleStartAutoBet(rounds: number)` now
+takes the count as a parameter instead of reading component state. Do not
+reintroduce a numeric stepper without discussing first — this was a
+deliberate space-saving simplification, not an oversight.
+
+**Submit button label carries the dollar amount now; there's no separate
+"Total Stake" readout row.** The sticky submit button's own text is one
+of: "Select Digits" (disabled/no tier yet), "Place $X Bet", "Place N Bets
+— $X", or "Place $X Combo Bet". If a future change needs the numeric
+stake surfaced elsewhere (e.g. for a screen-reader-only string or a
+tooltip), pull it from the same `totalStake` value already computed in
+the component — don't reintroduce the old separate label+amount pair in
+the visible layout.
+
+**Loss sound removed, not the loss detection.** `playLoss()` is no longer
+invoked in `useGame.ts`'s `applyTicketSounds`, but ticket status changes
+to LOST/JACKPOT_LOST are still fully tracked (the sound call was simply
+deleted from that branch, which now falls through with no side effect).
+`playLoss` itself still exists in `utils/audio.ts`, unused — don't delete
+the function, and don't reconnect it without being asked again.
+
 ## Final principle
 
 Preserve the CHAINS concept.
