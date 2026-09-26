@@ -18,16 +18,20 @@ function jackpotCircleState(ticket: Ticket, index: number): CircleState {
   return 'pending';
 }
 
-const JACKPOT_TIER_DISPLAY: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
-
 /** Whether a ticket's jackpot chain is currently worth showing — before
  * the base win, jackpot digits are irrelevant noise; from BASE_WON
  * onward (qualifying, won, or lost) they're the whole story. */
 export function isJackpotRelevant(status: Ticket['status']): boolean {
-  return status === 'BASE_WON' || status === 'JACKPOT_STEP_1' || status === 'JACKPOT_STEP_2' ||
-    status === 'JACKPOT_WON' || status === 'JACKPOT_LOST';
+  return (
+    status === 'BASE_WON' ||
+    status === 'JACKPOT_STEP_1' ||
+    status === 'JACKPOT_STEP_2' ||
+    status === 'JACKPOT_WON' ||
+    status === 'JACKPOT_LOST'
+  );
 }
 
+const JACKPOT_TIER_DISPLAY: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
 
 /** Background stays tinted to the digit's own wheel color at every state
  * (that's the "match the wheel" identity); border/ring carries the
@@ -60,7 +64,7 @@ interface CircleProps {
 }
 
 export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
-  const dims = size === 'xs' ? 'h-7 w-7 text-xs' : size === 'sm' ? 'h-9 w-9 text-sm' : 'h-10 w-10 text-base';
+  const dims = size === 'xs' ? 'h-6 w-6 text-[11px]' : size === 'sm' ? 'h-8 w-8 text-sm' : 'h-9 w-9 text-sm';
   const { bg, border } = circleColors(digit, state);
   return (
     <span
@@ -83,24 +87,20 @@ export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
 }
 
 function Link({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
-const width = size === 'xs' ? 'w-2' : size === 'sm' ? 'w-2' : 'w-3';
+  const width = size === 'xs' ? 'w-2' : size === 'sm' ? 'w-2' : 'w-3';
   return <span className={`h-[2px] shrink-0 ${width} bg-white/15`} />;
 }
 
 interface LinkChainProps {
   ticket: Ticket;
   size?: 'xs' | 'sm' | 'md';
-  /** Whether to render the jackpot digits inline on this chain at all.
-   * Default true for backward compat (mobile footer strip); TicketCard
-   * now passes this explicitly only for qualifying/resolved-jackpot
-   * tickets, since the round's jackpot combo is shown once elsewhere. */
   showJackpot?: boolean;
 }
 
 export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChainProps) {
   return (
-    <div className="flex flex-wrap items-center gap-y-1.5">
-      <span className="flex items-center">
+    <div className="flex flex-nowrap items-center gap-1 overflow-x-auto">
+      <span className="flex shrink-0 items-center">
         {ticket.baseSequence.map((digit, i) => (
           <span key={`b-${i}`} className="flex items-center">
             {i > 0 && <Link size={size} />}
@@ -109,9 +109,9 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
         ))}
       </span>
       {showJackpot && (
-        <span className="flex items-center">
+        <span className="flex shrink-0 items-center">
           <Link size={size} />
-          <span className="flex items-center gap-1 rounded-full border border-[#eab308]/40 bg-[#eab308]/15 px-1.5 py-0.5">
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/40 bg-[#eab308]/15 px-1.5 py-0.5">
             {ticket.jackpotSequence.map((digit, i) => (
               <span key={`j-${i}`} className="flex items-center">
                 {i > 0 && <Link size={size} />}

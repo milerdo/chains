@@ -68,7 +68,7 @@ function AppShell() {
       <main className="hidden min-h-0 flex-1 lg:flex lg:flex-col lg:overflow-hidden">
         <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="h-[38%] min-h-[220px] shrink-0">
+            <div className="h-[31%] min-h-[190px] shrink-0">
               <MultiplayerSim />
             </div>
             <EmojiChat />

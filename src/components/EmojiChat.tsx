@@ -1,9 +1,9 @@
 // ============================================================================
 // CHAINS — EmojiChat
-// Local, per-browser "table chat". Not real multiplayer — persisted to
-// localStorage only (see CLAUDE.md log). Each message is identified by its
-// own send time (hh:mm:ss) rather than a player name, per design decision.
-// Up to MAX_SENDS_PER_ROUND emoji/messages per betting round.
+// Local, per-browser table chat, presented to players as part of "Socials".
+// Persisted to localStorage only — not real multiplayer. Each message is
+// identified by its own send time (hh:mm:ss) rather than a player name.
+// Max ONE emoji/message per betting round.
 // ============================================================================
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -15,7 +15,7 @@ const APPROVED_EMOJIS = [
   '🔥', '😂', '😮', '😢', '🎉', '💰', '🙌', '😎', '🍀', '👏', '😤', '🤞', '💯', '⚡',
 ];
 
-const MAX_SENDS_PER_ROUND = 5;
+const MAX_SENDS_PER_ROUND = 1;
 const MAX_MESSAGE_LENGTH = 60;
 const MAX_STORED_MESSAGES = 100;
 const STORAGE_KEY = 'chains-table-chat';
@@ -47,7 +47,7 @@ function loadStoredMessages(): ChatMessage[] {
 }
 
 export function EmojiChat() {
-  const { phase, simulatedActivity } = useGame();
+  const { phase } = useGame();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadStoredMessages());
   const [draft, setDraft] = useState('');
   const [sentThisRound, setSentThisRound] = useState(0);
@@ -95,23 +95,10 @@ export function EmojiChat() {
 
   return (
     <section
-      aria-label="Table chat"
+      aria-label="Socials"
       className="flex min-h-0 flex-1 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex shrink-0 items-center justify-between">
-        <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          </span>
-          {simulatedActivity.playerCount.toLocaleString()} playing now
-        </span>
-        <span className="font-mono text-[10px] text-white/30">
-          {sentThisRound}/{MAX_SENDS_PER_ROUND} this round
-        </span>
-      </div>
-
-      <div ref={listRef} className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
         {messages.length === 0 ? (
           <p className="flex h-full items-center justify-center text-center font-mono text-xs text-white/25">
             No messages yet — say hi to the table.
