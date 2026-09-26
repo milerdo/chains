@@ -18,6 +18,17 @@ function jackpotCircleState(ticket: Ticket, index: number): CircleState {
   return 'pending';
 }
 
+const JACKPOT_TIER_DISPLAY: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
+
+/** Whether a ticket's jackpot chain is currently worth showing — before
+ * the base win, jackpot digits are irrelevant noise; from BASE_WON
+ * onward (qualifying, won, or lost) they're the whole story. */
+export function isJackpotRelevant(status: Ticket['status']): boolean {
+  return status === 'BASE_WON' || status === 'JACKPOT_STEP_1' || status === 'JACKPOT_STEP_2' ||
+    status === 'JACKPOT_WON' || status === 'JACKPOT_LOST';
+}
+
+
 /** Background stays tinted to the digit's own wheel color at every state
  * (that's the "match the wheel" identity); border/ring carries the
  * match-progress signal (pending/current/matched/failed) on top of it. */
@@ -25,13 +36,13 @@ function circleColors(digit: number, state: CircleState): { bg: string; border: 
   const c = DIGIT_COLORS[digit];
   switch (state) {
     case 'matched':
-      return { bg: `${c}40`, border: '#34d399' };
+      return { bg: `${c}80`, border: '#34d399' };
     case 'failed':
-      return { bg: `${c}20`, border: '#f87171' };
+      return { bg: `${c}40`, border: '#f87171' };
     case 'current':
-      return { bg: `${c}40`, border: '#eab308' };
+      return { bg: `${c}80`, border: '#eab308' };
     default:
-      return { bg: `${c}1a`, border: `${c}66` };
+      return { bg: `${c}33`, border: `${c}66` };
   }
 }
 
@@ -49,7 +60,7 @@ interface CircleProps {
 }
 
 export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
-  const dims = size === 'xs' ? 'h-6 w-6 text-[11px]' : size === 'sm' ? 'h-8 w-8 text-sm' : 'h-9 w-9 text-sm';
+  const dims = size === 'xs' ? 'h-7 w-7 text-xs' : size === 'sm' ? 'h-9 w-9 text-sm' : 'h-10 w-10 text-base';
   const { bg, border } = circleColors(digit, state);
   return (
     <span
@@ -100,16 +111,19 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
       {showJackpot && (
         <span className="flex items-center">
           <Link size={size} />
-          {size !== 'xs' && (
-            <span className="mx-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-white/25">JP</span>
-          )}
-          <Link size={size} />
-          {ticket.jackpotSequence.map((digit, i) => (
-            <span key={`j-${i}`} className="flex items-center">
-              {i > 0 && <Link size={size} />}
-              <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
-            </span>
-          ))}
+          <span className="flex items-center gap-1 rounded-full border border-[#eab308]/40 bg-[#eab308]/15 px-1.5 py-0.5">
+            {ticket.jackpotSequence.map((digit, i) => (
+              <span key={`j-${i}`} className="flex items-center">
+                {i > 0 && <Link size={size} />}
+                <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
+              </span>
+            ))}
+            {size !== 'xs' && (
+              <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
+                {JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}
+              </span>
+            )}
+          </span>
         </span>
       )}
     </div>

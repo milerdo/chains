@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { isAudioEnabled, playUiClick, toggleAudioEnabled } from '../utils/audio';
+import { MultiplayerSim } from './MultiplayerSim';
 import { EmojiChat } from './EmojiChat';
 import { Balance } from './Balance';
 
@@ -108,7 +109,10 @@ interface MobileFooterProps {
                 ✕
               </button>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3">
+              <div className="h-[36%] min-h-[160px] shrink-0">
+                <MultiplayerSim />
+              </div>
               <EmojiChat />
             </div>
           </div>

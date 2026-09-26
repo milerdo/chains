@@ -214,6 +214,27 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     setFeedback(null);
   }
 
+  /** Forms one complete random link — 1 to 3 random digits (tier follows
+   * from the count, same as manual entry) plus a random jackpot pair —
+   * always a single straight bet (never combo, never multi-pick). Player
+   * still has to press Place Bet to confirm; this only fills the form. */
+  function handleRandom() {
+    if (locked) return;
+    playUiClick();
+    const count = 1 + Math.floor(Math.random() * MAX_DIGIT_SLOTS);
+    const nextDigits: (number | null)[] = Array(MAX_DIGIT_SLOTS).fill(null);
+    for (let i = 0; i < count; i += 1) {
+      nextDigits[i] = Math.floor(Math.random() * 10);
+    }
+    setDigits(nextDigits);
+    setIsCombo(false);
+    setLowPicks([]);
+    setAutoBetPickerOpen(false);
+    setJackpotDigits([Math.floor(Math.random() * 10), Math.floor(Math.random() * 10)]);
+    setEditTarget(null);
+    setFeedback(null);
+  }
+
   /** Jackpot digits now persist across rounds until the player edits them
    * or rerolls — no longer auto-reseeded from the engine every round. */
   function handleRerollJackpot() {
@@ -517,14 +538,24 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
 
        {!autoBetActive && (
         <div className="mt-2 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleClear}
-            disabled={locked || filledCount === 0}
-            className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
-          >
-            Clear
-          </button>
+         <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleClear}
+              disabled={locked || filledCount === 0}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={handleRandom}
+              disabled={locked}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-white/60 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
+            >
+              Random
+            </button>
+          </div>
           <div className="flex items-center gap-1.5">
             {autoBetPickerOpen ? (
               AUTO_BET_PRESETS.map((n) => (

@@ -106,6 +106,7 @@ export class ChainsGame {
     playerCount: 0,
     activeTicketsByTier: { LOW: 0, MEDIUM: 0, HIGH: 0 },
     recentEvents: [],
+    digitPopularity: Array(10).fill(10),
   };
 
   // --- subscribers -------------------------------------------------------
@@ -198,6 +199,7 @@ export class ChainsGame {
       playerCount: this.simulatedActivity.playerCount,
       activeTicketsByTier: { ...this.simulatedActivity.activeTicketsByTier },
       recentEvents: [...this.simulatedActivity.recentEvents],
+      digitPopularity: [...this.simulatedActivity.digitPopularity],
     };
   }
 
@@ -772,6 +774,13 @@ export class ChainsGame {
       HIGH: Math.floor(playerCount * (0.08 + Math.random() * 0.08)),
     };
 
+    // Simulated per-digit betting popularity, purely cosmetic — a random
+    // weighted split across 0-9 that refreshes on the same cadence as the
+    // rest of this simulated activity (each real draw).
+    const rawWeights = Array.from({ length: 10 }, () => Math.random() + 0.2);
+    const weightSum = rawWeights.reduce((a, b) => a + b, 0);
+    const digitPopularity = rawWeights.map((w) => Math.round((w / weightSum) * 100));
+
     const recentEvents = [...this.simulatedActivity.recentEvents];
     if (draw) {
       const eventCount = 1 + Math.floor(Math.random() * 3);
@@ -793,7 +802,7 @@ export class ChainsGame {
       }
     }
 
-    return { playerCount, activeTicketsByTier, recentEvents };
+    return { playerCount, activeTicketsByTier, recentEvents, digitPopularity };
   }
 
   private emit(): void {

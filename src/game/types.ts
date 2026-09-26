@@ -158,6 +158,10 @@ export interface SimulatedActivity {
   playerCount: number;
   activeTicketsByTier: Record<TicketTier, number>;
   recentEvents: SimulatedActivityEvent[];
+  /** Simulated "% of players betting this digit" for the current round,
+   * indexed 0-9. Cosmetic only — purely a display heuristic, never
+   * derived from real bets, and never used to influence odds or RNG. */
+  digitPopularity: number[];
 }
 
 export interface SimulatedActivityEvent {

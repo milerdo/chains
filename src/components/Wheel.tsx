@@ -337,8 +337,8 @@ export function Wheel() {
                     key={`wedge-${i}`}
                     d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
                     fill={isLanded ? '#eab308' : color}
-                    stroke="#d4af5a"
-                    strokeWidth={3}
+                    stroke="#2a1c02"
+                    strokeWidth={3.5}
                     style={{ transition: 'fill 150ms ease-out' }}
                   />
                 );
@@ -356,7 +356,7 @@ export function Wheel() {
                 return (
                   <g key={`peg-${i}`}>
                     <circle cx={p.x} cy={p.y + 1} r={PEG_VISUAL_R} fill="#1a1200" opacity={0.4} />
-                    <circle cx={p.x} cy={p.y} r={PEG_VISUAL_R} fill={`url(#pegGrad-${uid})`} stroke="#4a3506" strokeWidth={0.8} />
+                    <circle cx={p.x} cy={p.y} r={PEG_VISUAL_R} fill={`url(#pegGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.3} />
                   </g>
                 );
               })}

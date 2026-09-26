@@ -11,12 +11,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameProvider, useGame } from './hooks/useGame';
 import { GameHeader } from './components/GameHeader';
- // LeftColumnControls retired — its job (help/sound/balance) moved into
- // GameHeader's desktop control cluster.
 import { JackpotPanel } from './components/JackpotPanel';
 import { Wheel } from './components/Wheel';
 import { BettingPanel } from './components/BettingPanel';
 import { TicketDrawer } from './components/Ticket';
+import { MultiplayerSim } from './components/MultiplayerSim';
 import { EmojiChat } from './components/EmojiChat';
 import { HelpModal } from './components/HelpModal';
 import { BetHistoryModal } from './components/BetHistoryModal';
@@ -24,7 +23,7 @@ import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
 import { PhaseStatus } from './components/PhaseStatus';
-import { LinkChain } from './components/ChainLinks';
+import { LinkChain, isJackpotRelevant } from './components/ChainLinks';
 import type { GamePhase } from './game/types';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
@@ -69,6 +68,9 @@ function AppShell() {
       <main className="hidden min-h-0 flex-1 lg:flex lg:flex-col lg:overflow-hidden">
         <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="h-[38%] min-h-[220px] shrink-0">
+              <MultiplayerSim />
+            </div>
             <EmojiChat />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
@@ -136,7 +138,7 @@ function AppShell() {
             ) : (
               activeTickets.map((ticket) => (
                 <div key={ticket.id} className="shrink-0">
-                  <LinkChain ticket={ticket} size="sm" showJackpot={false} />
+                   <LinkChain ticket={ticket} size="sm" showJackpot={isJackpotRelevant(ticket.status)} />
                 </div>
               ))
             )}
