@@ -644,6 +644,100 @@ Tailwind utility) — fixed to `text-base`, likely the main cause of the
 floored/padded whole seconds ("07s") to one-decimal ("10.0s", "9.9s") via
 `formatCountdown`.
 
+## 19. Patterns established this session (Random bet, Active Links pill, Heat Map redesign, Socials rename)
+
+**Random bet button lives in BettingPanel, not as a demo/engine feature.**
+`handleRandom()` fills the existing digit/jackpot state with one random
+straight bet (1-3 digits, tier auto-detected same as manual typing) and a
+random jackpot pair, then stops — no auto-submit, no engine call. Grouped
+visually next to Clear in the footer row. If a future request wants
+"random + submit in one tap," that's a different, explicit ask — do not
+conflate the two.
+
+**Active Links circle sizing is now considered validated/locked at its
+original dimensions.** A same-session attempt to enlarge `ChainCircle`
+(xs/sm/md) to better match the digit pad caused real overlap/line-wrapping
+on desktop's 52px-capped `TicketCard` once the jackpot pill was added, and
+was reverted. Only background-tint alpha was kept bumped. Before touching
+`ChainCircle` dimensions again, sanity-check against the 52px desktop card
+cap (`Ticket.tsx`'s `max-h-[52px]` wrapper) — this is a real, reproduced
+constraint, not a hypothetical.
+
+**`LinkChain`'s container is `flex-nowrap` + horizontal scroll, not
+`flex-wrap`.** This was the other half of the overlap fix (paired with
+the size revert above) — do not switch this back to wrap without
+re-verifying at the 52px cap; wrapping is what caused the base sequence
+to spill onto a second visual row in the first place.
+
+**Jackpot tier now shown inline in the chain itself, replacing the old
+plain "JP" text.** `ChainLinks.tsx` exports `JACKPOT_TIER_DISPLAY` (tier
+name mapping, matches existing LOW/MIDI/HIGH convention) and wraps the
+jackpot digits + tier name together in one gold pill. Also exports
+`isJackpotRelevant(status)`, now used by `App.tsx`'s mobile docked
+active-links bar so jackpot digits only appear once actually relevant
+(from BASE_WON onward) — previously mobile's compact bar always passed
+`showJackpot={false}`, hiding jackpot progress entirely even after a base
+win. This was a genuine display bug, not a deliberate omission — confirm
+this fix stays in place; don't revert to a blanket `false` for mobile.
+
+**MultiplayerSim.tsx is no longer dead code — it's "Heat Map."** Sections
+13 and 16 both note this file was intentionally unmounted; that decision
+is now SUPERSEDED. The file has been fully rewritten: it no longer shows
+Section 28's literal player-count/tier-breakdown/event-feed design, and
+instead shows a simulated per-digit bet-popularity bar chart, refreshed on
+its own local `setInterval` (1.5s) independent of the engine's draw
+cadence. It is mounted in BOTH the desktop left column (above EmojiChat)
+and the mobile Socials bottom sheet (same stacked position) — not
+gated behind any `isDesktop` check, unlike Wheel.
+
+**Known dead field, flagged not removed:** `SimulatedActivity.digitPopularity`
+(in `game/types.ts`) and its generation branch inside `engine.ts`'s
+`generateSimulatedActivity()` were added earlier in the same session as
+an engine-sourced heat-map data source, then made redundant when the
+component switched to a faster local-interval-driven random source
+instead (to get the 1.5s refresh without forcing extra engine emits).
+Nothing currently reads `digitPopularity`. Do not assume it's live/wired
+— either wire it to something real or remove it in a future cleanup pass;
+it was left in place this session specifically to avoid an
+unrequested mid-task removal.
+
+**"Table Chat" is now "Socials" everywhere it's player-facing** (button
+aria-labels, sheet header, EmojiChat's own aria-label) — reflects that the
+sheet/column now hosts both chat and the Heat Map, not chat alone. The
+underlying components (`EmojiChat.tsx`, `MultiplayerSim.tsx`) remain
+separate; "Socials" is a UI umbrella label only, there is no new merged
+component.
+
+**EmojiChat is now genuinely 1 message per round, and no longer shows a
+counter or a player-count line.** `MAX_SENDS_PER_ROUND` changed 5 -> 1.
+The old "X/5 this round" text and "N playing now" line are both removed
+from `EmojiChat.tsx`'s header entirely (the player-count is considered
+redundant now that Heat Map's own "N active" sits directly above it in
+the same sheet). `simulatedActivity` is no longer imported/destructured
+in `EmojiChat.tsx` at all — if a future change needs it again, re-add the
+import, don't assume it's still there.
+
+**Icon requests via external Flaticon URLs cannot be fulfilled as literal
+assets.** Claude has no mechanism to fetch/download a third-party icon
+file from a product page link. Two icon-swap requests this session
+(mobile socials button, history button) were both handled by either
+reusing an existing custom SVG (`HistoryIcon`, now exported from
+`GameHeader.tsx` and shared into `MobileFooter.tsx`) or drawing a new
+original approximation (`PeopleIcon`, inline in `MobileFooter.tsx`) —
+NOT the actual downloaded Flaticon graphics. If pixel-exact match to a
+specific Flaticon asset is required, the person must download the
+.svg/.png themselves and add it to the repo (e.g. `src/assets/`); wiring
+a provided file in afterward is a trivial follow-up, not a blocker.
+
+**Wheel contrast fix was deliberately scoped as stroke-color/width only,
+not a palette change.** Wedge and peg stroke colors darkened
+(`#d4af5a`/`#4a3506` -> `#2a1c02`, matching the existing outer-frame
+stroke tone) purely so boundaries read more distinctly. Fill gradients
+(frame/hub/peg/wedge colors) and the flapper's gunmetal palette (Section
+15's explicit high-contrast decision) are untouched — do not expand this
+into a broader "metal wheel" redesign without a fresh explicit ask, that
+was considered and declined this session in favor of this smaller fix.
+
 ## Final principle
 
 Preserve the CHAINS concept.
