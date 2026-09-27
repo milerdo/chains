@@ -96,7 +96,7 @@ export function EmojiChat() {
   return (
     <section
       aria-label="Socials"
-      className="flex min-h-0 flex-1 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
+      className="flex min-h-0 flex-1 flex-col rounded-3xl border border-white/[0.07] border-t-2 border-t-[#eab308]/30 bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
     >
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
         {messages.length === 0 ? (

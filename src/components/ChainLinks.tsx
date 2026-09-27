@@ -111,7 +111,9 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
       {showJackpot && (
         <span className="flex shrink-0 items-center">
           <Link size={size} />
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/40 bg-[#eab308]/15 px-1.5 py-0.5">
++          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">            {/* was: border-[#eab308]/40 bg-[#eab308]/15 — filled amber
+              competed visually with the chain circles; outline-only reads
+              as a frame around the jackpot progress instead. */}
             {ticket.jackpotSequence.map((digit, i) => (
               <span key={`j-${i}`} className="flex items-center">
                 {i > 0 && <Link size={size} />}

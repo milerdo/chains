@@ -509,6 +509,7 @@ export class ChainsGame {
     this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
 
     this.simulatedActivity = this.generateSimulatedActivity();
+    this.simulatedActivity = { ...this.simulatedActivity, digitPopularity: this.regenerateDigitPopularity() };
     this.emit();
   }
 
@@ -686,6 +687,10 @@ export class ChainsGame {
       // generated and displayed at the start of every betting round. The
       // player may still edit it before confirming a bet.
       this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
+      // Cosmetic "table heat" realism fix: one low-variance popularity
+      // bias per round instead of fully re-randomizing every draw. See
+      // regenerateDigitPopularity() below.
+      this.simulatedActivity = { ...this.simulatedActivity, digitPopularity: this.regenerateDigitPopularity() };
     }
 
     if (phase === 'DRAWING') {
@@ -775,11 +780,11 @@ export class ChainsGame {
     };
 
     // Simulated per-digit betting popularity, purely cosmetic — a random
-    // weighted split across 0-9 that refreshes on the same cadence as the
-    // rest of this simulated activity (each real draw).
-    const rawWeights = Array.from({ length: 10 }, () => Math.random() + 0.2);
-    const weightSum = rawWeights.reduce((a, b) => a + b, 0);
-    const digitPopularity = rawWeights.map((w) => Math.round((w / weightSum) * 100));
+    // weighted split across 0-9. No longer regenerated here — it's now
+    // driven once per round by regenerateDigitPopularity() (see
+    // enterPhase/reset), so it carries through unchanged across draw-tick
+    // calls to this method instead of jumping every draw.
+    const digitPopularity = this.simulatedActivity.digitPopularity;
 
     const recentEvents = [...this.simulatedActivity.recentEvents];
     if (draw) {
@@ -803,6 +808,23 @@ export class ChainsGame {
     }
 
     return { playerCount, activeTicketsByTier, recentEvents, digitPopularity };
+  }
+
+   /** Low-variance simulated "which digits are popular this round" bias:
+   * mostly near-equal with 1-2 digits nudged slightly hotter, rather than
+   * a fully random weighted split every tick. Regenerated once per fresh
+   * BETTING_OPEN round (see enterPhase/reset) — the heat map component
+   * then drifts its displayed bars toward this target with small local
+   * jitter, only while betting is open. */
+  private regenerateDigitPopularity(): number[] {
+    const hotCount = 1 + Math.floor(Math.random() * 2);
+    const hotDigits = new Set<number>();
+    while (hotDigits.size < hotCount) hotDigits.add(Math.floor(Math.random() * 10));
+    const weights = Array.from({ length: 10 }, (_, i) =>
+      10 + (hotDigits.has(i) ? 6 + Math.random() * 6 : Math.random() * 4 - 2),
+    );
+    const sum = weights.reduce((a, b) => a + b, 0);
+    return weights.map((w) => Math.round((w / sum) * 100));
   }
 
   private emit(): void {

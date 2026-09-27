@@ -45,7 +45,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/50 transition hover:border-[#eab308]/50 hover:text-[#eab308]"
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 text-xs text-white/50 transition hover:border-[#eab308]/50 hover:text-[#eab308]"
           >
             ✕
           </button>

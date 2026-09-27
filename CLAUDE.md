@@ -738,6 +738,91 @@ stroke tone) purely so boundaries read more distinctly. Fill gradients
 into a broader "metal wheel" redesign without a fresh explicit ask, that
 was considered and declined this session in favor of this smaller fix.
 
+## 20. Patterns established this session (heat map realism, jackpot pill, close-button/UX polish)
+
+**Heat Map renamed "Bets Heat Map" and is now behaviorally realistic, not
+fully random every tick.** `SimulatedActivity.digitPopularity` (previously
+flagged dead code — see Section 19) is now genuinely wired: engine's new
+private `regenerateDigitPopularity()` produces one low-variance bias
+(1-2 "hot" digits nudged slightly higher, the rest near-equal) once per
+fresh `BETTING_OPEN` entry (`enterPhase`) and on `reset()`. `processDraw()`'s
+`generateSimulatedActivity()` no longer re-randomizes `digitPopularity` on
+every draw — it now just carries the current round's value through
+unchanged. Do not reintroduce per-draw full randomization of this field;
+that was the source of the "twitchy/fake" feedback.
+
+`MultiplayerSim.tsx` (component) now drifts its *displayed* bars toward
+the engine's `target` (`digitPopularity`) with a small per-tick jitter
+(`DRIFT_RATE = 0.35`, `JITTER = ±3`) on a 1.5s local interval, GATED to
+only run while `phase === 'BETTING_OPEN'` (was previously an unconditional
+interval regardless of phase). On entering a fresh `BETTING_OPEN` round,
+displayed bars reset to 0% and drift back up from there — this reset is
+driven by the same `prevPhaseRef`-on-phase-change pattern used elsewhere
+(`EmojiChat`, `BettingPanel`'s auto-bet resubmit, `Wheel`'s direction
+flip). Do not go back to fully-random-every-tick generation locally in
+this component — the realistic behavior now lives in the engine's biased
+target + this component's smoothing on top of it.
+
+Digit labels are now anchored INTO the base of each bar (a solid colored
+capsule containing the digit, `rounded-b-md`) rather than floating as a
+separate label below a disconnected bar — this was an explicit ask
+("bars should include/start from the number"). Keep this anchoring if the
+heat map visual is touched again; don't revert to a floating label.
+
+Player-count "active" readout stays in `MultiplayerSim`'s own header
+(NOT duplicated into `EmojiChat` — that duplication was deliberately
+removed in an earlier session, see Section 19's EmojiChat entry, and the
+decision was reaffirmed this session). It now has a small pulsing live-dot
+next to it. **Dot color: green (`bg-emerald-400`), not gold** — gold was
+tried first this session and changed to green immediately after, to avoid
+visual confusion with the jackpot/gold accent used everywhere else in the
+UI. If this dot is ever touched again, keep it green/emerald, not gold.
+
+**Jackpot pill in `ChainLinks.tsx` is now outline-only.** Changed from a
+filled amber pill (`border-[#eab308]/40 bg-[#eab308]/15`) to
+`border-[#eab308]/50 bg-transparent` — the filled version was visually
+competing with the chain circles' own fills. This keeps the "tell the
+jackpot's story without adding visual noise" goal from Section 15's
+original "jackpot is secondary" direction, just refined further. Don't
+revert to a filled pill without a fresh explicit ask.
+
+**Close buttons (`HelpModal.tsx`, `BetHistoryModal.tsx`,
+`MobileFooter.tsx`'s Socials sheet) are now smaller** — `h-8 w-8`/`h-9 w-9`
+✕ buttons shrunk to `h-6 w-6`/`h-7 w-7`, `text-xs`. Kept as a plain ✕ icon
+(explicitly NOT swapped for literal "Close" text — a smaller icon was
+judged the better trade-off between reclaiming screen space and keeping a
+zero-translation-cost, universally understood dismiss affordance).
+
+**Mobile Socials sheet header no longer shows the "Socials" title text**
+(only the section's `aria-label="Socials"` remains, for accessibility) —
+freed vertical space was given to Heat Map, whose mobile height increased
+`h-[29%] min-h-[130px]` → `h-[38%] min-h-[170px]`. Desktop's `MultiplayerSim`
+mount height in `App.tsx` (`h-[31%] min-h-[190px]`) was NOT touched this
+session — only the mobile sheet instance changed.
+
+**`EmojiChat.tsx` gained a visible top-border accent**
+(`border-t-2 border-t-[#eab308]/30`, gold, low opacity) on its own root
+section — purely a small visual separator, per explicit ask ("visual
+border on top line of chat").
+
+**`BettingPanel.tsx` footer row (Clear / Random / Auto Bet) color
+unified.** `Clear` was previously the only gold-tinted button
+(`text-[#eab308]/80`) in that row while `Random`/`Auto Bet` were neutral
+white — this read as visually unbalanced/arbitrary, not as a meaningful
+distinction. All three now share the same neutral resting style
+(`text-white/60`, gold only on hover), consistent with `Random` and
+`Auto Bet`. The left/right two-cluster split itself (Clear+Random left,
+Auto Bet right) was intentionally KEPT, not centered — see this session's
+discussion: centering would flatten the meaningful distinction between
+"reset/regenerate the current form" and "commit to a different mode
+(autoplay)." Do not re-center this row without a fresh explicit ask.
+
+**Also fixed this session (dead code cleanup, not a feature change):**
+removed a leftover empty `if (enteredBettingOpen) {}` block in
+`BettingPanel.tsx`'s round-entry `useEffect` — no-op, no behavior change,
+just cleanup found while editing that function.
+
+
 ## Final principle
 
 Preserve the CHAINS concept.

@@ -98,9 +98,6 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     const enteredBettingOpen = phase === 'BETTING_OPEN' && prevPhaseRef.current !== 'BETTING_OPEN';
     prevPhaseRef.current = phase;
 
-    if (enteredBettingOpen) {
-    }
-
     if (!enteredBettingOpen || !autoBet) return;
 
     const result = placeBet(autoBet.template);
@@ -543,7 +540,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
               type="button"
               onClick={handleClear}
               disabled={locked || filledCount === 0}
-              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]/80 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-white/60 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30 disabled:text-white/25"
             >
               Clear
             </button>

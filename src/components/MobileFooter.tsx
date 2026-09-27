@@ -104,13 +104,12 @@ export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between px-4 py-3">
-              <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white/60">Socials</span>
-              <button type="button" onClick={() => setChatOpen(false)} aria-label="Close" className="flex h-9 w-9 items-center justify-center text-white/50">
+             <button type="button" onClick={() => setChatOpen(false)} aria-label="Close" className="ml-auto flex h-7 w-7 items-center justify-center text-xs text-white/50">
                 ✕
               </button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3">
-              <div className="h-[29%] min-h-[130px] shrink-0">
+              <div className="h-[38%] min-h-[170px] shrink-0">
                 <MultiplayerSim />
               </div>
               <EmojiChat />
