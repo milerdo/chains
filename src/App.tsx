@@ -118,7 +118,11 @@ function AppShell() {
           </div>
           <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-2 overflow-y-auto px-4 py-2">
             <JackpotPanel />
-            {!isDesktop && <Wheel compact />}
+            {!isDesktop && (
+              <div className="shrink-0">
+                <Wheel compact />
+              </div>
+            )}
             <TicketDrawer tickets={activeTickets} compact />
           </div>
         </div>

@@ -67,7 +67,8 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
     <section
       aria-label="Active links"
       className={[
-        'flex h-full min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
+        'flex min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
+        compact ? 'flex-1' : 'h-full',        
         compact ? 'p-3' : 'p-5 sm:p-6',
       ].join(' ')}
     >

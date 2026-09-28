@@ -6,7 +6,7 @@
 
 import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useGame } from '../hooks/useGame';
-import { playDrawSettle, playTick } from '../utils/audio';
+import { playTick } from '../utils/audio';
 import type { GamePhase } from '../game/types';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
@@ -305,7 +305,6 @@ export function Wheel({ compact = false }: WheelProps) {
       setRotation(finalAngle);
       setCurrentDigit(targetDigit);
       setJustLanded(true);
-      playDrawSettle();
       reportWheelLanded(); // see section 2 below
       window.setTimeout(() => setJustLanded(false), 650);
     }

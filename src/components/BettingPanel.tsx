@@ -621,7 +621,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
       </div>
 
       {hasBetThisRound && !autoBetActive && isBettingOpen && (
-        <p className="mt-2.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
+        <p className="mt-3.5 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
           Bet locked in for this round.
         </p>
       )}

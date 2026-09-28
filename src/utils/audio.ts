@@ -110,12 +110,6 @@ export function playTick(): void {
   playTone({ frequency: 720, durationMs: 35, shape: 'square', gain: 0.045 });
 }
 
-/** Slightly heavier thunk played the instant the wheel settles on the
- * actual drawn digit. */
-export function playDrawSettle(): void {
-  playTone({ frequency: 300, durationMs: 170, shape: 'triangle', gain: 0.18, frequencyGlideTo: 170 });
-}
-
 /** Warm three-note ascending chime on a base win. */
 export function playBaseWin(): void {
   const notes = [523.25, 659.25, 783.99]; // C5, E5, G5

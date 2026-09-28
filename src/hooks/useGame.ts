@@ -229,12 +229,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     pendingPublicRevealRef.current = null;
     // Sounds are gated on this exact commit point — never earlier — so a
     // win/loss chime can never leak out before the wheel visually lands.
-    // Delayed slightly so it doesn't collide with the wheel's own landing
-    // "thunk" (playDrawSettle), which fires at this same instant.
     if (applyTicketSoundsRef.current) {
       const fn = applyTicketSoundsRef.current;
       applyTicketSoundsRef.current = null;
-      window.setTimeout(fn, 260);
+      fn();
     }
   }, []);
 
