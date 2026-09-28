@@ -116,11 +116,6 @@ export function playDrawSettle(): void {
   playTone({ frequency: 300, durationMs: 170, shape: 'triangle', gain: 0.18, frequencyGlideTo: 170 });
 }
 
-/** Low descending buzz when a ticket (base or jackpot) loses. */
-export function playLoss(): void {
-  playTone({ frequency: 220, durationMs: 260, shape: 'sawtooth', gain: 0.1, frequencyGlideTo: 90 });
-}
-
 /** Warm three-note ascending chime on a base win. */
 export function playBaseWin(): void {
   const notes = [523.25, 659.25, 783.99]; // C5, E5, G5

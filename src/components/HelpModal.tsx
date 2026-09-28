@@ -52,85 +52,65 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
         </div>
 
         <div className="mt-6 flex flex-col gap-6 text-sm leading-relaxed text-white/70">
-          <Section title="The shared live stream">
+          <Section title="How it works">
             <p>
-              One continuous stream of digits (0–9) drives every link at the table. Every player watches the
-              exact same draws — but your own link only starts counting from the first draw after your bet
-              is placed, so two links can be at completely different points in their own sequence at once.
+              One shared stream of digits (0–9). Every player sees the same draws. Your link starts on the
+              first draw after your bet.
             </p>
           </Section>
 
-          <Section title="Choose your tiers">
+          <Section title="Pick your bet">
             <ul className="flex flex-col gap-1.5">
-              <li>
-                <span className="font-mono font-semibold text-white">LOW</span> — predict 1 digit ({BASE_MULTIPLIERS.LOW}x total return)
-              </li>
-              <li>
-                <span className="font-mono font-semibold text-white">MEDIUM</span> — predict 2 digits, in exact order ({BASE_MULTIPLIERS.MEDIUM}x total return)
-              </li>
-              <li>
-                <span className="font-mono font-semibold text-white">HIGH</span> — predict 3 digits, in exact order ({BASE_MULTIPLIERS.HIGH}x total return)
-              </li>
+              <li><span className="font-mono font-semibold text-white">LOW</span> — 1 digit · {BASE_MULTIPLIERS.LOW}x</li>
+              <li><span className="font-mono font-semibold text-white">MIDI</span> — 2 digits, in order · {BASE_MULTIPLIERS.MEDIUM}x</li>
+              <li><span className="font-mono font-semibold text-white">HIGH</span> — 3 digits, in order · {BASE_MULTIPLIERS.HIGH}x</li>
             </ul>
             <p className="mt-2">
-              Each tier you select is its own independent $1 link — play any combination of LOW, MEDIUM, and
-              HIGH in the same round, from $1 up to $3.
+              Each link costs $1. One tier per round. <span className="text-white">Combo</span> covers every order of
+              your digits, at $1 per order. LOW lets you pick up to 3 different digits.
             </p>
           </Section>
 
-          <Section title="One miss ends the link">
+          <Section title="Win or lose">
             <p>
-              If a draw doesn't match the next digit you need, the link loses immediately. It never waits for
-              a second chance at that digit, never restarts, and never uses a later draw to catch up.
+              Each draw must match your next digit. One miss and the link is lost. When the whole sequence matches,
+              your payout is credited instantly and can never be taken back.
             </p>
           </Section>
 
-          <Section title="Base win → jackpot qualification">
+          <Section title="Jackpot">
             <p>
-              The instant your full sequence matches, the base payout is credited and locked in permanently —
-              nothing that happens afterward can take it back. Your link then enters{' '}
-              <span className="font-semibold text-white">Jackpot Qualification</span>: the next two draws are
-              checked against your chosen 2-digit jackpot combination. Miss either one and qualification ends,
-              but your base payout stays exactly as credited.
+              After a win, the next two draws must match your jackpot pair, in order. Match both and you win the
+              pool for your tier (LOW, MIDI or HIGH). Miss and you simply keep your win.
             </p>
           </Section>
 
-          <Section title="Worked example">
+          <Section title="Example">
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 font-mono text-xs">
-              <p className="text-white/50">Your link: HIGH — 4 → 2 → 3 · Jackpot: 7 → 4</p>
+              <p className="text-white/50">HIGH 4 → 2 → 3 · Jackpot 7 → 4</p>
               <div className="mt-3 flex flex-col gap-1.5">
-                <ExampleRow label="Draw 1" value="4" note="✓ matches" tone="win" />
-                <ExampleRow label="Draw 2" value="2" note="✓ matches" tone="win" />
-                <ExampleRow label="Draw 3" value="3" note="✓ BASE WIN — 888x credited" tone="win" />
-                <ExampleRow label="Draw 4" value="7" note="✓ jackpot step 1" tone="win" />
-                <ExampleRow label="Draw 5" value="4" note="✓ jackpot step 2 — GRAND JACKPOT WON" tone="jackpot" />
+                <ExampleRow label="Draw 1" value="4" note="✓ match" tone="win" />
+                <ExampleRow label="Draw 2" value="2" note="✓ match" tone="win" />
+                <ExampleRow label="Draw 3" value="3" note="✓ WIN — 888x paid" tone="win" />
+                <ExampleRow label="Draw 4" value="7" note="✓ jackpot 1/2" tone="win" />
+                <ExampleRow label="Draw 5" value="4" note="✓ HIGH JACKPOT WON" tone="jackpot" />
               </div>
             </div>
-          </Section>
-
-          <Section title="3 · 4 · 5 IN A ROW">
-            <p>
-              Each tier feeds a different progressive pool: LOW links qualify for 3 in a row, MEDIUM for 4 in a row, and
-              HIGH for 5 in a row. Pools grow with every bet placed and reset to their seed value the moment they're
-              won. If more than one link qualifies on the exact same draw, the pool splits evenly between
-              them.
-            </p>
           </Section>
 
           <Section title="RTP">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <RtpStat label="LOW" value={formatPercent(THEORETICAL_RTP.LOW)} />
-              <RtpStat label="MEDIUM" value={formatPercent(THEORETICAL_RTP.MEDIUM)} />
+              <RtpStat label="MIDI" value={formatPercent(THEORETICAL_RTP.MEDIUM)} />
               <RtpStat label="HIGH" value={formatPercent(THEORETICAL_RTP.HIGH)} />
               <RtpStat label="Overall target" value={formatPercent(THEORETICAL_RTP.overall)} highlight />
             </div>
             <p className="mt-2 text-xs text-white/45">
-              Progressive jackpot contributions add further expected value on top of the base-game figures
-              above. House edge: {formatPercent(THEORETICAL_RTP.houseEdge)}.
+              Jackpot contributions add expected value on top. House edge: {formatPercent(THEORETICAL_RTP.houseEdge)}.
             </p>
           </Section>
 
-          <Section title="Demo disclaimer">
+          <Section title="Demo">
             <p className="text-xs text-white/45">{RNG_DISCLAIMER}</p>
           </Section>
         </div>

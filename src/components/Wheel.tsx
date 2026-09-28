@@ -4,7 +4,7 @@
 // coordinate space and one rotation 
 // ============================================================================
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playDrawSettle, playTick } from '../utils/audio';
 import type { GamePhase } from '../game/types';
@@ -55,6 +55,116 @@ function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
+const WheelFrame = memo(function WheelFrame({ uid }: { uid: string }) {
+  return (
+    <>
+      <defs>
+        <radialGradient id={`frameGrad-${uid}`} cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#eecf8a" />
+          <stop offset="55%" stopColor="#8a6512" />
+          <stop offset="100%" stopColor="#4a3506" />
+        </radialGradient>
+        <radialGradient id={`hubGrad-${uid}`} cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#f6e3a8" />
+          <stop offset="60%" stopColor="#8a6512" />
+          <stop offset="100%" stopColor="#3d2c05" />
+        </radialGradient>
+        <radialGradient id={`sheenGrad-${uid}`} cx="50%" cy="38%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`pegGrad-${uid}`} cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#fff3cf" />
+          <stop offset="55%" stopColor="#d9c088" />
+          <stop offset="100%" stopColor="#6b4f10" />
+        </radialGradient>
+        <radialGradient id={`flapperGrad-${uid}`} cx="35%" cy="25%" r="80%">
+          <stop offset="0%" stopColor="#c7ccd3" />
+          <stop offset="55%" stopColor="#6b7280" />
+          <stop offset="100%" stopColor="#1f2328" />
+        </radialGradient>
+        <radialGradient id={`specularGrad-${uid}`} cx="42%" cy="30%" r="85%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+          <stop offset="55%" stopColor="#ffffff" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} stroke="#2a1c02" strokeWidth={2} />
+      {Array.from({ length: RIVET_COUNT }, (_, i) => {
+        const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
+        return <circle key={i} cx={p.x} cy={p.y} r={2.4} fill="#f6e3a8" stroke="#5c4409" strokeWidth={0.5} />;
+      })}
+    </>
+  );
+});
+
+const WheelDisc = memo(function WheelDisc({
+  uid,
+  discRef,
+  landedDigit,
+}: {
+  uid: string;
+  discRef: RefObject<SVGGElement | null>;
+  landedDigit: number | null;
+}) {
+  return (
+    <>
+      {/* transform is driven imperatively via discRef; this initial value never changes, so React never overwrites it */}
+      <g ref={discRef} transform={`rotate(0 ${CX} ${CY})`}>
+        {WEDGE_COLORS.map((color, i) => {
+          const p1 = pt(i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2, RIM_INNER_R);
+          const p2 = pt(i * HOLE_STEP_DEG + HOLE_STEP_DEG / 2, RIM_INNER_R);
+          return (
+            <path
+              key={`wedge-${i}`}
+              d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
+              fill={landedDigit === i ? '#eab308' : color}
+              stroke="#2a1c02"
+              strokeWidth={3.5}
+              style={{ transition: 'fill 150ms ease-out' }}
+            />
+          );
+        })}
+        <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#sheenGrad-${uid})`} />
+        {Array.from({ length: HOLE_COUNT }, (_, i) => {
+          const p = pt(i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2, PEG_R);
+          return (
+            <g key={`peg-${i}`}>
+              <circle cx={p.x} cy={p.y + 1} r={PEG_VISUAL_R} fill="#1a1200" opacity={0.4} />
+              <circle cx={p.x} cy={p.y} r={PEG_VISUAL_R} fill={`url(#pegGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.3} />
+            </g>
+          );
+        })}
+        {Array.from({ length: HOLE_COUNT }, (_, i) => {
+          const angle = i * HOLE_STEP_DEG;
+          const p = pt(angle, DIGIT_R);
+          return (
+            <text
+              key={`digit-${i}`}
+              x={p.x}
+              y={p.y}
+              transform={`rotate(${angle} ${p.x} ${p.y})`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontFamily="ui-monospace, 'SFMono-Regular', monospace"
+              fontWeight={800}
+              fontSize={36}
+              fill="#f4e4b8"
+              stroke="#2a1a00"
+              strokeWidth={1.5}
+              paintOrder="stroke"
+            >
+              {i}
+            </text>
+          );
+        })}
+        <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
+      </g>
+      <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#specularGrad-${uid})`} />
+    </>
+  );
+});
+
 export function Wheel() {
   const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded } = useGame();
   // Unique per-mount suffix for this instance's gradient defs — two Wheel
@@ -63,7 +173,10 @@ export function Wheel() {
   // subtree below 1024px, silently failing to render.
   const uid = useId();
   const spinAngleRef = useRef(0);
-  const [displayRotation, setDisplayRotation] = useState(0);
+  const discRef = useRef<SVGGElement>(null);
+  function setRotation(angle: number) {
+    discRef.current?.setAttribute('transform', `rotate(${-angle} ${CX} ${CY})`);
+  }
   const [currentDigit, setCurrentDigit] = useState(wheelTargetDraw?.digit ?? 0);
   const [justLanded, setJustLanded] = useState(false);
   const [flapperTick, setFlapperTick] = useState(0);
@@ -118,12 +231,11 @@ export function Wheel() {
       const angularSpeed = MAX_SPIN_SPEED_DEG_PER_SEC * speedFraction * speedMultiplierRef.current;
       lastAngularSpeedRef.current = angularSpeed; // magnitude only — direction applied below
       spinAngleRef.current += direction * angularSpeed * deltaSec;
-      setDisplayRotation(spinAngleRef.current);
+      setRotation(spinAngleRef.current);
 
       const nextDigit = digitAtSpinAngle(spinAngleRef.current);
       if (nextDigit !== lastDigit) {
         lastDigit = nextDigit;
-        setCurrentDigit(nextDigit);
         fireFlapperClick();
       }
       indeterminateRafRef.current = requestAnimationFrame(step);
@@ -183,7 +295,7 @@ export function Wheel() {
 
     function land(finalAngle: number) {
       spinAngleRef.current = finalAngle;
-      setDisplayRotation(finalAngle);
+      setRotation(finalAngle);
       setCurrentDigit(targetDigit);
       setJustLanded(true);
       playDrawSettle();
@@ -211,12 +323,11 @@ export function Wheel() {
       const eased = easeOutQuad(t);
       const angle = startAngle + direction * distanceDeg * eased;
       spinAngleRef.current = angle;
-      setDisplayRotation(angle);
+      setRotation(angle);
 
       const nextDigit = digitAtSpinAngle(angle);
       if (nextDigit !== lastDigit && t < 1) {
         lastDigit = nextDigit;
-        setCurrentDigit(nextDigit);
         fireFlapperClick();
       }
 
@@ -253,147 +364,11 @@ export function Wheel() {
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
-        <div style={{ filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.55))' }}>
+        <div className="rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.55)] [&>svg]:block">
           <svg width={340} height={340} viewBox="0 0 300 300">
-            <defs>
-               <radialGradient id={`frameGrad-${uid}`} cx="35%" cy="30%" r="75%">
-                <stop offset="0%" stopColor="#eecf8a" />
-                <stop offset="55%" stopColor="#8a6512" />
-                <stop offset="100%" stopColor="#4a3506" />
-              </radialGradient>
-               <radialGradient id={`hubGrad-${uid}`} cx="35%" cy="30%" r="75%">
-                <stop offset="0%" stopColor="#f6e3a8" />
-                <stop offset="60%" stopColor="#8a6512" />
-                <stop offset="100%" stopColor="#3d2c05" />
-              </radialGradient>
-               <radialGradient id={`sheenGrad-${uid}`} cx="50%" cy="38%" r="65%">
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.10" />
-                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-              </radialGradient>
-               <radialGradient id={`pegGrad-${uid}`} cx="35%" cy="30%" r="75%">
-                <stop offset="0%" stopColor="#fff3cf" />
-                <stop offset="55%" stopColor="#d9c088" />
-                <stop offset="100%" stopColor="#6b4f10" />
-              </radialGradient>
-              <radialGradient id={`flapperGrad-${uid}`} cx="35%" cy="25%" r="80%">
-                <stop offset="0%" stopColor="#c7ccd3" />
-                <stop offset="55%" stopColor="#6b7280" />
-                <stop offset="100%" stopColor="#1f2328" />
-              </radialGradient>
-             <radialGradient id={`specularGrad-${uid}`} cx="42%" cy="30%" r="85%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
-              <stop offset="55%" stopColor="#ffffff" stopOpacity="0.05" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-            </radialGradient>
-              <filter id={`rimNoise-${uid}`}>
-                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves={2} stitchTiles="stitch" result="noise" />
-                <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.5  0 0 0 0.07 0" />
-              </filter>
-            </defs>
+            <WheelFrame uid={uid} />
+            <WheelDisc uid={uid} discRef={discRef} landedDigit={justLanded ? currentDigit : null} />
 
-            {/* Fixed outer frame — never rotates */}
-            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} />
-            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
-            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill={`url(#frameGrad-${uid})`} />
-            <circle cx={CX} cy={CY} r={RIM_OUTER_R} fill="none" stroke="#2a1c02" strokeWidth={2} />
-            <circle
-              cx={CX}
-              cy={CY}
-              r={(RIM_OUTER_R + RIM_INNER_R) / 2}
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth={RIM_OUTER_R - RIM_INNER_R + 4}
-              filter={`url(#rimNoise-${uid})`}
-              opacity={0.55}
-            />
-            {/* Fixed rivets */}
-            {Array.from({ length: RIVET_COUNT }, (_, i) => {
-              const p = pt((360 / RIVET_COUNT) * i, RIVET_R);
-              return (
-                <circle
-                  key={`rivet-${i}`}
-                  cx={p.x}
-                  cy={p.y}
-                  r={2.4}
-                  fill="#f6e3a8"
-                  stroke="#5c4409"
-                  strokeWidth={0.5}
-                />
-              );
-            })}
-
-            {/* Rotating disc — wedges, pegs, and digits share ONE
-                transform, so they can never drift out of sync with each
-                other. */}
-            <g transform={`rotate(${-displayRotation} ${CX} ${CY})`}>
-              {WEDGE_COLORS.map((color, i) => {
-                const start = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
-                const end = i * HOLE_STEP_DEG + HOLE_STEP_DEG / 2;
-                const p1 = pt(start, RIM_INNER_R);
-                const p2 = pt(end, RIM_INNER_R);
-                const isLanded = justLanded && i === currentDigit;
-                return (
-                  <path
-                    key={`wedge-${i}`}
-                    d={`M${CX},${CY} L${p1.x},${p1.y} A${RIM_INNER_R},${RIM_INNER_R} 0 0,1 ${p2.x},${p2.y} Z`}
-                    fill={isLanded ? '#eab308' : color}
-                    stroke="#2a1c02"
-                    strokeWidth={3.5}
-                    style={{ transition: 'fill 150ms ease-out' }}
-                  />
-                );
-              })}
-
-              {/* Subtle sheen overlay for depth, no isolated "shine spot" */}
-              <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#sheenGrad-${uid})`} />
-
-              {/* Pegs at wedge BOUNDARIES, not on digits — enlarged,
-                  beveled, with a soft drop "seat" so they read as raised
-                  physical bumps the flapper catches on. */}
-              {Array.from({ length: HOLE_COUNT }, (_, i) => {
-                const angle = i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2;
-                const p = pt(angle, PEG_R);
-                return (
-                  <g key={`peg-${i}`}>
-                    <circle cx={p.x} cy={p.y + 1} r={PEG_VISUAL_R} fill="#1a1200" opacity={0.4} />
-                    <circle cx={p.x} cy={p.y} r={PEG_VISUAL_R} fill={`url(#pegGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.3} />
-                  </g>
-                );
-              })}
-
-              {/* Digits — large, bold, radially tilted like the reference */}
-              {Array.from({ length: HOLE_COUNT }, (_, i) => {
-                const angle = i * HOLE_STEP_DEG;
-                const p = pt(angle, DIGIT_R);
-                return (
-                  <text
-                    key={`digit-${i}`}
-                    x={p.x}
-                    y={p.y}
-                    transform={`rotate(${angle} ${p.x} ${p.y})`}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontFamily="ui-monospace, 'SFMono-Regular', monospace"
-                    fontWeight={800}
-                    fontSize={36}
-                    fill="#f4e4b8"
-                    stroke="#2a1a00"
-                    strokeWidth={1.5}
-                    paintOrder="stroke"
-                  >
-                    {i}
-                  </text>
-                );
-              })}
-
-              {/* Hub */}
-               <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
-            </g>
-            <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#specularGrad-${uid})`} />
-
-            {/* Fixed pivot + flapper — always at top, never orbits. Tip
-                reaches exactly to the peg ring so it visually makes
-                contact rather than stopping short. */}
             <circle cx={CX} cy={22} r={5} fill={`url(#frameGrad-${uid})`} stroke="#2a1c02" strokeWidth={1} />
             <g
               key={flapperTick}
@@ -413,12 +388,11 @@ export function Wheel() {
             </g>
 
             <style>{`
-              /* keyframes */
               @keyframes flapper-click {
                 0% { transform: rotate(0deg); }
                 35% { transform: rotate(var(--flapper-bounce, -18deg)); }
                 100% { transform: rotate(0deg); }
-                }
+              }
             `}</style>
           </svg>
         </div>

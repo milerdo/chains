@@ -509,6 +509,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       resetBalance,
       simulateJackpotWin,
       createSimulatedTicket,
+      hasBetThisRound,
     ],
   );
 
