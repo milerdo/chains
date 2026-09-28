@@ -16,4 +16,28 @@
     background-repeat: repeat, no-repeat, no-repeat;
     background-blend-mode: overlay, normal, normal;
   }
+
+  /* Wheel spotlight — a warm glow pooled behind the Wheel section, so it
+     reads as a lit focal point on the table rather than blending into the
+     felt. Wheel.tsx's section has overflow-hidden, so this stays clipped
+     to the wheel's own card. Targets by aria-label rather than a class so
+     no component edit is needed; if Wheel.tsx's aria-label ever changes,
+     update the selector here too. */
+  section[aria-label='Live number stream'] {
+    position: relative;
+    isolation: isolate;
+  }
+  section[aria-label='Live number stream']::before {
+    content: '';
+    position: absolute;
+    inset: -12%;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse 65% 55% at 50% 40%,
+      rgba(234, 179, 8, 0.14) 0%,
+      rgba(234, 179, 8, 0.05) 45%,
+      transparent 75%
+    );
+    pointer-events: none;
+  }
 }
