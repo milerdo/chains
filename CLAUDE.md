@@ -822,6 +822,111 @@ removed a leftover empty `if (enteredBettingOpen) {}` block in
 `BettingPanel.tsx`'s round-entry `useEffect` — no-op, no behavior change,
 just cleanup found while editing that function.
 
+## 21. Patterns established this session (pitch-readiness pass, mobile layout, wheel perf, audio trim)
+
+**Scope note:** this session deliberately did NOT do a production-hardening
+pass (engine-level round-lock, dual-mount removal, test-coverage expansion,
+persistence, Demo Panel gating). Those were triaged and explicitly deferred —
+this is a pitch MVP, not a production build; see the person's own framing:
+"I am aware that if they choose to build it they will rebuild the whole
+system... I want to improve only things that are top priority." Do not
+resume that list without being asked again.
+
+**HelpModal rewritten — shorter, plainer copy.** Retired stale "3 · 4 · 5 IN
+A ROW" heading and a factually wrong "play any combination of LOW, MEDIUM,
+and HIGH in the same round" line (contradicted the one-tier-per-round rule
+enforced everywhere else). New copy: How it works / Pick your bet / Win or
+lose / Jackpot / Example / RTP / Demo — same underlying `BASE_MULTIPLIERS`/
+`THEORETICAL_RTP`/`RNG_DISCLAIMER` imports, just terser prose. If Help
+content is touched again, keep it short — this was an explicit ask, not
+incidental.
+
+**Sound trimmed to signal-only.** Removed `playLoss()` (was already unwired,
+now deleted from `audio.ts` entirely — do not reconnect without asking) and
+`playDrawSettle()` (the wheel-landing "thunk" — explicitly unwanted, "no use
+to it"). `playTick()` (spin-ticking, fired per digit crossing via
+`fireFlapperClick()`) was REMOVED then explicitly RESTORED same session —
+keep it. Current full sound set: `playTick` (spin), `playStepMatch` (digit
+match), `playBaseWin`, `playJackpotFanfare`, `playUiClick` (buttons). Do not
+reintroduce a landing sound. `useGame.ts`'s `commitPublicReveal()` no longer
+staggers `applyTicketSoundsRef` by 260ms — that delay existed only to avoid
+colliding with the now-removed landing thunk; sounds fire immediately again
+at the commit point.
+
+**Wheel.tsx rebuilt for render performance — geometry/landing logic
+UNCHANGED.** Rotation is now applied imperatively via a ref
+(`discRef.current.setAttribute('transform', ...)`) instead of React state
+(`displayRotation` removed), so the SVG no longer re-renders every animation
+frame. Static layers extracted into memoized `WheelFrame`/`WheelDisc`
+components (still per-instance `useId()`-suffixed gradients, per Section 3's
+dual-mount rule). REMOVED: the `drop-shadow` wrapper filter and the
+`feTurbulence`/`feColorMatrix` brushed-metal rim texture — both were being
+re-rasterized every frame and were the actual cause of the reported
+wheel "wobble," which was a render-cost artifact, not a geometry bug.
+CX/CY/pivot/flapper alignment was verified correct and untouched. Do not
+reintroduce a per-frame-repainted filter on any element that shares a
+render tree with the rotating disc. Landing-angle randomization
+(`PEG_SAFE_MARGIN_DEG`, off-center resting point) is UNCHANGED — do not
+touch without re-confirming per Section 13's existing warning.
+
+**Wheel now has a `compact` prop** (`Wheel({ compact = false })`) — mobile's
+TABLE panel passes `compact`, sizing the SVG 340→260 and tightening padding;
+desktop's `<Wheel />` call is unchanged (no prop = original size). Any
+future mobile-vs-desktop Wheel sizing change should extend this prop, not
+fork the component.
+
+**Mobile layout restructured — LINKS panel and docked active-links bar are
+GONE, superseding every prior "mobile active-links relocation" entry in
+Sections 13/16/18.** Mobile is now TWO swipe panels (BET / TABLE), not
+three. `TicketDrawer` (Active Links) now renders directly under `Wheel`
+inside the TABLE panel, not as its own panel and not as a fixed bar above
+`MobileFooter`. `TicketDrawer` gained a matching `compact` prop (tighter
+padding); desktop's drawer instances are unchanged. **Overlap fix:**
+`TicketDrawer`'s root switched from `h-full` (which stretched it back up
+over Wheel/JackpotPanel regardless of their height) to `flex-1` when
+`compact` — `Wheel` is now wrapped in a `shrink-0` div in App.tsx's mobile
+TABLE panel specifically so it keeps its natural height and `TicketDrawer`
+only fills what's left below it. If overlap ever reappears after a future
+layout change here, check that `shrink-0`/`flex-1` pairing first before
+re-diagnosing from scratch. The drawer's existing collapse toggle (▾ button,
+pre-existing) still lets the player manually shrink the section if content
+still runs long on a very short viewport — no new collapse mechanism was
+added.
+
+**Desktop layout is UNCHANGED this session** — left column
+(MultiplayerSim+EmojiChat), middle (JackpotPanel+Wheel), right
+(BettingPanel XOR TicketDrawer via `bettingLocked` swap) all still work
+exactly as documented in Sections 16/17. Do not assume desktop mirrors any
+of the mobile restructuring above.
+
+**Mobile Socials sheet-button kept, not replaced with a third swipe panel.**
+Explicitly discussed and decided: a swipeable chat+heat-map column was
+considered and rejected in favor of keeping the existing bottom-sheet
+button, specifically so chat stays reachable while on the BET panel without
+an extra swipe. Do not build a swipeable Socials panel without a fresh ask.
+
+**ChainLinks.tsx: removed horizontal scroll AND fixed a visual dash gap.**
+`LinkChain`'s root changed from `overflow-x-auto` (Section 19's own fix, now
+reverted) back to no-scroll, following the layout redesign above that gives
+Active Links more room. Also removed a stray `gap-1` on the same root
+element that was breaking the connecting dash between the last base-sequence
+circle and the jackpot pill (the gap was double-applied — once by the flex
+container, once by the internal `<Link/>` dash component). If chain spacing
+looks off again, check for double-gap first.
+
+**MultiplayerSim (Heat Map) percentage labels enlarged** —
+`text-[9px] text-white/40` → `text-[11px] font-semibold text-white/60`, per
+explicit "numbers should increase a little" feedback. Bar-base digit capsule
+styling (Section 19/20) unchanged.
+
+**`useGame.ts`: `hasBetThisRound` added to the top-level `useMemo` deps
+array.** Was previously missing, causing the memoized context value to
+occasionally serve a stale lock state for up to one `timeRemaining` tick
+(200ms) or indefinitely while paused. Small, isolated fix — no behavior
+change beyond correcting the staleness window.
+
+**`engine.test.ts`: removed the "rejects a second bet with a different tier
+placed in the same still-open round"
 
 ## Final principle
 
