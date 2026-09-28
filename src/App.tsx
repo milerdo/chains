@@ -23,7 +23,6 @@ import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
 import { PhaseStatus } from './components/PhaseStatus';
-import { LinkChain, isJackpotRelevant } from './components/ChainLinks';
 import type { GamePhase } from './game/types';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
@@ -110,41 +109,20 @@ function AppShell() {
         </div>
       </main>
 
-      {/* Mobile/tablet: swipeable cabinet (BET / TABLE / LINKS), scroll-snap */}
+      {/* Mobile/tablet: swipeable cabinet (BET / TABLE), scroll-snap */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
         <div className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden">
           <div ref={betPanelRef} className="min-h-0 w-full shrink-0 snap-start overflow-y-auto px-4 py-4">
             <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
             <BettingPanel />
           </div>
-          <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-1 overflow-y-auto px-4 py-2">
+          <div ref={tablePanelRef} className="flex min-h-0 w-full shrink-0 snap-start flex-col gap-2 overflow-y-auto px-4 py-2">
             <JackpotPanel />
-            {!isDesktop && <Wheel />}
-          </div>
-          <div className="flex min-h-0 w-full shrink-0 snap-start flex-col overflow-hidden px-4 py-4">
-            <PhaseStatus locked={mobileLocked} timeRemaining={timeRemaining} />
-            <TicketDrawer tickets={activeTickets} />
+            {!isDesktop && <Wheel compact />}
+            <TicketDrawer tickets={activeTickets} compact />
           </div>
         </div>
-        {/* Active links — docked directly above the footer, fixed compact
-            height so it never shifts layout above it (Wheel included) and
-            never overlaps scrolled content the way a sticky-in-panel strip
-            did. Jackpot digits omitted here (compact height); full jackpot
-            detail is still shown in the LINKS panel's TicketDrawer cards. */}
-        <div className="shrink-0 border-t border-white/10 bg-[#141414]/95 px-4 backdrop-blur-sm">
-          <div className="flex h-10 items-center gap-3 overflow-x-auto">
-            {activeTickets.length === 0 ? (
-              <span className="font-mono text-[11px] text-white/25">No active links</span>
-            ) : (
-              activeTickets.map((ticket) => (
-                <div key={ticket.id} className="shrink-0">
-                   <LinkChain ticket={ticket} size="sm" showJackpot={isJackpotRelevant(ticket.status)} />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-       <MobileFooter
+        <MobileFooter
           balance={balance}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenHistory={() => setHistoryOpen(true)}

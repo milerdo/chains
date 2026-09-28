@@ -61,7 +61,7 @@ export function MultiplayerSim() {
       <div className="mt-2 flex min-h-0 flex-1 items-end justify-between gap-1">
         {heat.map((pct, digit) => (
           <div key={digit} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <span className="font-mono text-[9px] tabular-nums text-white/40">{pct}%</span>
+            <span className="font-mono text-[11px] font-semibold tabular-nums text-white/60">{pct}%</span>
             <div className="flex w-full flex-1 flex-col justify-end overflow-hidden rounded-t-md bg-white/[0.05]">
               <div
                 className="w-full transition-all duration-700"

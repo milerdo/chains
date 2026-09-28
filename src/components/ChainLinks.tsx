@@ -99,7 +99,7 @@ interface LinkChainProps {
 
 export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChainProps) {
   return (
-    <div className="flex flex-nowrap items-center gap-1 overflow-x-auto">
+   <div className="flex flex-nowrap items-center">
       <span className="flex shrink-0 items-center">
         {ticket.baseSequence.map((digit, i) => (
           <span key={`b-${i}`} className="flex items-center">
@@ -111,7 +111,8 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
       {showJackpot && (
         <span className="flex shrink-0 items-center">
           <Link size={size} />
-+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">            {/* was: border-[#eab308]/40 bg-[#eab308]/15 — filled amber
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">  
+          {/* was: border-[#eab308]/40 bg-[#eab308]/15 — filled amber
               competed visually with the chain circles; outline-only reads
               as a frame around the jackpot progress instead. */}
             {ticket.jackpotSequence.map((digit, i) => (

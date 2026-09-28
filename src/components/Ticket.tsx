@@ -60,13 +60,16 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
   );
 }
 
-export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
+export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; compact?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <section
       aria-label="Active links"
-      className="flex h-full min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
+      className={[
+        'flex h-full min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
+        compact ? 'p-3' : 'p-5 sm:p-6',
+      ].join(' ')}
     >
       <button type="button" onClick={() => setCollapsed((c) => !c)} className="flex w-full shrink-0 items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
@@ -76,7 +79,7 @@ export function TicketDrawer({ tickets }: { tickets: Ticket[] }) {
       </button>
 
       {!collapsed && (
-        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <div className={['flex min-h-0 flex-1 flex-col gap-2 overflow-hidden', compact ? 'mt-2' : 'mt-3'].join(' ')}>
           {tickets.length === 0 ? (
             <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
               No active links. Place a bet during the next betting window.

@@ -165,7 +165,14 @@ const WheelDisc = memo(function WheelDisc({
   );
 });
 
-export function Wheel() {
+  interface WheelProps {
+    /** Smaller SVG + tighter padding for the mobile TABLE panel, where the
+     * wheel now shares vertical space with Active Links underneath it.
+     * viewBox is unchanged, so this is a pure proportional scale-down. */
+    compact?: boolean;
+}
+
+export function Wheel({ compact = false }: WheelProps) {
   const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded } = useGame();
   // Unique per-mount suffix for this instance's gradient defs — two Wheel
   // instances are mounted at once (desktop + mobile tab), and duplicate
@@ -353,19 +360,23 @@ export function Wheel() {
   );
 
   const recentDigits = streamHistory.slice(-10);
+  const size = compact ? 260 : 340;
 
   return (
     <section
       aria-label="Live number stream"
-      className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-5 backdrop-blur-sm sm:p-6"
+      className={[
+        'relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
+        compact ? 'p-3' : 'p-5 sm:p-6',
+      ].join(' ')}
     >
 
-      <div className="mt-1 flex flex-col items-center">
+      <div className={['flex flex-col items-center', compact ? '' : 'mt-1'].join(' ')}>
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
         <div className="rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.55)] [&>svg]:block">
-          <svg width={340} height={340} viewBox="0 0 300 300">
+          <svg width={size} height={size} viewBox="0 0 300 300">
             <WheelFrame uid={uid} />
             <WheelDisc uid={uid} discRef={discRef} landedDigit={justLanded ? currentDigit : null} />
 
@@ -397,7 +408,7 @@ export function Wheel() {
           </svg>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-3'].join(' ')}>
           {recentDigits.length === 0 && (
             <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
           )}
