@@ -60,7 +60,21 @@ import type {
   TicketTier,
 } from '../game/types';
 
+export interface AutoBetState {
+  template: BetRequest;
+  roundsRemaining: number;
+  roundsTotal: number;
+}
+
 export interface UseGameValue {
+  bettingLocked: boolean;
+  autoBet: AutoBetState | null;
+  autoBetError: string | null;
+  clearAutoBetError: () => void;
+  startAutoBet: (request: BetRequest, rounds: number) => PlaceBetResult;
+  stopAutoBet: () => void;
+ /** Transient "base win paid" notice, shown in PhaseStatus. */
+  payoutFlash: { amount: number; key: number } | null;
   /** Raw engine snapshot, for anything not already broken out below. */
   gameState: GameState;
   activeTickets: Ticket[];
@@ -167,6 +181,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // delay — does not touch engine state.
   const [flashingFailedIds, setFlashingFailedIds] = useState<Set<string>>(new Set());
   const failedFlashTimeoutsRef = useRef<Map<string, number>>(new Map());
+  
+  const [payoutFlash, setPayoutFlash] = useState<{ amount: number; key: number } | null>(null);
+  const payoutFlashTimeoutRef = useRef<number | null>(null);
 
   // --- Reveal-delayed draw/stream state (public reveal) ----------------
   // Held back from the raw engine value until Wheel.tsx confirms its
@@ -176,9 +193,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentDraw: DrawResult | null;
     streamHistory: DrawResult[];
     tickets: Ticket[];
+    balance: number;
+    jackpotPools: JackpotPools;
   }>(() => {
     const initial = game.getState();
-    return { currentDraw: initial.currentDraw, streamHistory: initial.streamHistory, tickets: initial.tickets };
+    return {
+      currentDraw: initial.currentDraw,
+      streamHistory: initial.streamHistory,
+      tickets: initial.tickets,
+      balance: initial.balance,
+      jackpotPools: initial.jackpotPools,
+    };
   });
   // Tracks the drawIndex already scheduled/revealed so the subscribe
   // callback only reacts to genuinely NEW draws — the engine emits on
@@ -216,6 +241,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentDraw: DrawResult | null;
     streamHistory: DrawResult[];
     tickets: Ticket[];
+    balance: number;
+    jackpotPools: JackpotPools;
   } | null>(null);
   const publicRevealFallbackTimeoutRef = useRef<number | null>(null);
 
@@ -255,6 +282,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // could pass BASE_WON -> JACKPOT_STEP_1 -> JACKPOT_WON across
       // separate draws, correctly chiming once for each real outcome).
       const applyTicketSounds = (tickets: Ticket[]) => {
+        let baseWinTotal = 0;
         for (const ticket of tickets) {
           const previousStatus = prevTicketStatusRef.current.get(ticket.id);
           const previousProgress = prevTicketProgressRef.current.get(ticket.id);
@@ -277,6 +305,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               continue;
             }
             if (ticket.status === 'BASE_WON') {
+              baseWinTotal += ticket.baseWinAmount ?? 0;
               playBaseWin();
               continue;
             }
@@ -303,6 +332,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
           // A digit matched but the link isn't fully resolved yet (e.g.
           // base step 1/3 -> 2/3, or jackpot step 1 -> 2 mid-qualification).
           if (baseAdvanced || jackpotAdvanced) playStepMatch();
+         }
+          if (baseWinTotal > 0) {
+          setPayoutFlash({ amount: baseWinTotal, key: Date.now() });
+          if (payoutFlashTimeoutRef.current !== null) window.clearTimeout(payoutFlashTimeoutRef.current);
+          payoutFlashTimeoutRef.current = window.setTimeout(() => setPayoutFlash(null), 2800);
         }
       };
 
@@ -312,7 +346,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // demo-panel action, etc. Keep the revealed link list in sync right
         // away (so a newly-placed WAITING link shows up immediately) and
         // announce any outcome immediately — no pending reveal to protect.
-        setRevealedDraw((prev) => ({ ...prev, tickets: nextState.tickets }));
+        const revealInFlight = revealTimeoutRef.current !== null || pendingPublicRevealRef.current !== null;
+        setRevealedDraw((prev) => ({
+          ...prev,
+          tickets: nextState.tickets,
+          ...(revealInFlight ? {} : { balance: nextState.balance, jackpotPools: nextState.jackpotPools }),
+        }));
         applyTicketSounds(nextState.tickets);
         return;
       }
@@ -324,6 +363,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       const reveal = () => {
+        revealTimeoutRef.current = null;
         // Stage 1: tell the Wheel what to land on.
         setWheelTargetDraw(nextState.currentDraw);
 
@@ -341,6 +381,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           currentDraw: nextState.currentDraw,
           streamHistory: nextState.streamHistory,
           tickets: nextState.tickets,
+          balance: nextState.balance,
+          jackpotPools: nextState.jackpotPools,
         };
         if (publicRevealFallbackTimeoutRef.current !== null) {
           window.clearTimeout(publicRevealFallbackTimeoutRef.current);
@@ -392,6 +434,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (gameState.phase === 'BETTING_OPEN') setHasBetThisRound(false);
   }, [gameState.phase]);
 
+  const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
+  const [autoBetError, setAutoBetError] = useState<string | null>(null);
+  const prevBettingPhaseRef = useRef<GamePhase>(gameState.phase);
+
+  useEffect(() => {
+    const entered = gameState.phase === 'BETTING_OPEN' && prevBettingPhaseRef.current !== 'BETTING_OPEN';
+    prevBettingPhaseRef.current = gameState.phase;
+    if (!entered || !autoBet) return;
+    const result = game.placeBet(autoBet.template);
+    if (!result.success) {
+      setAutoBetError(`Auto Bet stopped — ${result.message}`);
+      setAutoBet(null);
+      return;
+    }
+    setHasBetThisRound(true);
+    const roundsRemaining = autoBet.roundsRemaining - 1;
+    setAutoBet(roundsRemaining > 0 ? { ...autoBet, roundsRemaining } : null);
+  }, [gameState.phase, autoBet, game]);
+
+  const startAutoBet = useCallback(
+    (request: BetRequest, rounds: number): PlaceBetResult => {
+      const result = game.placeBet(request);
+      if (!result.success) return result;
+      setHasBetThisRound(true);
+      setAutoBetError(null);
+      if (rounds > 1) setAutoBet({ template: request, roundsRemaining: rounds - 1, roundsTotal: rounds });
+      return result;
+    },
+    [game],
+  );
+  const stopAutoBet = useCallback(() => setAutoBet(null), []);
+  const clearAutoBetError = useCallback(() => setAutoBetError(null), []);
+  const bettingLocked = gameState.phase !== 'BETTING_OPEN' || autoBet !== null || hasBetThisRound;
+
   const placeBet = useCallback(
     (request: BetRequest) => {
       const result = game.placeBet(request);
@@ -430,6 +506,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     failedFlashTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
     failedFlashTimeoutsRef.current.clear();
     setFlashingFailedIds(new Set());
+    setPayoutFlash(null);
+    setAutoBet(null);
+    setAutoBetError(null);
   }, [game, commitPublicReveal]);
 
   const dismissJackpotCelebration = useCallback(() => setJackpotCelebration(null), []);
@@ -452,8 +531,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       gameState,
       activeTickets: revealedDraw.tickets.filter((t) => !isTerminal(t.status) || flashingFailedIds.has(t.id)),
       history: revealedDraw.tickets.filter((t) => isTerminal(t.status) && !flashingFailedIds.has(t.id)),
-      balance: gameState.balance,
-      jackpotPools: gameState.jackpotPools,
+      balance: revealedDraw.balance,
+      jackpotPools: revealedDraw.jackpotPools,
+      bettingLocked,
+      autoBet,
+      autoBetError,
+      clearAutoBetError,
+      startAutoBet,
+      stopAutoBet,
       currentJackpotSequence: gameState.currentJackpotSequence,
       currentDraw: revealedDraw.currentDraw,
       streamHistory: revealedDraw.streamHistory,
@@ -482,7 +567,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       resetBalance,
       simulateJackpotWin,
       createSimulatedTicket,
-      hasBetThisRound
+      hasBetThisRound,
+      payoutFlash,
     }),
     [
       gameState,
@@ -508,6 +594,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       simulateJackpotWin,
       createSimulatedTicket,
       hasBetThisRound,
+      bettingLocked,
+      autoBet,
+      autoBetError,
+      clearAutoBetError,
+      startAutoBet,
+      stopAutoBet,
+      payoutFlash,
     ],
   );
 

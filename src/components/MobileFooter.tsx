@@ -109,7 +109,7 @@ export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo 
               </button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3">
-              <div className="h-[38%] min-h-[170px] shrink-0">
+              <div className="h-[30%] min-h-[140px] shrink-0">
                 <MultiplayerSim />
               </div>
               <EmojiChat />

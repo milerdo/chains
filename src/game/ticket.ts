@@ -36,6 +36,16 @@ export function isTerminal(status: TicketStatus): boolean {
   return TERMINAL_STATUSES.includes(status);
 }
 
+export function isJackpotRelevant(status: TicketStatus): boolean {
+  return (
+    status === 'BASE_WON' ||
+    status === 'JACKPOT_STEP_1' ||
+    status === 'JACKPOT_STEP_2' ||
+    status === 'JACKPOT_WON' ||
+    status === 'JACKPOT_LOST'
+  );
+}
+
 // ----------------------------------------------------------------------------
 // Validation
 // ----------------------------------------------------------------------------

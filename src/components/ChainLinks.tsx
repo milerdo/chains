@@ -1,5 +1,6 @@
 import { DIGIT_COLORS } from '../utils/digitColors';
 import type { Ticket } from '../game/types';
+import { isJackpotRelevant } from '../game/ticket';
 
 type CircleState = 'pending' | 'matched' | 'failed' | 'current';
 
@@ -16,19 +17,6 @@ function jackpotCircleState(ticket: Ticket, index: number): CircleState {
   const isQualifying = ticket.status === 'BASE_WON' || ticket.status === 'JACKPOT_STEP_1' || ticket.status === 'JACKPOT_STEP_2';
   if (isQualifying && index === ticket.jackpotProgress) return 'current';
   return 'pending';
-}
-
-/** Whether a ticket's jackpot chain is currently worth showing — before
- * the base win, jackpot digits are irrelevant noise; from BASE_WON
- * onward (qualifying, won, or lost) they're the whole story. */
-export function isJackpotRelevant(status: Ticket['status']): boolean {
-  return (
-    status === 'BASE_WON' ||
-    status === 'JACKPOT_STEP_1' ||
-    status === 'JACKPOT_STEP_2' ||
-    status === 'JACKPOT_WON' ||
-    status === 'JACKPOT_LOST'
-  );
 }
 
 const JACKPOT_TIER_DISPLAY: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
@@ -111,7 +99,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
       {showJackpot && (
         <span className="flex shrink-0 items-center">
           <Link size={size} />
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">  
+          <span className="flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">
           {/* was: border-[#eab308]/40 bg-[#eab308]/15 — filled amber
               competed visually with the chain circles; outline-only reads
               as a frame around the jackpot progress instead. */}
@@ -121,7 +109,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
                 <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
               </span>
             ))}
-            {size !== 'xs' && (
+            {size !== 'xs' && isJackpotRelevant(ticket.status) && (
               <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
                 {JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}
               </span>
@@ -185,13 +173,16 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
                   <BaseChain key={t.id} ticket={t} size="xs" />
                 ))}
                 {key !== 'base' && (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#eab308]/50 px-1.5 py-0.5">
+                  <span className="flex shrink-0 items-center rounded-full border border-[#eab308]/50 px-1.5 py-0.5">
                     {lead.jackpotSequence.map((digit, i) => (
                       <span key={i} className="flex items-center">
                         {i > 0 && <Link size="xs" />}
                         <ChainCircle digit={digit} state={jackpotCircleState(lead, i)} size="xs" />
                       </span>
                     ))}
+                     <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
+                      {JACKPOT_TIER_DISPLAY[lead.jackpotTier]}
+                    </span>
                   </span>
                 )}
               </span>

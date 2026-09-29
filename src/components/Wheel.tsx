@@ -191,6 +191,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   const [currentDigit, setCurrentDigit] = useState(wheelTargetDraw?.digit ?? 0);
   const [justLanded, setJustLanded] = useState(false);
   const [flapperTick, setFlapperTick] = useState(0);
+  const [flapperBounce, setFlapperBounce] = useState(-16);
 
   const spinDirectionRef = useRef<1 | -1>(1);
   const prevPhaseRef = useRef<GamePhase>(phase);
@@ -206,9 +207,13 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   const indeterminateRafRef = useRef<number | null>(null);
   const finalApproachRafRef = useRef<number | null>(null);
   const speedMultiplierRef = useRef(speedMultiplier);
-  speedMultiplierRef.current = speedMultiplier;
+  
+  useEffect(() => {
+    speedMultiplierRef.current = speedMultiplier;
+  }, [speedMultiplier]);
 
   function fireFlapperClick() {
+    setFlapperBounce(spinDirectionRef.current * -16);
     setFlapperTick((t) => t + 1);
     playTick();
   }
@@ -352,7 +357,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
     return () => {
       if (finalApproachRafRef.current !== null) cancelAnimationFrame(finalApproachRafRef.current);
     };
-  }, [wheelTargetDraw]);
+  }, [wheelTargetDraw, reportWheelLanded]);
 
   useEffect(
     () => () => {
@@ -398,7 +403,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
               style={{
                 transformOrigin: `${CX}px 19px`,
                 animation: `flapper-click ${FLAPPER_CLICK_MS}ms ease-out`,
-                ['--flapper-bounce' as string]: `${spinDirectionRef.current * -16}deg`,
+                ['--flapper-bounce' as string]: `${flapperBounce}deg`,
               }}
             >
               <path

@@ -936,6 +936,42 @@ which is unaffected. Engine-level cross-call round-locking remains
 unimplemented and is explicitly OUT OF SCOPE for this pitch build — do not
 add it without a fresh ask (see scope note at the top of this section).
 
+## 22. Patterns established this session (mobile single-screen, provider-owned auto bet, gated balance)
+
+**Supersedes §13/§16/§18/§21 on mobile layout.** Mobile = one no-scroll
+screen. Shared zone: BettingPanel (mounted, hidden when locked) XOR
+TicketDrawer compact; LinkStrip (grouped by jackpot state, fixed h-10)
+sits above BettingPanel. Wheel collapses during BETTING_OPEN via
+`collapsed`. No swipe panels, refs or scrollIntoView remain.
+
+**Single mount per breakpoint.** App.tsx renders ONE <main> chosen by
+`isDesktop`. Resizing across 1024px remounts BettingPanel, so any state
+that must survive lives in GameProvider, not the component.
+
+**Auto Bet and bettingLocked live in useGame.ts.** BettingPanel's
+onLockChange/onAutoBetChange props are gone. The phase-entry resubmit
+effect must stay AFTER the effect that resets hasBetThisRound. Auto Bet
+errors surface via `autoBetError` (BettingPanel shows it as a toast).
+Not shareable across devices (no backend).
+
+**Everything outcome-related goes through the reveal gate.** `balance` and
+`jackpotPools` are part of revealedDraw/pendingPublicRevealRef. Never read
+gameState.balance/jackpotPools directly in UI. Non-draw emits update them
+immediately only when no reveal is in flight (revealTimeoutRef /
+pendingPublicRevealRef both null).
+
+**PhaseStatus owns phase + Auto Bet + base-win notice** (`payoutFlash`,
+set in applyTicketSounds, cleared in resetGame). AutoBetBar.tsx is deleted.
+
+**Links show a pill only.** No win amounts, status labels or "chance" text
+on TicketCard. Tier name inside the pill only when isJackpotRelevant().
+"Active Links" title/collapse removed from TicketDrawer.
+
+**Scrollbars** are styled globally in index.css; no per-component styling.
+
+**Verify with `npx tsc -b`** (Vite does not type-check). Run it after every
+multi-file edit.
+
 ## Final principle
 
 Preserve the CHAINS concept.

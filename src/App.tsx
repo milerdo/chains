@@ -23,22 +23,15 @@ import { DemoPanel } from './components/DemoPanel';
 import { JackpotCelebration } from './components/JackpotCelebration';
 import { MobileFooter } from './components/MobileFooter';
 import { PhaseStatus } from './components/PhaseStatus';
-import { AutoBetBar } from './components/AutoBetBar';
 import { LinkStrip } from './components/ChainLinks';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
 function AppShell() {
-  const { activeTickets, phase, timeRemaining, balance } = useGame();
+  const { activeTickets, phase, balance, bettingLocked } = useGame();
   const [helpOpen, setHelpOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false); 
   const [demoOpen, setDemoOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
-  const [bettingLocked, setBettingLocked] = useState(false);
-  const [autoBetInfo, setAutoBetInfo] = useState<{
-    roundsRemaining: number;
-    roundsTotal: number;
-    stop: () => void;
-  } | null>(null);
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
@@ -62,12 +55,9 @@ function AppShell() {
               <Wheel />
             </div>
             <div className="flex min-h-0 flex-col overflow-hidden">
-              <div className="mb-2 empty:hidden">
-                <AutoBetBar info={autoBetInfo} />
-              </div>
-              <PhaseStatus locked={bettingLocked} timeRemaining={timeRemaining} />
+              <PhaseStatus className="mb-3" />
               <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
-                <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
+                <BettingPanel />
                 {activeTickets.length > 0 && (
                   <div className="mt-3">
                     <TicketDrawer tickets={activeTickets} />
@@ -85,17 +75,16 @@ function AppShell() {
       ) : (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 py-2">
-            <PhaseStatus locked={bettingLocked} timeRemaining={timeRemaining} />
+            <PhaseStatus />
             <JackpotPanel />
             <div className="shrink-0">
               <Wheel compact collapsed={phase === 'BETTING_OPEN'} />
             </div>
-            <AutoBetBar info={autoBetInfo} />
             {/* Shared zone: BettingPanel stays mounted (hidden) while locked */}
             <div className={['flex min-h-0 flex-1 flex-col gap-2', bettingLocked ? 'hidden' : ''].join(' ')}>
               <LinkStrip tickets={activeTickets} />
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <BettingPanel onLockChange={setBettingLocked} onAutoBetChange={setAutoBetInfo} />
+                <BettingPanel />
               </div>
             </div>
             {bettingLocked && <TicketDrawer tickets={activeTickets} compact />}

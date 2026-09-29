@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
@@ -6,7 +6,7 @@ import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { calculateTotalStake } from '../game/payouts';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
 import { DIGIT_COLORS } from '../utils/digitColors';
-import type { BetRequest, BetSelection, GamePhase, TicketTier } from '../game/types';
+import type { BetRequest, BetSelection, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH; // 3 — the widest entry, spec Section 5a
 const AUTO_BET_PRESETS = [5, 10, 25, 50];
@@ -46,22 +46,14 @@ function tierForDigitCount(count: number): TicketTier | null {
 }
 
 type EditTarget = { kind: 'digit'; index: number } | { kind: 'jackpot'; index: 0 | 1 } | { kind: 'lowPick' } | null;
-interface AutoBetState {
-  template: BetRequest;
-  roundsRemaining: number;
-  roundsTotal: number;
-}
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-interface BettingPanelProps {
-  onLockChange?: (locked: boolean) => void;
-  onAutoBetChange?: (state: { roundsRemaining: number; roundsTotal: number; stop: () => void } | null) => void;
-
-}
-
-export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProps) {
-  const { placeBet, phase, balance, currentJackpotSequence, hasBetThisRound } = useGame();
+export function BettingPanel() {
+  const {
+    placeBet, phase, balance, currentJackpotSequence, hasBetThisRound,
+    bettingLocked, autoBet, autoBetError, clearAutoBetError, startAutoBet, stopAutoBet,
+  } = useGame();
   // Additional LOW picks beyond digits[0] (the main slot's digit is always
   // pick #1). Distinct affordance from Combo on purpose — Combo permutes
   // ONE typed sequence; this batches several independent 1-digit tickets.
@@ -72,9 +64,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
   const [isCombo, setIsCombo] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget>({ kind: 'digit', index: 0 });
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [autoBet, setAutoBet] = useState<AutoBetState | null>(null);
   const autoBetActive = autoBet !== null;
-  const prevPhaseRef = useRef<GamePhase>(phase);
 
   // Auto-dismiss the confirmation/error message a few seconds after it
   // appears, instead of leaving it on screen indefinitely. Re-runs (and so
@@ -95,31 +85,17 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
   // (unchanged logic) piggybacks on the same phase-entry check, same
   // pattern Wheel.tsx uses for detecting entry into DRAWING.
   useEffect(() => {
-    const enteredBettingOpen = phase === 'BETTING_OPEN' && prevPhaseRef.current !== 'BETTING_OPEN';
-    prevPhaseRef.current = phase;
+    if (!autoBetError) return;
+    const timeout = window.setTimeout(clearAutoBetError, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [autoBetError, clearAutoBetError]);
 
-    if (!enteredBettingOpen || !autoBet) return;
-
-    const result = placeBet(autoBet.template);
-    if (!result.success) {
-      setFeedback({ type: 'error', message: `Auto Bet stopped — ${result.message}` });
-      setAutoBet(null);
-      return;
-    }
-    setFeedback({ type: 'success', message: result.message });
-    setAutoBet((prev) => {
-      if (!prev) return null;
-      const roundsRemaining = prev.roundsRemaining - 1;
-      return roundsRemaining > 0 ? { ...prev, roundsRemaining } : null;
-    });
-  }, [phase, autoBet, placeBet]);
+  const shownFeedback: typeof feedback = autoBetError
+    ? { type: 'error', message: autoBetError }
+    : feedback;
 
   const isBettingOpen = phase === 'BETTING_OPEN';
-  const locked = !isBettingOpen || autoBetActive || hasBetThisRound;
-
-  useEffect(() => {
-    onLockChange?.(locked);
-  }, [locked, onLockChange]);
+  const locked = bettingLocked;
 
   const filledDigits = digits.filter((d): d is number => d !== null);
   const filledCount = filledDigits.length;
@@ -175,6 +151,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     if (!editTarget || locked) return;
     playUiClick();
     setFeedback(null);
+    clearAutoBetError();
 
     if (editTarget.kind === 'digit') {
       setDigits((prev) => {
@@ -285,8 +262,7 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
 
   function handleStartAutoBet(rounds: number) {
     if (!canSubmit) return;
-    const request = buildRequest();
-    const result = placeBet(request);
+    const result = startAutoBet(buildRequest(), rounds);
     if (!result.success) {
       setFeedback({ type: 'error', message: result.message });
       return;
@@ -294,32 +270,17 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
     playUiClick();
     setEditTarget(null);
     setAutoBetPickerOpen(false);
-    const roundsRemaining = rounds - 1;
     setFeedback({
       type: 'success',
       message: `${result.message} — Auto Bet started (${rounds} round${rounds === 1 ? '' : 's'}).`,
     });
-    if (roundsRemaining > 0) {
-      setAutoBet({ template: request, roundsRemaining, roundsTotal: rounds });
-    }
   }
 
   function handleStopAutoBet() {
-    stopAutoBet();
-  }
-
-  const stopAutoBet = useCallback(() => {
     playUiClick();
-    setAutoBet(null);
+    stopAutoBet();
     setFeedback({ type: 'success', message: 'Auto Bet stopped.' });
-    }, []);
-
-    useEffect(() => {
-      if (!onAutoBetChange) return;
-      onAutoBetChange(
-        autoBet ? { roundsRemaining: autoBet.roundsRemaining, roundsTotal: autoBet.roundsTotal, stop: stopAutoBet } : null,
-      );
-    }, [autoBet, onAutoBetChange, stopAutoBet]);
+   }
 
   return (
     <section
@@ -519,17 +480,17 @@ export function BettingPanel({ onLockChange, onAutoBetChange }: BettingPanelProp
 
       <DigitPad active={editTarget !== null && !locked} onPress={handleDigitPress} />
 
-      {feedback && (
+      {shownFeedback && (
         <p
           role="status"
           className={[
             'mt-2 rounded-lg px-3 py-1.5 text-center text-xs',
-            feedback.type === 'success'
+            shownFeedback.type === 'success'
               ? 'bg-emerald-400/10 text-emerald-300'
               : 'bg-red-400/10 text-red-300',
           ].join(' ')}
         >
-          {feedback.message}
+          {shownFeedback.message}
         </p>
       )}
 
