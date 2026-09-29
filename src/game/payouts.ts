@@ -18,7 +18,7 @@ export function roundCurrency(value: number): number {
  * to eliminate floating-point representation dust (e.g. 0.1 + 0.2 !==
  * 0.30000000000000004) without destroying legitimate sub-cent precision.
  * Use this for internal accumulators — like the progressive jackpot pools
- * — whose configured funding rates ($0.06 / $0.08 / $0.072 per Section 18)
+ * — whose configured funding rates ($0.06 / $0.07 / $0.08 per Section 18)
  * are themselves sub-cent and must accumulate exactly over many
  * contributions rather than being truncated to whole cents on every add. */
 export function roundPrecise(value: number, decimals = 6): number {

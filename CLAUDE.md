@@ -926,7 +926,15 @@ occasionally serve a stale lock state for up to one `timeRemaining` tick
 change beyond correcting the staleness window.
 
 **`engine.test.ts`: removed the "rejects a second bet with a different tier
-placed in the same still-open round"
+placed in the same still-open round" test.** Its premise was already flagged
+as inaccurate in Sections 16/17/19 (round-locking is React-layer only,
+`ChainsGame.placeBet()` has no cross-call state) — the test was failing
+this session, not passing for the wrong reason as previously assumed. The
+single-request "only one tier per selections array" rule is still covered
+by the adjacent "rejects a request with more than one tier selection" test,
+which is unaffected. Engine-level cross-call round-locking remains
+unimplemented and is explicitly OUT OF SCOPE for this pitch build — do not
+add it without a fresh ask (see scope note at the top of this section).
 
 ## Final principle
 

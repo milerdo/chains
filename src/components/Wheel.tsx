@@ -8,6 +8,7 @@ import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { useGame } from '../hooks/useGame';
 import { playTick } from '../utils/audio';
 import type { GamePhase } from '../game/types';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
@@ -170,9 +171,12 @@ const WheelDisc = memo(function WheelDisc({
      * wheel now shares vertical space with Active Links underneath it.
      * viewBox is unchanged, so this is a pure proportional scale-down. */
     compact?: boolean;
+    /** Collapses the SVG to zero height (animated), leaving only the
+     * recent-digits strip. Mobile uses this while betting is open. */
+    collapsed?: boolean;    
 }
 
-export function Wheel({ compact = false }: WheelProps) {
+export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded } = useGame();
   // Unique per-mount suffix for this instance's gradient defs — two Wheel
   // instances are mounted at once (desktop + mobile tab), and duplicate
@@ -359,7 +363,8 @@ export function Wheel({ compact = false }: WheelProps) {
   );
 
   const recentDigits = streamHistory.slice(-10);
-  const size = compact ? 260 : 340;
+  const tall = useMediaQuery('(min-height: 800px)');
+  const size = compact ? (tall ? 300 : 260) : 340;
 
   return (
     <section
@@ -374,6 +379,14 @@ export function Wheel({ compact = false }: WheelProps) {
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
+        <div
+          className="flex w-full justify-center overflow-hidden"
+          style={{
+            height: collapsed ? 0 : size + 10,
+            opacity: collapsed ? 0 : 1,
+            transition: 'height 300ms ease, opacity 200ms ease',
+          }}
+        >
         <div className="rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.55)] [&>svg]:block">
           <svg width={size} height={size} viewBox="0 0 300 300">
             <WheelFrame uid={uid} />
@@ -406,6 +419,7 @@ export function Wheel({ compact = false }: WheelProps) {
             `}</style>
           </svg>
         </div>
+      </div>
 
         <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-3'].join(' ')}>
           {recentDigits.length === 0 && (

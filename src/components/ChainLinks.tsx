@@ -132,3 +132,73 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
     </div>
   );
 }
+
+/** Links share one jackpot pill when their jackpot state is identical.
+ * Links not yet in qualification all fall into one pill-less 'base' group. */
+function jackpotGroupKey(t: Ticket): string {
+  return isJackpotRelevant(t.status)
+    ? `${t.jackpotTier}|${t.jackpotSequence.join(',')}|${t.jackpotProgress}|${t.status}`
+    : 'base';
+}
+
+function BaseChain({ ticket, size }: { ticket: Ticket; size: 'xs' | 'sm' | 'md' }) {
+  return (
+    <span className="flex shrink-0 items-center">
+      {ticket.baseSequence.map((digit, i) => (
+        <span key={i} className="flex items-center">
+          {i > 0 && <Link size={size} />}
+          <ChainCircle digit={digit} state={baseCircleState(ticket, i)} size={size} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Always-rendered, fixed-height (h-10) single-row summary of active links,
+ * shown above the betting panel on mobile. Fixed height + no wrap means it
+ * never moves the layout when links appear/resolve. The leading count stays
+ * accurate if the row clips; full cards live in TicketDrawer once locked. */
+export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
+  const groups = new Map<string, Ticket[]>();
+  for (const t of tickets) {
+    const key = jackpotGroupKey(t);
+    const list = groups.get(key);
+    if (list) list.push(t);
+    else groups.set(key, [t]);
+  }
+
+  return (
+    <div
+      aria-label="Active links"
+      className="flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5"
+    >
+      {tickets.length === 0 ? (
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/25">No active links</span>
+      ) : (
+        <>
+          <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-white/40">{tickets.length}</span>
+          {[...groups.entries()].map(([key, group]) => {
+            const lead = group[0];
+            return (
+              <span key={key} className="flex shrink-0 items-center gap-1.5">
+                {group.map((t) => (
+                  <BaseChain key={t.id} ticket={t} size="xs" />
+                ))}
+                {key !== 'base' && (
+                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#eab308]/50 px-1.5 py-0.5">
+                    {lead.jackpotSequence.map((digit, i) => (
+                      <span key={i} className="flex items-center">
+                        {i > 0 && <Link size="xs" />}
+                        <ChainCircle digit={digit} state={jackpotCircleState(lead, i)} size="xs" />
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
