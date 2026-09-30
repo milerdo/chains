@@ -41,3 +41,17 @@
     pointer-events: none;
   }
 }
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  *:hover {
+    scrollbar-color: rgba(234, 179, 8, 0.45) transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(234, 179, 8, 0.45); }
+}
