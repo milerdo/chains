@@ -7,7 +7,8 @@
 // ============================================================================
 
 import { useEffect, type ReactNode } from 'react';
-import { BASE_MULTIPLIERS, RNG_DISCLAIMER, THEORETICAL_RTP } from '../game/constants';
+import { BASE_MULTIPLIERS, RNG_DISCLAIMER } from '../game/constants';
+import { houseEdge, overallRtp, totalRtp } from '../game/rtp';
 import { formatPercent } from '../utils/format';
 
 interface HelpModalProps {
@@ -100,18 +101,21 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
           <Section title="RTP">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <RtpStat label="LOW" value={formatPercent(THEORETICAL_RTP.LOW)} />
-              <RtpStat label="MIDI" value={formatPercent(THEORETICAL_RTP.MEDIUM)} />
-              <RtpStat label="HIGH" value={formatPercent(THEORETICAL_RTP.HIGH)} />
-              <RtpStat label="Overall target" value={formatPercent(THEORETICAL_RTP.overall)} highlight />
+              <RtpStat label="LOW" value={formatPercent(totalRtp('LOW'))} />
+              <RtpStat label="MIDI" value={formatPercent(totalRtp('MEDIUM'))} />
+              <RtpStat label="HIGH" value={formatPercent(totalRtp('HIGH'))} />
+              <RtpStat label="Average" value={formatPercent(overallRtp())} highlight />
             </div>
             <p className="mt-2 text-xs text-white/45">
-              Jackpot contributions add expected value on top. House edge: {formatPercent(THEORETICAL_RTP.houseEdge)}.
+              Includes the jackpot share, funded entirely by bets (no seed). Average house edge: {formatPercent(houseEdge())}.
             </p>
           </Section>
 
           <Section title="Demo">
             <p className="text-xs text-white/45">{RNG_DISCLAIMER}</p>
+            <p className="mt-1.5 text-xs text-white/45">
+              Player counts, the heat map and chat are simulated for demonstration.
+            </p>
           </Section>
         </div>
       </div>

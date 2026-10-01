@@ -26,6 +26,9 @@ import { PhaseStatus } from './components/PhaseStatus';
 import { LinkStrip } from './components/ChainLinks';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
+/** Presenter tools only appear when the URL has ?demo (e.g. yoursite.com/?demo). */
+const demoEnabled = new URLSearchParams(window.location.search).has('demo');
+
 function AppShell() {
   const { activeTickets, phase, balance, bettingLocked } = useGame();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -39,6 +42,7 @@ function AppShell() {
         onOpenHelp={() => setHelpOpen(true)}
         onOpenHistory={() => setHistoryOpen(true)}
         onToggleDemo={() => setDemoOpen((o) => !o)}
+        showDemo={demoEnabled}
       />
 
             {isDesktop ? (
@@ -94,13 +98,14 @@ function AppShell() {
             onOpenHelp={() => setHelpOpen(true)}
             onOpenHistory={() => setHistoryOpen(true)}
             onToggleDemo={() => setDemoOpen((o) => !o)}
+            showDemo={demoEnabled}
           />
         </main>
       )}
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
       <BetHistoryModal isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
-      <DemoPanel isOpen={demoOpen} />
+      <DemoPanel isOpen={demoEnabled && demoOpen} />
       <JackpotCelebration />
     </div>
   );

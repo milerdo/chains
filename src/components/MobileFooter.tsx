@@ -16,9 +16,10 @@ interface MobileFooterProps {
   onOpenHelp: () => void;
   onOpenHistory: () => void;
   onToggleDemo: () => void;
+  showDemo: boolean;
 }
 
-export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo }: MobileFooterProps) {
+export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo, showDemo }: MobileFooterProps) {
   const [soundOn, setSoundOn] = useState(() => isAudioEnabled());
   const [chatOpen, setChatOpen] = useState(false);
 
@@ -68,9 +69,11 @@ export function MobileFooter({ balance, onOpenHelp, onOpenHistory, onToggleDemo 
         >
           <HistoryIcon />
         </button>
-        <button type="button" onClick={handleToggleDemo} aria-label="Demo panel" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70">
-          🛠️
-        </button>
+        {showDemo && (
+          <button type="button" onClick={handleToggleDemo} aria-label="Demo panel" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70">
+            🛠️
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {

@@ -136,3 +136,14 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
     expect(game.getActiveTickets()).toHaveLength(0);
   });
 });
+
+describe('ChainsGame — RNG routing', () => {
+  it('forced demo digits are not consumed by non-draw randomness', () => {
+    const game = new ChainsGame();
+    game.forceNextDraw(9);
+    game.createSimulatedTicket('HIGH'); // uses aux digits for its random sequence
+    game.instantStep(); // BETTING_CLOSED
+    game.instantStep(); // DRAWING -> processDraw
+    expect(game.getState().currentDraw?.digit).toBe(9);
+  });
+});

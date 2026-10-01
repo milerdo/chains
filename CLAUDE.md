@@ -972,6 +972,27 @@ on TicketCard. Tier name inside the pill only when isJackpotRelevant().
 **Verify with `npx tsc -b`** (Vite does not type-check). Run it after every
 multi-file edit.
 
+## 23. RTP, randomness and demo rules (math/credibility pass)
+
+- RTP figures come ONLY from src/game/rtp.ts. Never hardcode RTP numbers in
+  UI or docs without regenerating them from it.
+- Jackpot pools are unseeded by design (INITIAL_JACKPOT_POOLS = 0). Seeds
+  make real RTP exceed 100%. If a seed is ever added, recompute RTP first and
+  update docs/MATH.md and jackpot.test.ts ("starts unseeded"). The ONLY
+  exception is DEMO_JACKPOT_PRESET (~60/700/8000), applied exclusively when
+  the URL has ?demo, for presentation. It must never leak into normal mode
+  or into any RTP figure.
+- All outcome-relevant randomness goes through rng.ts: generateDigit() for
+  draws (honors forced queue), generateAuxDigit() for everything else.
+  Cosmetic simulation may use Math.random.
+- Presenter tools (DemoPanel and its buttons) only render with ?demo in the
+  URL. Do not make them visible by default.
+- Docs: docs/MATH.md is the math sheet; README.md is the pitch entry point.
+  Both must stay consistent with rtp.ts and constants.ts.
+- Scope reminder: this is a pitch MVP. Server, multiplayer, persistence and
+  real-money readiness are intentionally NOT built; they live in the README
+  "Production path" section.
+
 ## Final principle
 
 Preserve the CHAINS concept.

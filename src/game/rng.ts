@@ -1,10 +1,10 @@
 // ============================================================================
 // CHAINS — RNG Abstraction (Section 23)
 //
-// Every random digit in the game MUST go through this module. No component
-// or engine code should call Math.random() directly anywhere else. This
-// keeps the system easy to swap for a certified/server-side RNG later
-// without touching any game logic.
+// Every random digit that affects outcomes or defaults goes through this
+// module. Purely cosmetic simulation (heat map, fake players) may use
+// Math.random. This keeps the system easy to swap for a certified/
+// server-side RNG later without touching any game logic.
 //
 // DISCLAIMER: This is a demonstration-grade PRNG. It is NOT certified for
 // real-money gambling use.
@@ -37,10 +37,13 @@ export class RNG {
       // forced is guaranteed defined by the length check above
       return this.clampDigit(forced as number);
     }
-    if (this.seed !== null) {
-      return this.nextSeededDigit();
-    }
-    return Math.floor(Math.random() * 10);
+    return this.drawRaw();
+  }
+
+  /** Non-draw randomness (jackpot defaults, simulated links). Never
+   * consumes the demo panel's forced-digit queue. */
+  generateAuxDigit(): number {
+    return this.drawRaw();
   }
 
   /** Queues a single digit to be returned by the next generateDigit() call
@@ -77,10 +80,24 @@ export class RNG {
     this.seed = seed ?? null;
   }
 
+  private drawRaw(): number {
+    return this.seed !== null ? this.nextSeededDigit() : this.secureDigit();
+  }
+
+
+/** Unbiased digit from the Web Crypto API (rejection sampling). */
+  private secureDigit(): number {
+    const buf = new Uint8Array(1);
+    do {
+      crypto.getRandomValues(buf);
+    } while (buf[0] >= 250);
+    return buf[0] % 10;
+  }
+
   private nextSeededDigit(): number {
-    // Deterministic LCG (Numerical Recipes parameters), masked to 31 bits.
-    this.seed = ((this.seed as number) * 1_103_515_245 + 12_345) & 0x7fffffff;
-    return this.seed % 10;
+    // LCG with exact 32-bit multiply (Math.imul), digit from HIGH bits.
+    this.seed = (Math.imul(this.seed as number, 1_103_515_245) + 12_345) & 0x7fffffff;
+    return Math.floor(((this.seed >>> 8) / 0x800000) * 10);
   }
 
   private clampDigit(digit: number): number {

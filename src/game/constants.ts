@@ -42,12 +42,13 @@ export const TIER_TO_JACKPOT: Record<TicketTier, JackpotTierName> = {
   HIGH: 'GRAND',
 };
 
-/** Starting/seed jackpot pool balances (Section 16). Pools reset to these
- * values after a win. */
+/** Seeds are 0 by design: jackpots are funded 100% by player contributions,
+ * so jackpot RTP per tier == its contribution rate (no house-funded EV).
+ * Do not add seeds without recomputing RTP (see rtp.ts). */
 export const INITIAL_JACKPOT_POOLS: JackpotPools = {
-  MINI: 100,
-  MIDI: 1_000,
-  GRAND: 10_000,
+  MINI: 0,
+  MIDI: 0,
+  GRAND: 0,
 };
 
 /** Progressive jackpot funding contribution added per $1 wagered on a
@@ -82,23 +83,6 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   startingBalance: STARTING_BALANCE,
   ticketStake: TICKET_STAKE,
 };
-
-/**
- * Theoretical RTP figures for the Help / Info modal (Section 18). These are
- * DISPLAY-ONLY constants describing the intended design target. They are
- * not derived from live simulated jackpot pool values, and the engine does
- * not claim the current simulated jackpot balances mathematically guarantee
- * exactly 96% RTP — that would require deriving the jackpot's expected
- * value from real funding/hit-probability data, which is out of scope for
- * this demo MVP.
- */
-export const THEORETICAL_RTP = {
-  overall: 0.9594,
-  houseEdge: 0.0406,
-  LOW: 0.9,
-  MEDIUM: 0.88,
-  HIGH: 0.888,
-} as const;
 
 /** Clearly label this as a demonstration system, never a certified RNG
  * (Section 23). Surfaced by UI in the Help modal / footer. */

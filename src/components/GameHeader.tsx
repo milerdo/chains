@@ -13,13 +13,12 @@ import { isAudioEnabled, playUiClick, toggleAudioEnabled } from '../utils/audio'
 
 interface GameHeaderProps {
   onOpenHelp: () => void;
-  /** Wired in Milestone 3 (Bet History view). Button renders and fires this
-   * now; the modal/content it opens does not exist yet. */
   onOpenHistory: () => void;
   onToggleDemo: () => void;
+  showDemo: boolean
 }
 
- export function GameHeader({ onOpenHelp, onOpenHistory, onToggleDemo }: GameHeaderProps) {
+ export function GameHeader({ onOpenHelp, onOpenHistory, onToggleDemo, showDemo }: GameHeaderProps) {
   const { balance } = useGame();
   const [soundOn, setSoundOn] = useState(() => isAudioEnabled());
 
@@ -57,9 +56,11 @@ interface GameHeaderProps {
           <HeaderIconButton onClick={handleOpenHistory} label="Bet history">
             <HistoryIcon />
           </HeaderIconButton>
-          <HeaderIconButton onClick={handleToggleDemo} label="Demo panel">
-            <DemoIcon />
-          </HeaderIconButton>
+          {showDemo && (
+            <HeaderIconButton onClick={handleToggleDemo} label="Demo panel">
+              <DemoIcon />
+            </HeaderIconButton>
+          )}
           <Balance balance={balance} />
         </div>
       </div>

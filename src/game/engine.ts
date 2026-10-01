@@ -759,7 +759,7 @@ export class ChainsGame {
   }
 
   private randomDigit(): number {
-    return Math.floor(Math.random() * 10);
+    return this.rng.generateAuxDigit();
   }
 
   private randomDigits(count: number): number[] {
