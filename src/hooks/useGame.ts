@@ -37,11 +37,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { applyDemoJackpotPreset } from '../game/demoPreset';
 import { ChainsGame } from '../game/engine';
 import { isTerminal } from '../game/ticket';
 import { playBaseWin, playJackpotFanfare, playStepMatch } from '../utils/audio';
@@ -159,13 +161,26 @@ const PUBLIC_REVEAL_FALLBACK_MS = 2500;
  * advances to RESULT. Must be >= Wheel.tsx's MAX_APPROACH_MS. */
 const WHEEL_MAX_LANDING_MS = 1800;
 
-export function GameProvider({ children }: { children: ReactNode }) {
+export function GameProvider({
+  children,
+  demoPreset = false,
+}: {
+  children: ReactNode;
+  demoPreset?: boolean;
+}) {
   // Exactly one ChainsGame instance for the lifetime of this provider.
   const gameRef = useRef<ChainsGame | null>(null);
   if (gameRef.current === null) {
     gameRef.current = new ChainsGame();
   }
   const game = gameRef.current;
+
+  const demoPresetAppliedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!demoPreset || demoPresetAppliedRef.current) return;
+    demoPresetAppliedRef.current = true;
+    applyDemoJackpotPreset(game);
+  }, [demoPreset, game]);
 
   const [gameState, setGameState] = useState<GameState>(() => game.getState());
   const [simulatedActivity, setSimulatedActivity] = useState<SimulatedActivity>(() => game.getSimulatedActivity());
@@ -498,6 +513,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const resetGame = useCallback(() => {
     skipNextRevealDelayRef.current = true;
     game.reset();
+    if (demoPreset) applyDemoJackpotPreset(game); //demo only
     skipNextRevealDelayRef.current = false;
     commitPublicReveal();
     prevTicketStatusRef.current.clear();

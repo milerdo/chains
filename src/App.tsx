@@ -113,7 +113,7 @@ function AppShell() {
 
 export default function App() {
   return (
-    <GameProvider>
+    <GameProvider demoPreset={demoEnabled}>
       <AppShell />
     </GameProvider>
   );

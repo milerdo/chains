@@ -86,7 +86,9 @@ so RTP per $1 is identical to a straight bet.
 | MIDI | 87.998% | 88.000% | -0.02 sigma |
 | HIGH | 89.296% | 88.800% | +1.25 sigma |
 
-Reproduce: `SIM_BETS=50000000 npx vitest run src/game/sim.test.ts`
+Reproduce: 
+macOS/Linux `SIM_BETS=50000000 npx vitest run src/game/sim.test.ts` 
+PowerShell: `$env:SIM_BETS=50000000; npx vitest run src/game/sim.test.ts`
 
 ## 8. RNG note
 

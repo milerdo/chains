@@ -51,6 +51,13 @@ export const INITIAL_JACKPOT_POOLS: JackpotPools = {
   GRAND: 0,
 };
 
+/**
+ * DEMO-ONLY presentation preset, applied only when the URL has ?demo.
+ * ~steady-state average pool sizes (docs/MATH.md). NOT a seed: never used by
+ * engine defaults, rtp.ts or any RTP figure.
+ */
+export const DEMO_JACKPOT_PRESET = { MINI: 60, MIDI: 700, GRAND: 8000 } as const;
+
 /** Progressive jackpot funding contribution added per $1 wagered on a
  * given tier, at the moment the bet is confirmed (Section 18). */
 export const JACKPOT_CONTRIBUTION_RATES: Record<TicketTier, number> = {

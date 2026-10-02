@@ -992,6 +992,10 @@ multi-file edit.
 - Scope reminder: this is a pitch MVP. Server, multiplayer, persistence and
   real-money readiness are intentionally NOT built; they live in the README
   "Production path" section.
+- DEMO_JACKPOT_PRESET is applied ONLY by applyDemoJackpotPreset(), called from
+  GameProvider (mount, once, ref-guarded) and resetGame(), both gated on
+  `demoPreset` (= ?demo). Never call it from the engine, RTP/sim tests or normal
+  mode. A jackpot win in demo mode does not re-apply it; Reset does.
 
 ## Final principle
 
