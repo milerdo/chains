@@ -433,7 +433,6 @@ export function GameProvider({
         publicRevealFallbackTimeoutRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
 
   useEffect(() => {
@@ -525,7 +524,7 @@ export function GameProvider({
     setPayoutFlash(null);
     setAutoBet(null);
     setAutoBetError(null);
-  }, [game, commitPublicReveal]);
+  }, [game, commitPublicReveal, demoPreset]);
 
   const dismissJackpotCelebration = useCallback(() => setJackpotCelebration(null), []);
   const resetBalance = useCallback(() => game.resetBalance(), [game]);

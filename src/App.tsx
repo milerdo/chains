@@ -35,6 +35,7 @@ function AppShell() {
   const [historyOpen, setHistoryOpen] = useState(false); 
   const [demoOpen, setDemoOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
+  const shortScreen = useMediaQuery('(max-height: 740px)');
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
@@ -80,8 +81,8 @@ function AppShell() {
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 py-2">
             <PhaseStatus />
-            <JackpotPanel />
-            <div className="shrink-0">
+            {!(shortScreen && !bettingLocked) && <JackpotPanel />}
+            <div className={['shrink-0', shortScreen && !bettingLocked ? 'hidden' : ''].join(' ')}>
               <Wheel compact collapsed={phase === 'BETTING_OPEN'} />
             </div>
             {/* Shared zone: BettingPanel stays mounted (hidden) while locked */}

@@ -213,7 +213,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   }, [speedMultiplier]);
 
   function fireFlapperClick() {
-    setFlapperBounce(spinDirectionRef.current * -16);
+    setFlapperBounce(spinDirectionRef.current * 16);
     setFlapperTick((t) => t + 1);
     playTick();
   }

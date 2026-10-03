@@ -1,9 +1,3 @@
-
-test comm:
-npx tsc -b
-npm test
-$env:SIM_BETS=50000000; npx vitest run src/game/sim.test.ts
-
 # CHAINS
 
 A live-casino game concept: one continuous stream of digits, shared by everyone.
@@ -15,8 +9,8 @@ draw after the bet.
 
 **Play:** [link after deploy]   |   **Math sheet:** [docs/MATH.md](docs/MATH.md)
 
-![Gameplay](docs/screenshot-desktop.png)
-![Mobile](docs/screenshot-mobile.png)
+![Gameplay](docs/desktop1.png, docs/desktop2.png)
+![Mobile](docs/mobile1.png, docs/mobile2.png)
 
 ## How it plays
 
@@ -67,6 +61,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # engine, math and Monte Carlo tests
 npx tsc -b       # type check
+$env:SIM_BETS=50000000; npx vitest run src/game/sim.test.ts
 ```
 
 Presenter tools (force a digit, speed up, pause, reset) appear only with

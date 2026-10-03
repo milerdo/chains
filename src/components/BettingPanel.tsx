@@ -76,14 +76,6 @@ export function BettingPanel() {
     return () => window.clearTimeout(timeout);
   }, [feedback]);
 
-  // On every genuine entry into a NEW BETTING_OPEN round: unlock the form
-  // (hasBetThisRound reset). The jackpot digit slots are intentionally NOT
-  // re-seeded here anymore — the player's jackpot combination now persists
-  // across rounds until they manually edit it or use the reroll (⟳)
-  // control, rather than being overwritten by the engine's freshly
-  // auto-generated combination every round. Auto Bet resubmission
-  // (unchanged logic) piggybacks on the same phase-entry check, same
-  // pattern Wheel.tsx uses for detecting entry into DRAWING.
   useEffect(() => {
     if (!autoBetError) return;
     const timeout = window.setTimeout(clearAutoBetError, 4000);

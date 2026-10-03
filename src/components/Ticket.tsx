@@ -34,14 +34,19 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
         compact ? 'shrink p-2' : 'h-full p-3',
       ].join(' ')}
     >
-      <div className={['flex min-h-0 flex-1 flex-col overflow-hidden', compact ? 'gap-1.5' : 'gap-2'].join(' ')}>
+      <div
+        className={[
+          'flex min-h-0 flex-1 flex-col',
+          compact ? 'gap-1.5 overflow-y-auto pr-1' : 'gap-2 overflow-hidden',
+        ].join(' ')}
+      >
         {tickets.length === 0 ? (
           <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
             No active links. Place a bet during the next betting window.
           </p>
         ) : (
           tickets.map((ticket) => (
-            <div key={ticket.id} className={compact ? 'min-h-0 shrink basis-[52px]' : 'min-h-0 flex-1 max-h-[52px]'}>
+            <div key={ticket.id} className={compact ? 'h-[52px] shrink-0' : 'min-h-0 flex-1 max-h-[52px]'}>
               <TicketCard ticket={ticket} />
             </div>
           ))

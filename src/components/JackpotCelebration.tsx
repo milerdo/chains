@@ -13,11 +13,7 @@ const AUTO_DISMISS_MS = 4200;
 const CONFETTI_COLORS = ['#eab308', '#facc15', '#fde68a', '#f59e0b', '#ffffff'];
 const CONFETTI_COUNT = 36;
 
-const TIER_LABEL: Record<string, string> = {
-  MINI: '1+2 IN A ROW',
-  MIDI: '2+2 IN A ROW',
-  GRAND: '3+2 IN A ROW',
-};
+const TIER_LABEL: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
 
 export function JackpotCelebration() {
   const { jackpotCelebration, dismissJackpotCelebration } = useGame();

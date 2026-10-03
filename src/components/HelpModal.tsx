@@ -11,6 +11,11 @@ import { BASE_MULTIPLIERS, RNG_DISCLAIMER } from '../game/constants';
 import { houseEdge, overallRtp, totalRtp } from '../game/rtp';
 import { formatPercent } from '../utils/format';
 
+const BET_ROWS = [
+  { label: 'LOW', pick: '1 digit', tier: 'LOW' },
+  { label: 'MIDI', pick: '2 digits, in order', tier: 'MEDIUM' },
+  { label: 'HIGH', pick: '3 digits, in order', tier: 'HIGH' },
+] as const;
 interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -52,37 +57,41 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           </button>
         </div>
 
-        <div className="mt-6 flex flex-col gap-6 text-sm leading-relaxed text-white/70">
-          <Section title="How it works">
-            <p>
-              One shared stream of digits (0–9). Every player sees the same draws. Your link starts on the
-              first draw after your bet.
+                <div className="mt-6 flex flex-col gap-6 text-sm leading-relaxed text-white/70">
+          <Section title="Betting and base payouts">
+            <p>Pick 1–3 digits and place a $1 bet. Each bet is a "link" of chain.</p>
+            <table className="mt-3 w-full font-mono text-xs">
+              <thead>
+                <tr className="text-left uppercase tracking-[0.15em] text-white/40">
+                  <th className="pb-2 font-medium">Bet</th>
+                  <th className="pb-2 font-medium">Pick</th>
+                  <th className="pb-2 text-right font-medium">Total Payout</th>
+                </tr>
+              </thead>
+              <tbody>
+                {BET_ROWS.map((row) => (
+                  <tr key={row.label} className="border-t border-white/[0.07]">
+                    <td className="py-2 font-semibold text-white">{row.label}</td>
+                    <td className="py-2 text-white/60">{row.pick}</td>
+                    <td className="py-2 text-right font-bold text-[#eab308]">{BASE_MULTIPLIERS[row.tier]}×</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3">
+              Your digits must match the next draws, in order. One miss and the link is lost. Complete the
+              sequence and your payout is instant. One tier per round.
             </p>
-          </Section>
-
-          <Section title="Pick your bet">
-            <ul className="flex flex-col gap-1.5">
-              <li><span className="font-mono font-semibold text-white">LOW</span> — 1 digit · {BASE_MULTIPLIERS.LOW}x</li>
-              <li><span className="font-mono font-semibold text-white">MIDI</span> — 2 digits, in order · {BASE_MULTIPLIERS.MEDIUM}x</li>
-              <li><span className="font-mono font-semibold text-white">HIGH</span> — 3 digits, in order · {BASE_MULTIPLIERS.HIGH}x</li>
+            <ul className="mt-3 flex flex-col gap-1.5">
+              <li><span className="font-mono font-semibold text-white">LOW</span> —  add up to 3 different digits, each one is a separate $1 link.</li>
+              <li><span className="font-mono font-semibold text-white">COMBO</span> (MIDI and HIGH) — every possible order is a separate $1 link.</li>
             </ul>
-            <p className="mt-2">
-              Each link costs $1. One tier per round. <span className="text-white">Combo</span> covers every order of
-              your digits, at $1 per order. LOW lets you pick up to 3 different digits.
-            </p>
-          </Section>
-
-          <Section title="Win or lose">
-            <p>
-              Each draw must match your next digit. One miss and the link is lost. When the whole sequence matches,
-              your payout is credited instantly and can never be taken back.
-            </p>
           </Section>
 
           <Section title="Jackpot">
             <p>
-              After a win, the next two draws must match your jackpot pair, in order. Match both and you win the
-              pool for your tier (LOW, MIDI or HIGH). Miss and you simply keep your win.
+              Select a 2-digit jackpot pair when you bet. After a base win, the next 2 draws must match your selection, in order,
+              to win your tier's jackpot. Miss and you keep your original win.
             </p>
           </Section>
 
@@ -92,14 +101,14 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <div className="mt-3 flex flex-col gap-1.5">
                 <ExampleRow label="Draw 1" value="4" note="✓ match" tone="win" />
                 <ExampleRow label="Draw 2" value="2" note="✓ match" tone="win" />
-                <ExampleRow label="Draw 3" value="3" note="✓ WIN — 888x paid" tone="win" />
+                <ExampleRow label="Draw 3" value="3" note={`✓ WIN — ${BASE_MULTIPLIERS.HIGH}× paid`} tone="win" />
                 <ExampleRow label="Draw 4" value="7" note="✓ jackpot 1/2" tone="win" />
                 <ExampleRow label="Draw 5" value="4" note="✓ HIGH JACKPOT WON" tone="jackpot" />
               </div>
             </div>
           </Section>
 
-          <Section title="RTP">
+          <Section title="RTP - Return to Player">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <RtpStat label="LOW" value={formatPercent(totalRtp('LOW'))} />
               <RtpStat label="MIDI" value={formatPercent(totalRtp('MEDIUM'))} />
@@ -107,14 +116,14 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <RtpStat label="Average" value={formatPercent(overallRtp())} highlight />
             </div>
             <p className="mt-2 text-xs text-white/45">
-              Includes the jackpot share, funded entirely by bets (no seed). Average house edge: {formatPercent(houseEdge())}.
+              Includes the jackpot share, funded entirely by bets. Average house edge: {formatPercent(houseEdge())}.
             </p>
           </Section>
 
           <Section title="Demo">
             <p className="text-xs text-white/45">{RNG_DISCLAIMER}</p>
             <p className="mt-1.5 text-xs text-white/45">
-              Player counts, the heat map and chat are simulated for demonstration.
+              Player counts, the heat map and chat are simulated.
             </p>
           </Section>
         </div>

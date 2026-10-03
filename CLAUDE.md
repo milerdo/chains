@@ -997,6 +997,38 @@ multi-file edit.
   `demoPreset` (= ?demo). Never call it from the engine, RTP/sim tests or normal
   mode. A jackpot win in demo mode does not re-apply it; Reset does.
 
+## 24. Patterns established this session (short-screen mobile, scrollable compact links, HelpModal)
+
+**Compact TicketDrawer scrolls; desktop does not.** In `compact` mode the
+list is `overflow-y-auto` and every card is a fixed `h-[52px] shrink-0`.
+Do not go back to `shrink basis-[52px]`: it let cards squeeze below their
+content height and overlap on small phones. Non-compact (desktop) keeps
+`flex-1 max-h-[52px]` with no scroll. Extends §21/§22; the 52px cap is
+still the validated card height.
+
+**Short-screen rule (mobile only).** `shortScreen = useMediaQuery(
+'(max-height: 740px)')` in App.tsx. When `shortScreen && !bettingLocked`,
+JackpotPanel is not rendered and the Wheel wrapper gets `hidden`. Wheel
+stays mounted on purpose: unmounting it would reset spin direction and
+refs, and it must keep running `reportWheelLanded()`. Never gate the Wheel
+mount on this flag (contrast with the `isDesktop` mount gate in §13/§22).
+Both elements return the moment betting locks. If the bet panel still
+overflows on small phones, the next candidate is PhaseStatus; it was kept
+because it shows the countdown. 740px is a tunable guess.
+
+**Display labels are LOW / MIDI / HIGH everywhere**, including
+JackpotCelebration's TIER_LABEL (previously missed). When renaming a
+player-facing label, grep for every consumer of the internal tier name
+(MINI/MIDI/GRAND, LOW/MEDIUM/HIGH), not only the main panels.
+
+**HelpModal is player-facing copy, not documentation.** Keep it short and
+plain. Payout figures come from `BASE_MULTIPLIERS` (table is data-driven
+from `BET_ROWS`), RTP from `rtp.ts`, disclaimer from `RNG_DISCLAIMER`.
+Terminology: define "link" once; "Total Payout" includes the $1 stake;
+COMBO applies to MIDI and HIGH only; LOW has multi-pick instead. If rules
+change (tiers, jackpot length, limits), update this modal and docs/MATH.md
+together.
+
 ## Final principle
 
 Preserve the CHAINS concept.
