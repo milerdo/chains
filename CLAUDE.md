@@ -1029,6 +1029,26 @@ COMBO applies to MIDI and HIGH only; LOW has multi-pick instead. If rules
 change (tiers, jackpot length, limits), update this modal and docs/MATH.md
 together.
 
+## 25. Patterns established this session (logo, countdown, empty states)
+
+**Logo.** GameHeader's HostMark() is a plain <img src="/chains-logo.png">
+(h-10, sm:h-12). The PNG must keep a transparent background: its cream
+lettering is unreadable on a light or boxed background. ChainsMark() is
+unmounted dead code; leave it unless asked.
+
+**Countdown format.** formatCountdown() = whole seconds via Math.ceil, so
+the display starts at 10 and reaches 0 only when betting actually closes.
+Supersedes the one-decimal format in §18.
+
+**Empty states show nothing.** LinkStrip returns null when tickets.length
+is 0. SUPERSEDES §22's "fixed h-10 / always rendered" description. Mobile
+compact TicketDrawer is mounted only when
+bettingLocked && activeTickets.length > 0 (App.tsx). TicketDrawer's own
+empty message is shortened to "No active bets" (desktop path). Do not add
+empty-state copy back, and do not restore the always-rendered spacer, unless
+asked. If a layout jump when the first link appears is reported on short
+phones, the fix is an invisible fixed-height spacer, not text.
+
 ## Final principle
 
 Preserve the CHAINS concept.
