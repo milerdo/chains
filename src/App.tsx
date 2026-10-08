@@ -92,7 +92,7 @@ function AppShell() {
                 <BettingPanel />
               </div>
             </div>
-            {bettingLocked && <TicketDrawer tickets={activeTickets} compact />}
+             {bettingLocked && activeTickets.length > 0 && <TicketDrawer tickets={activeTickets} compact />}
           </div>
           <MobileFooter
             balance={balance}
