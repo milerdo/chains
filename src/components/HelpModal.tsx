@@ -59,7 +59,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
                 <div className="mt-6 flex flex-col gap-6 text-sm leading-relaxed text-white/70">
           <Section title="Betting and base payouts">
-            <p>Pick 1–3 digits and place a $1 bet. Each bet is a "link" of chain.</p>
+            <p>Pick 1–3 digits and place a $1 bet.</p>
             <table className="mt-3 w-full font-mono text-xs">
               <thead>
                 <tr className="text-left uppercase tracking-[0.15em] text-white/40">
@@ -79,7 +79,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               </tbody>
             </table>
             <p className="mt-3">
-              Your digits must match the next draws, in order. One miss and the link is lost. Complete the
+              Your digits must match the next draws, in order. One miss and the bet is lost. Complete the
               sequence and your payout is instant. One tier per round.
             </p>
             <ul className="mt-3 flex flex-col gap-1.5">
