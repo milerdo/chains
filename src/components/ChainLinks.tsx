@@ -147,6 +147,7 @@ function BaseChain({ ticket, size }: { ticket: Ticket; size: 'xs' | 'sm' | 'md' 
  * never moves the layout when links appear/resolve. The leading count stays
  * accurate if the row clips; full cards live in TicketDrawer once locked. */
 export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
+  if (tickets.length === 0) return null;
   const groups = new Map<string, Ticket[]>();
   for (const t of tickets) {
     const key = jackpotGroupKey(t);
@@ -160,10 +161,7 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
       aria-label="Active links"
       className="flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5"
     >
-      {tickets.length === 0 ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/25">No active links</span>
-      ) : (
-        <>
+      <>
           <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-white/40">{tickets.length}</span>
           {[...groups.entries()].map(([key, group]) => {
             const lead = group[0];
@@ -189,7 +187,6 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
             );
           })}
         </>
-      )}
     </div>
   );
 }

@@ -42,7 +42,7 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
       >
         {tickets.length === 0 ? (
           <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center font-mono text-xs text-white/30">
-            No active links. Place a bet during the next betting window.
+            No active bets.
           </p>
         ) : (
           tickets.map((ticket) => (

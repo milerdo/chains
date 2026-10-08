@@ -108,17 +108,7 @@ export function HistoryIcon() {
 }
 
 function HostMark() {
-  return (
-    <div className="flex items-center gap-2">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-        <circle cx="11" cy="11" r="9" stroke="#c9a24a" strokeWidth="1.5" />
-        <circle cx="11" cy="11" r="3.5" fill="#c9a24a" />
-      </svg>
-      <span className="font-mono text-sm font-bold uppercase tracking-[0.3em] text-white/70">
-        Milo <span className="text-[#c9a24a]">Casino</span>
-      </span>
-    </div>
-  );
+  return <img src="/chains-logo.png" alt="CHAINS" className="h-10 w-auto sm:h-12" />;
 }
 
 export function ChainsMark() {

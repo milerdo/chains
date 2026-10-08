@@ -31,8 +31,7 @@ export function formatSequence(digits: readonly number[]): string {
 
 /** Seconds remaining as a one-decimal string ("10.0", "9.9", "0.0"). */
 export function formatCountdown(ms: number): string {
-  const totalSeconds = Math.max(0, ms / 1000);
-  return totalSeconds.toFixed(1);
+  return String(Math.max(0, Math.ceil(ms / 1000)));
 }
 
 export function formatPercent(fraction: number, decimals = 2): string {
