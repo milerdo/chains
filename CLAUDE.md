@@ -1065,7 +1065,8 @@ phones, the fix is an invisible fixed-height spacer, not text.
 - Fix stale references: §2 and §12 name updatedComboChains.txt; the file is
   now ChainsContext.txt.
 - Auto Bet UI removed; jackpot pair shares the digit row; Exact order button removed (Any order is a toggle next to Clear/Random).
-
+- jackpotPick is nullable (starts empty); the betting panel shows no tier names, only ‘Base chain pays N×’ and ‘Tier Jackpot’
+- jackpot slots use a waiting pulse; a ‘+’ joins base and jackpot groups.”
 ## Final principle
 
 Preserve the CHAINS concept.

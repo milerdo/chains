@@ -70,8 +70,8 @@ export interface AutoBetState {
 
 export interface UseGameValue {
   /** Player's chosen jackpot pair; persists across rounds and breakpoint remounts. */
-  jackpotPick: [number, number];
-  setJackpotPick: (pair: [number, number]) => void;
+  jackpotPick: [number | null, number | null];
+  setJackpotPick: (pair: [number | null, number | null]) => void;
   bettingLocked: boolean;
   autoBet: AutoBetState | null;
   autoBetError: string | null;
@@ -201,7 +201,7 @@ export function GameProvider({
   
   const [payoutFlash, setPayoutFlash] = useState<{ amount: number; key: number } | null>(null);
   const payoutFlashTimeoutRef = useRef<number | null>(null);
-  const [jackpotPick, setJackpotPick] = useState<[number, number]>(() => game.getCurrentJackpotSequence());
+  const [jackpotPick, setJackpotPick] = useState<[number | null, number | null]>([null, null]);
   // --- Reveal-delayed draw/stream state (public reveal) ----------------
   // Held back from the raw engine value until Wheel.tsx confirms its
   // landing animation has actually finished. See file header and
