@@ -62,6 +62,13 @@ describe('ChainsGame — combo betting (engine-level)', () => {
     expect(second.success).toBe(true);
     expect(game.getActiveTickets()).toHaveLength(2);
   });
+
+  it('allows bets on different tiers in the same round (separate requests)', () => {
+  const game = new ChainsGame();
+  expect(game.placeBet({ selections: [{ tier: 'LOW', digits: [5] }], jackpotSequence: [7, 4] }).success).toBe(true);
+  expect(game.placeBet({ selections: [{ tier: 'HIGH', digits: [1, 2, 3] }], jackpotSequence: [7, 4] }).success).toBe(true);
+  expect(game.getActiveTickets()).toHaveLength(2);
+  });
 });
 
 

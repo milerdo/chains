@@ -15,7 +15,7 @@ draw after the bet.
 ## How it plays
 
 1. Pick 1-3 digits. The count sets the tier: **LOW 9x**, **MIDI 88x**, **HIGH 888x** ($1 per link).
-2. Pick a 2-digit jackpot pair. Optionally play **Combo** (every ordering) or up to 3 LOW picks.
+2. Optionally cover any order (every ordering is a $1 link). Pick a 2-digit jackpot pair. 
 3. Each draw must match your next digit, in order. One miss ends the link.
 4. Complete the sequence: the payout is credited instantly and can never be lost.
 5. Then the next 2 draws must match your jackpot pair to win that tier's progressive pool.

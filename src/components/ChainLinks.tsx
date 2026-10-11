@@ -109,7 +109,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
                 <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
               </span>
             ))}
-            {size !== 'xs' && isJackpotRelevant(ticket.status) && (
+            {size !== 'xs' && (
               <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
                 {JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}
               </span>

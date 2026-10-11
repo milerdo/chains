@@ -1049,6 +1049,22 @@ empty-state copy back, and do not restore the always-rendered spacer, unless
 asked. If a layout jump when the first link appears is reported on short
 phones, the fix is an invisible fixed-height spacer, not text.
 
+## 26. Patterns established this session (betting panel redesign)
+
+- Multiple bets per round on any tier are allowed. Do NOT reintroduce
+  hasBetThisRound or a one-tier-per-round rule; this supersedes §6 of the
+  spec and the multi-pick/round-lock notes in §14, §16, §17, §18, §21.
+- LOW multi-pick is gone from the UI. Engine multi-selection support is kept
+  but unused; don't build UI on it without asking.
+- BettingPanel state: digits: number[] (max 3), isCombo, jackpotFocus. No
+  EditTarget union. The jackpot pair lives in GameProvider (jackpotPick) so it
+  survives the isDesktop remount; keep it there.
+- Player-facing names: "Exact order" / "Any order" (internal isCombo,
+  comboGroupId unchanged), "Jackpot sequence". Don't revert to "Combo" in UI.
+- Reset after a bet clears digits + mode, never the jackpot pair.
+- Fix stale references: §2 and §12 name updatedComboChains.txt; the file is
+  now ChainsContext.txt.
+  
 ## Final principle
 
 Preserve the CHAINS concept.

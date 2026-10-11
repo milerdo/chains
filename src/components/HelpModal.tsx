@@ -80,11 +80,11 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             </table>
             <p className="mt-3">
               Your digits must match the next draws, in order. One miss and the bet is lost. Complete the
-              sequence and your payout is instant. One tier per round.
+              sequence and your payout is instant.
             </p>
             <ul className="mt-3 flex flex-col gap-1.5">
               <li><span className="font-mono font-semibold text-white">LOW</span> —  add up to 3 different digits, each one is a separate $1 link.</li>
-              <li><span className="font-mono font-semibold text-white">COMBO</span> (MIDI and HIGH) — every possible order is a separate $1 link.</li>
+              <li><span className="font-mono font-semibold text-white">ANY ORDER</span> (MIDI and HIGH) — every possible order is a separate $1 link.</li>
             </ul>
           </Section>
 
