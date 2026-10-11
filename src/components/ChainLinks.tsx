@@ -99,10 +99,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
       {showJackpot && (
         <span className="flex shrink-0 items-center">
           <Link size={size} />
-          <span className="flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#eab308]/50 bg-transparent px-1.5 py-0.5">
-          {/* was: border-[#eab308]/40 bg-[#eab308]/15 — filled amber
-              competed visually with the chain circles; outline-only reads
-              as a frame around the jackpot progress instead. */}
+          <span className="flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#eab308]/60 bg-[#eab308]/[0.14] px-1.5 py-0.5">
             {ticket.jackpotSequence.map((digit, i) => (
               <span key={`j-${i}`} className="flex items-center">
                 {i > 0 && <Link size={size} />}
@@ -171,7 +168,7 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
                   <BaseChain key={t.id} ticket={t} size="xs" />
                 ))}
                 {key !== 'base' && (
-                  <span className="flex shrink-0 items-center rounded-full border border-[#eab308]/50 px-1.5 py-0.5">
+                  <span className="flex shrink-0 items-center rounded-full border border-[#eab308]/60 bg-[#eab308]/[0.14] px-1.5 py-0.5">
                     {lead.jackpotSequence.map((digit, i) => (
                       <span key={i} className="flex items-center">
                         {i > 0 && <Link size="xs" />}

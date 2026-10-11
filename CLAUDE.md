@@ -1064,7 +1064,8 @@ phones, the fix is an invisible fixed-height spacer, not text.
 - Reset after a bet clears digits + mode, never the jackpot pair.
 - Fix stale references: §2 and §12 name updatedComboChains.txt; the file is
   now ChainsContext.txt.
-  
+- Auto Bet UI removed; jackpot pair shares the digit row; Exact order button removed (Any order is a toggle next to Clear/Random).
+
 ## Final principle
 
 Preserve the CHAINS concept.
