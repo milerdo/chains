@@ -122,7 +122,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           <Section title="Demo">
             <p className="text-xs text-white/45">{RNG_DISCLAIMER}</p>
             <p className="mt-1.5 text-xs text-white/45">
-              Player counts, the heat map and chat are simulated.
+              Player counts, live bets map and chat are simulated.
             </p>
           </Section>
         </div>
