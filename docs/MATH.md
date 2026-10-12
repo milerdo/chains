@@ -62,7 +62,7 @@ Variance = p x m^2 - (p x m)^2
 
 - Any number of bets per round, on any tier; max 3 concurrent live links per tier + sequence.
 - Link cost: $1. Combo: $1 per unique ordering (max 6 links / $6 for
-  3 distinct digits). LOW multi-pick: up to 3 links.
+  3 distinct digits). L
 - Max concurrent live links on the same tier + sequence: 3.
 - Max single-link win: 888x stake plus the GRAND pool.
 - Base payouts are locked in and cannot be taken back by jackpot outcomes.

@@ -364,6 +364,7 @@ export function GameProvider({
         // away (so a newly-placed WAITING link shows up immediately) and
         // announce any outcome immediately — no pending reveal to protect.
         const revealInFlight = revealTimeoutRef.current !== null || pendingPublicRevealRef.current !== null;
+        if (revealInFlight) return;
         setRevealedDraw((prev) => ({
           ...prev,
           tickets: nextState.tickets,

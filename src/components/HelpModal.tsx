@@ -83,7 +83,6 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               sequence and your payout is instant.
             </p>
             <ul className="mt-3 flex flex-col gap-1.5">
-              <li><span className="font-mono font-semibold text-white">LOW</span> —  add up to 3 different digits, each one is a separate $1 link.</li>
               <li><span className="font-mono font-semibold text-white">ANY ORDER</span> (MIDI and HIGH) — every possible order is a separate $1 link.</li>
             </ul>
           </Section>
