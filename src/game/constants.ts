@@ -9,9 +9,9 @@ import type { GameConfig, JackpotPools, JackpotTierName, TicketTier } from './ty
 // ----------------------------------------------------------------------------
 // Timings (ms)
 // ----------------------------------------------------------------------------
-export const BETTING_DURATION = 10_000;
+export const BETTING_DURATION = 12_000;
 export const BETTING_CLOSED_DURATION = 1_000;
-export const DRAW_ANIMATION_DURATION = 5_000;
+export const DRAW_ANIMATION_DURATION = 6_000;
 export const RESULT_DISPLAY_DURATION = 1_000;
 
 // ----------------------------------------------------------------------------

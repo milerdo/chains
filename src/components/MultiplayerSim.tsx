@@ -47,7 +47,7 @@ export function MultiplayerSim() {
 
   return (
     <section
-      aria-label="Simulated bets heat map"
+      aria-label="Simulated live active bets"
       className="flex h-full min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-4 backdrop-blur-sm"
     >
       <div className="flex shrink-0 items-center justify-between">

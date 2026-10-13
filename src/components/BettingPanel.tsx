@@ -202,7 +202,7 @@ export function BettingPanel() {
 
         <DigitPad active={padActive} onPress={handleDigitPress} />
 
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-3 flex items-center gap-1.5">
           <button type="button" onClick={handleClear} disabled={locked || digits.length === 0} className={chipBtn}>
             Clear
           </button>
@@ -230,7 +230,7 @@ export function BettingPanel() {
         <p
           role="status"
           className={[
-            'mt-2 rounded-lg px-3 py-1.5 text-center text-xs',
+            'mt-3 rounded-lg px-3 py-1.5 text-center text-xs',
             feedback.type === 'success' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-red-400/10 text-red-300',
           ].join(' ')}
         >
@@ -238,7 +238,7 @@ export function BettingPanel() {
         </p>
       )}
 
-      <div className="sticky bottom-0 -mx-4 -mb-4 mt-3 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-3 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
+      <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-3 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
         <button
           type="button"
           onClick={handleSubmit}
@@ -312,7 +312,7 @@ function DigitPad({ active, onPress }: DigitPadProps) {
   return (
     <div
       className={[
-        'mt-3 grid grid-cols-5 gap-1.5 transition-opacity duration-200',
+        'mt-4 grid grid-cols-5 gap-1.5 transition-opacity duration-200',
         active ? 'opacity-100' : 'pointer-events-none opacity-30',
       ].join(' ')}
     >

@@ -55,15 +55,13 @@ The animation never influences the outcome; it only reveals it.
 React 19, TypeScript, Vite, Tailwind CSS, SVG wheel, Web Audio API, Vitest.
 
 ## Run it
-
 ```bash
 npm install
 npm run dev      # http://localhost:5173
 npm test         # engine, math and Monte Carlo tests
 npx tsc -b       # type check
-$env:SIM_BETS=50000000; npx vitest run src/game/sim.test.ts
+$env:SIM_BETS=50000000; npx vitest run src/game/sim.test.ts #npm test skips the simulation unless SIM_BETS is set.
 ```
-
 Presenter tools (force a digit, speed up, pause, reset) appear only with
 `/?demo` in the URL.
 
@@ -91,4 +89,4 @@ The engine has no UI dependency, so steps 1-2 are plumbing rather than a rewrite
 
 ## Simulated in the demo
 
-Player counts, the bets heat map and table chat are simulated.
+Player counts, live active bets map and table chat are simulated.

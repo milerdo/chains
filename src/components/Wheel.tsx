@@ -7,7 +7,6 @@
 import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playTick } from '../utils/audio';
-import type { GamePhase } from '../game/types';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
@@ -27,10 +26,11 @@ const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physic
 import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
 
 // --- Animation timing ----------------------------------------------------
-const MAX_SPIN_SPEED_DEG_PER_SEC = 280; // ~0.78 rev/sec cruise — brisk but mechanical
-const SPIN_ACCEL_TIME_CONSTANT_SEC = 0.35;
-const MIN_APPROACH_MS = 300;
-const MAX_APPROACH_MS = 1800; // hard cap so landing duration can never balloon
+const MAX_SPIN_SPEED_DEG_PER_SEC = 520; // ~1.45 rev/s
+const SPIN_ACCEL_TIME_CONSTANT_SEC = 0.25;
+const DECEL_MS = 3500;     // deceleration duration at x1
+const DECEL_POWER = 3;     // 3 = firm tease, 4 = very long crawl
+const SPIN_LEAD_MS = 2000; // spin-up starts this long before betting closes (desktop)
 const INSTANT_THRESHOLD_MS = 60;
 const FLAPPER_CLICK_MS = 150;
 
@@ -38,6 +38,8 @@ function pt(angleDeg: number, r: number): { x: number; y: number } {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
 }
+
+const mod360 = (a: number) => ((a % 360) + 360) % 360;
 
 // Boundary math matches the wedge geometry exactly: wedge i spans
 // [i*36-18, i*36+18), so the digit flip must happen at the half-step
@@ -48,12 +50,9 @@ function digitAtSpinAngle(spinAngle: number): number {
   return Math.floor((normalized + HOLE_STEP_DEG / 2) / HOLE_STEP_DEG) % 10;
 }
 
-// Uniform deceleration to exactly zero: eased'(0) = 2 * (distance/duration).
-// Paired with a duration derived from the wheel's REAL current speed, this
-// guarantees the landing phase starts at the wheel's actual velocity —
-// never a jump.
-function easeOutQuad(t: number): number {
-  return 1 - (1 - t) * (1 - t);
+// f'(0) = DECEL_POWER, so the decel phase covers v0 * T / DECEL_POWER degrees.
+function easeOutPow(t: number): number {
+  return 1 - Math.pow(1 - t, DECEL_POWER);
 }
 
 const WheelFrame = memo(function WheelFrame({ uid }: { uid: string }) {
@@ -177,11 +176,11 @@ const WheelDisc = memo(function WheelDisc({
 }
 
 export function Wheel({ compact = false, collapsed = false }: WheelProps) {
-  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded } = useGame();
-  // Unique per-mount suffix for this instance's gradient defs — two Wheel
-  // instances are mounted at once (desktop + mobile tab), and duplicate
-  // SVG ids across them caused refs to resolve into a display:none
-  // subtree below 1024px, silently failing to render.
+  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded, timeRemaining } = useGame();
+  const spinWanted =
+    phase === 'BETTING_CLOSED' ||
+    phase === 'DRAWING' ||
+  (!collapsed && phase === 'BETTING_OPEN' && timeRemaining > 0 && timeRemaining <= SPIN_LEAD_MS);
   const uid = useId();
   const spinAngleRef = useRef(0);
   const discRef = useRef<SVGGElement>(null);
@@ -194,7 +193,6 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   const [flapperBounce, setFlapperBounce] = useState(-16);
 
   const spinDirectionRef = useRef<1 | -1>(1);
-  const prevPhaseRef = useRef<GamePhase>(phase);
 // prevRevealedDrawIndexRef init + both effect-2 guards:
   const prevRevealedDrawIndexRef = useRef<number | undefined>(wheelTargetDraw?.drawIndex);
   const spinStartTimeRef = useRef(0);
@@ -225,9 +223,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   // the same spinDirectionRef.current, set once per phase entry, so they
   // can never disagree on which way this particular spin is going).
   useEffect(() => {
-    const enteredDrawing = phase === 'DRAWING' && prevPhaseRef.current !== 'DRAWING';
-    prevPhaseRef.current = phase;
-    if (!enteredDrawing) return;
+    if (!spinWanted) return;
 
     spinDirectionRef.current = spinDirectionRef.current === 1 ? -1 : 1;
     const direction = spinDirectionRef.current;
@@ -261,7 +257,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
     return () => {
       if (indeterminateRafRef.current !== null) cancelAnimationFrame(indeterminateRafRef.current);
     };
-  }, [phase]);
+ }, [spinWanted]);
 
   // Effect 2 — the true digit is revealed. Decelerate uniformly from the
   // wheel's actual current speed to zero, landing exactly on it, traveling
@@ -269,7 +265,11 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   // revolutions — that's what was causing the landing to run too long).
   // This is the ONLY place the real digit is ever shown.
   useEffect(() => {
-  if (!wheelTargetDraw || wheelTargetDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
+    if (!wheelTargetDraw) {
+      prevRevealedDrawIndexRef.current = undefined; // after Reset
+      return;
+    }
+    if (wheelTargetDraw.drawIndex === prevRevealedDrawIndexRef.current) return;
   prevRevealedDrawIndexRef.current = wheelTargetDraw.drawIndex;
 
     if (indeterminateRafRef.current !== null) {
@@ -300,12 +300,15 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
     const restOffsetDeg = (Math.random() * 2 - 1) * maxOffset;
     const targetCenterAngle = targetDigit * HOLE_STEP_DEG + restOffsetDeg;
 
-    let distanceDeg =
-      direction === 1
-        ? (((targetCenterAngle - currentAngle) % 360) + 360) % 360
-        : (((currentAngle - targetCenterAngle) % 360) + 360) % 360;
-
-    if (distanceDeg < HOLE_STEP_DEG) distanceDeg += 360;
+    const v0 = Math.max(60, lastAngularSpeedRef.current); // deg/s, includes speed multiplier
+    const decelMs = DECEL_MS / speedMultiplierRef.current;
+    const decelDist = (v0 * decelMs) / 1000 / DECEL_POWER;
+    const toTarget =
+      direction === 1 ? mod360(targetCenterAngle - currentAngle) : mod360(currentAngle - targetCenterAngle);
+    const cruiseDist = mod360(toTarget - decelDist); // keep current speed this far, then decelerate
+    const distanceDeg = cruiseDist + decelDist;
+    const cruiseMs = (cruiseDist / v0) * 1000;
+    const totalMs = cruiseMs + decelMs;
     const targetAngle = direction === 1 ? currentAngle + distanceDeg : currentAngle - distanceDeg;
 
 
@@ -323,20 +326,18 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
       return;
     }
 
-    const v0 = Math.max(60, lastAngularSpeedRef.current);
-    const approachDurationMs = Math.min(
-      MAX_APPROACH_MS,
-      Math.max(MIN_APPROACH_MS, ((2 * distanceDeg) / v0) * 1000),
-    );
-
     const startAngle = currentAngle;
     const startTime = performance.now();
     let lastDigit = digitAtSpinAngle(startAngle);
 
     function step(now: number) {
-      const t = Math.min(1, (now - startTime) / approachDurationMs);
-      const eased = easeOutQuad(t);
-      const angle = startAngle + direction * distanceDeg * eased;
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / totalMs);
+      const travelled =
+        elapsed < cruiseMs
+          ? (v0 * elapsed) / 1000
+          : cruiseDist + decelDist * easeOutPow(Math.min(1, (elapsed - cruiseMs) / decelMs));
+      const angle = startAngle + direction * Math.min(travelled, distanceDeg);
       spinAngleRef.current = angle;
       setRotation(angle);
 

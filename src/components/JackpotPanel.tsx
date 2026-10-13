@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '../hooks/useGame';
-import { formatCompactCurrency } from '../utils/format';
+import { formatCompactCurrency, formatCurrency } from '../utils/format';
 import type { JackpotTierName } from '../game/types';
 
 function useAnimatedValue(target: number, durationMs = 650): number {
@@ -99,13 +99,21 @@ function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: 
 }
 
 export function JackpotPanel() {
-  const { jackpotPools } = useGame();
+ const { jackpotPools, payoutFlash } = useGame();
 
   return (
-    <section aria-label="Progressive jackpots" className="flex w-full gap-1.5">     
+    <section aria-label="Progressive jackpots" className="relative flex w-full gap-1.5">     
       <JackpotTile tierName="MINI" amount={jackpotPools.MINI} />
       <JackpotTile tierName="MIDI" amount={jackpotPools.MIDI} />
       <JackpotTile tierName="GRAND" amount={jackpotPools.GRAND} />
+      {payoutFlash && (
+        <div
+          key={payoutFlash.key}
+          className="absolute inset-0 flex items-center justify-center rounded-lg border-2 border-emerald-400 bg-[#0b1a12] font-mono text-sm font-bold uppercase tracking-[0.15em] text-emerald-300 shadow-[0_0_24px_rgba(52,211,153,0.55)]"
+        >
+          Base win {formatCurrency(payoutFlash.amount)} paid
+        </div>
+      )}
     </section>
   );
 }

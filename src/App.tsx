@@ -36,6 +36,7 @@ function AppShell() {
   const [demoOpen, setDemoOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
   const shortScreen = useMediaQuery('(max-height: 740px)');
+  const showDrawerOnly = bettingLocked && activeTickets.length > 0;
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
@@ -61,7 +62,7 @@ function AppShell() {
             </div>
             <div className="flex min-h-0 flex-col overflow-hidden">
               <PhaseStatus className="mb-3" />
-              <div className={['min-h-0 flex-1 overflow-y-auto pr-1', bettingLocked ? 'hidden' : ''].join(' ')}>
+              <div className={['min-h-0 flex-1 overflow-y-auto pr-1', showDrawerOnly ? 'hidden' : ''].join(' ')}>
                 <BettingPanel />
                 {activeTickets.length > 0 && (
                   <div className="mt-3">
@@ -69,7 +70,7 @@ function AppShell() {
                   </div>
                 )}
               </div>
-              {bettingLocked && (
+              {showDrawerOnly && (
                 <div className="min-h-0 flex-1 overflow-hidden">
                   <TicketDrawer tickets={activeTickets} />
                 </div>
@@ -80,7 +81,7 @@ function AppShell() {
       ) : (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 py-2">
-            <PhaseStatus />
+            {!bettingLocked && <PhaseStatus />}
             {!(shortScreen && !bettingLocked) && <JackpotPanel />}
             <div className={['shrink-0', shortScreen && !bettingLocked ? 'hidden' : ''].join(' ')}>
               <Wheel compact collapsed={phase === 'BETTING_OPEN'} />

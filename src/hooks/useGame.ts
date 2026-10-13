@@ -144,24 +144,12 @@ const GameContext = createContext<UseGameValue | null>(null);
  * timeRemainingMs between actual engine state emissions. */
 const TIME_TICK_MS = 200;
 
-/** Floor on how long a draw stays hidden after it's computed, even if
- * drawAnimationDurationMs is configured very short — matches the minimum
- * spin time the Wheel commits to, so the two can never disagree. Exported
- * so Wheel.tsx can shape its cosmetic spin-deceleration curve against the
- * exact same number rather than keeping its own separate copy. */
-export const MIN_REVEAL_DELAY_MS = 1200;
-
 /** Ceiling on how long the public reveal (currentDraw/streamHistory) waits
  * for Wheel.tsx's reportWheelLanded() before firing anyway. Generous
  * relative to Wheel.tsx's own worst-case landing duration
  * (MAX_APPROACH_MS = 1800ms there) — kept in sync manually since Wheel
  * doesn't currently export that constant; revisit if the two drift. */
-const PUBLIC_REVEAL_FALLBACK_MS = 2500;
-
-/** Subtracted from the suspense delay so the Wheel's landing tween has
- * room to finish before the engine's own DRAWING phase timer elapses and
- * advances to RESULT. Must be >= Wheel.tsx's MAX_APPROACH_MS. */
-const WHEEL_MAX_LANDING_MS = 1800;
+const PUBLIC_REVEAL_FALLBACK_MS = 6000;
 
 export function GameProvider({
   children,
@@ -227,14 +215,6 @@ export function GameProvider({
   // every action (bets placed, jackpot pool ticks, ticket progress, etc.),
   // not just draws.
   const lastSeenDrawIndexRef = useRef<number>(revealedDraw.currentDraw?.drawIndex ?? 0);
-  const revealTimeoutRef = useRef<number | null>(null);
-  // Set synchronously (not via React state) immediately around
-  // instantStep()'s call into the engine, so the subscribe callback below
-  // — a stable closure that does not re-run per render — can read the
-  // live "was this instant-stepped?" signal at the exact moment the
-  // engine's synchronous emit fires, with no stale-closure risk and no
-  // arbitrary timing window to get wrong.
-  const skipNextRevealDelayRef = useRef(false);
   // Last status seen per ticket id, used to fire outcome sounds exactly
   // once per genuine transition (see applyTicketSounds below).
   const prevTicketStatusRef = useRef<Map<string, TicketStatus>>(new Map());
@@ -353,88 +333,51 @@ export function GameProvider({
           if (baseWinTotal > 0) {
           setPayoutFlash({ amount: baseWinTotal, key: Date.now() });
           if (payoutFlashTimeoutRef.current !== null) window.clearTimeout(payoutFlashTimeoutRef.current);
-          payoutFlashTimeoutRef.current = window.setTimeout(() => setPayoutFlash(null), 2800);
+          payoutFlashTimeoutRef.current = window.setTimeout(() => setPayoutFlash(null), 2500);
         }
       };
 
       const incomingDrawIndex = nextState.currentDraw?.drawIndex ?? 0;
       if (incomingDrawIndex === lastSeenDrawIndexRef.current) {
-        // Not a new draw — a bet was placed, a jackpot pool ticked up, a
-        // demo-panel action, etc. Keep the revealed link list in sync right
-        // away (so a newly-placed WAITING link shows up immediately) and
-        // announce any outcome immediately — no pending reveal to protect.
-        const revealInFlight = revealTimeoutRef.current !== null || pendingPublicRevealRef.current !== null;
-        if (revealInFlight) return;
+        // Not a new draw. If a reveal is pending, hold everything back until the wheel lands.
+        if (pendingPublicRevealRef.current !== null) return;
         setRevealedDraw((prev) => ({
           ...prev,
           tickets: nextState.tickets,
-          ...(revealInFlight ? {} : { balance: nextState.balance, jackpotPools: nextState.jackpotPools }),
+          balance: nextState.balance,
+          jackpotPools: nextState.jackpotPools,
         }));
         applyTicketSounds(nextState.tickets);
         return;
       }
       lastSeenDrawIndexRef.current = incomingDrawIndex;
 
-      if (revealTimeoutRef.current !== null) {
-        window.clearTimeout(revealTimeoutRef.current);
-        revealTimeoutRef.current = null;
-      }
-
-      const reveal = () => {
-        revealTimeoutRef.current = null;
-        // Stage 1: tell the Wheel what to land on.
-        setWheelTargetDraw(nextState.currentDraw);
-
-        // Queue the outcome sounds for this draw, but do NOT play them
-        // yet — they only fire once commitPublicReveal() actually runs
-        // (Wheel.tsx's reportWheelLanded(), or the fallback timer below).
-        // This is what keeps the sound in lockstep with the visual reveal
-        // instead of leaking the result at spin-start.
-        applyTicketSoundsRef.current = () => applyTicketSounds(nextState.tickets);
-
-        // Stage 2: queue the public reveal, but don't commit it yet —
-        // Wheel.tsx's reportWheelLanded() (or the fallback timer) does
-        // that once the landing animation has actually finished.
-        pendingPublicRevealRef.current = {
-          currentDraw: nextState.currentDraw,
-          streamHistory: nextState.streamHistory,
-          tickets: nextState.tickets,
-          balance: nextState.balance,
-          jackpotPools: nextState.jackpotPools,
-        };
-        if (publicRevealFallbackTimeoutRef.current !== null) {
-          window.clearTimeout(publicRevealFallbackTimeoutRef.current);
-        }
-        publicRevealFallbackTimeoutRef.current = window.setTimeout(commitPublicReveal, PUBLIC_REVEAL_FALLBACK_MS);
+      // Wheel starts decelerating toward the digit immediately; it stays hidden until it lands.
+      setWheelTargetDraw(nextState.currentDraw);
+      applyTicketSoundsRef.current = () => applyTicketSounds(nextState.tickets);
+      pendingPublicRevealRef.current = {
+        currentDraw: nextState.currentDraw,
+        streamHistory: nextState.streamHistory,
+        tickets: nextState.tickets,
+        balance: nextState.balance,
+        jackpotPools: nextState.jackpotPools,
       };
-
-      if (skipNextRevealDelayRef.current) {
-        reveal();
-      } else {
-        // Reserves WHEEL_MAX_LANDING_MS + a small buffer at the end of the
-        // DRAWING phase window so the Wheel's landing tween has room to
-        // finish before the engine advances to RESULT — otherwise the
-        // phase timer can outrun the still-spinning wheel.
-        const delayMs =
-          Math.max(
-            MIN_REVEAL_DELAY_MS,
-            nextState.config.drawAnimationDurationMs - WHEEL_MAX_LANDING_MS - 200,
-          ) / nextState.speedMultiplier;
-        revealTimeoutRef.current = window.setTimeout(reveal, delayMs);
+      if (publicRevealFallbackTimeoutRef.current !== null) {
+        window.clearTimeout(publicRevealFallbackTimeoutRef.current);
       }
+      publicRevealFallbackTimeoutRef.current = window.setTimeout(commitPublicReveal, PUBLIC_REVEAL_FALLBACK_MS);
     });
     game.start();
     return () => {
       unsubscribe();
       game.destroy();
-      if (revealTimeoutRef.current !== null) {
-        window.clearTimeout(revealTimeoutRef.current);
-        revealTimeoutRef.current = null;
-      }
       if (publicRevealFallbackTimeoutRef.current !== null) {
         window.clearTimeout(publicRevealFallbackTimeoutRef.current);
         publicRevealFallbackTimeoutRef.current = null;
       }
+      failedFlashTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
+      failedFlashTimeoutsRef.current.clear();
+      if (payoutFlashTimeoutRef.current !== null) window.clearTimeout(payoutFlashTimeoutRef.current);
     };
   }, [game]);
 
@@ -483,26 +426,16 @@ export function GameProvider({
   const clearForcedDraws = useCallback(() => game.clearForcedDraws(), [game]);
 
   const instantStep = useCallback(() => {
-    // Both the flag flip and the engine call are synchronous, and
-    // instantStep()'s own call chain (advancePhase -> enterPhase ->
-    // processDraw -> emit) is entirely synchronous too, so the subscribe
-    // callback above observes skipNextRevealDelayRef.current === true at
-    // exactly the right moment, then it's safe to flip back immediately —
-    // no timing window needed.
-    skipNextRevealDelayRef.current = true;
     game.instantStep();
-    skipNextRevealDelayRef.current = false;
   }, [game]);
 
   const setSpeed = useCallback((multiplier: number) => game.setSpeedMultiplier(multiplier), [game]);
   const pauseGame = useCallback(() => game.pause(), [game]);
   const resumeGame = useCallback(() => game.resume(), [game]);
   const resetGame = useCallback(() => {
-    skipNextRevealDelayRef.current = true;
     game.reset();
-    if (demoPreset) applyDemoJackpotPreset(game); //demo only
-    skipNextRevealDelayRef.current = false;
     commitPublicReveal();
+    if (demoPreset) applyDemoJackpotPreset(game); // after commit, so pools aren't overwritten
     prevTicketStatusRef.current.clear();
     prevTicketProgressRef.current.clear();
     setJackpotCelebration(null);

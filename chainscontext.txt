@@ -1,0 +1,173 @@
+CHAINS — Game Specification (current state)
+
+Browser MVP of a live casino game, built to demonstrate the concept to casino/iGaming studios. Playable, not a mockup. Demo credits only: no real money, deposits, withdrawals, KYC or payments. Not a certified RNG.
+
+This file was condensed. Sections 1-20 are the current spec (original design with all approved changes folded in). Section 21 lists what is deliberately NOT built. Section 22 lists decisions that were made and must not be reversed without asking. If this file and the code disagree, check the code and fix this file.
+
+________________________________________
+1. TECHNOLOGY
+React 19, TypeScript, Vite, Tailwind CSS 3, SVG wheel, Web Audio API (synthesized, no files), Vitest, oxlint. Deployed on Vercel.
+
+Structure:
+src/game/        engine, types, ticket (state machine), combo, payouts, jackpot, rng, rtp, constants, demoPreset
+src/hooks/       useGame (GameProvider + hook), useMediaQuery
+src/components/  GameHeader, MobileFooter, Wheel, BettingPanel, JackpotPanel, PhaseStatus, Ticket (TicketCard/TicketDrawer), ChainLinks, MultiplayerSim (Live Active Bets), EmojiChat, HelpModal, BetHistoryModal, GameHistory, DemoPanel, JackpotCelebration, Balance
+src/utils/       format, digitColors, audio
+
+Game logic never lives in React components. The engine runs headless (Node, tests).
+
+________________________________________
+2. CORE CONCEPT
+One continuous stream of random digits 0-9, shared by every player. Each bet is a "link" with its own independent timeline, starting at the first draw after the bet is accepted. One global result per draw; links are never given separate RNG results.
+
+________________________________________
+3. GAME LOOP
+BETTING_OPEN -> BETTING_CLOSED -> DRAWING -> RESULT -> repeat.
+Timings (constants.ts, configurable): betting 12s, closed 1s, drawing 6s, result 1s (20s round).
+The draw index runs continuously and is never reset by phases. The engine draws the digit at the start of DRAWING.
+
+________________________________________
+4. BETTING
+The player picks 1-3 digits; the count sets the tier:
+1 digit  = LOW    (jackpot pool MINI)
+2 digits = MIDI   (internal MEDIUM, pool MIDI)
+3 digits = HIGH   (pool GRAND)
+Any number of bets per round, on any tier, as separate requests. The 3-live-links cap per tier+sequence applies. A single request may not mix tiers (engine rule; the UI sends one selection per request).
+
+Any order: the player can toggle "Numbers in any order" (needs 2+ digits). Every unique ordering becomes its own $1 link. Repeated digits do not create duplicates (112 = 3 links, 314 = 6 links). Total stake = links x $1. Payout per winning link is unchanged. Each link is independent, so RTP is unchanged.
+
+Stake: $1 per link. Straight bet = 1 link.
+
+________________________________________
+5. JACKPOT SEQUENCE (player-chosen)
+The player picks an ordered 2-digit jackpot pair (7->4 differs from 4->7) on the same row as the base digits. It starts empty, Place Bet stays disabled until both digits are set, and it persists across rounds until edited. It is locked when the bet is placed and stored on each link.
+Note: the engine still generates GameState.currentJackpotSequence each round, but the UI does not use it.
+
+________________________________________
+6. PAYOUTS (total return per $1, includes the stake)
+LOW 9x, MIDI 88x, HIGH 888x.
+Base RTP: 90.0% / 88.0% / 88.8%.
+
+________________________________________
+7. LINK TIMELINE AND RULES
+- A link evaluates only on draws from its start index onward, one digit per draw, in order.
+- A mismatch loses the link immediately and permanently.
+- Completing the base sequence credits the total return at once and it can never be lost. The link then enters jackpot qualification.
+- Jackpot qualification: the next 2 draws must match the jackpot pair in order. Both match = jackpot won. Any miss = qualification ends, base payout stays.
+- Repeated digits are valid in both sequences (7-7-7, 7->7).
+- Each link resolves independently.
+- Statuses: WAITING, ACTIVE, LOST, BASE_WON, JACKPOT_STEP_1, JACKPOT_STEP_2 (reserved), JACKPOT_WON, JACKPOT_LOST. Terminal: LOST, JACKPOT_WON, JACKPOT_LOST.
+
+________________________________________
+8. PROGRESSIVE JACKPOTS
+Pools: MINI (LOW), MIDI (MIDI), GRAND (HIGH). Display labels: LOW / MIDI / HIGH.
+Unseeded: all pools start at $0.00 (INITIAL_JACKPOT_POOLS). Funded only by bets: $0.06 / $0.07 / $0.08 per $1 staked, added when the bet is confirmed (once per link for any-order bets). Seeds would push RTP above 100%, so never add one without recomputing RTP.
+Jackpot RTP equals the contribution rate. Multiple winners on the same draw split the pool equally (engine supports N winners; the demo normally has one). After a payout the pool resets to its seed (0).
+Demo only: with ?demo in the URL, pools are preloaded to 60 / 700 / 8,000 (DEMO_JACKPOT_PRESET, steady-state averages from docs/MATH.md) by applyDemoJackpotPreset(). This is a presentation preset, never used in normal mode, tests or any RTP figure.
+
+________________________________________
+9. RTP (derived in src/game/rtp.ts, never hardcoded)
+Total RTP: LOW 96.0%, MIDI 95.0%, HIGH 96.8%. Equal-weighted average 95.93%, house edge 4.07%.
+Monte Carlo (50M links per tier, base game only) matches theory within 1.25 sigma. Full sheet: docs/MATH.md.
+RTP is shown in the Help modal.
+
+________________________________________
+10. WALLET
+Demo balance starts at $100. Bet = balance minus stake. Base win = plus total return. Jackpot win = plus pool payout. Money is rounded to cents (roundCurrency); jackpot pools keep sub-cent precision (roundPrecise).
+
+________________________________________
+11. WHEEL
+Classic mechanical 0-9 wheel in SVG: fixed frame, rotating disc, pegs at wedge boundaries, tapered gunmetal flapper at the top. Digit colors come from utils/digitColors.ts (shared with the digit pad and link circles).
+The engine decides the digit; the wheel only reveals it. The result must not be revealed before the wheel lands.
+Behavior:
+- Spin-up at BETTING_CLOSED; on desktop it starts 2s before betting closes. Cruise speed 520 deg/s.
+- When the target digit arrives (start of DRAWING) the wheel keeps its current speed for as long as needed to line up, then decelerates for 3.5s with a cubic ease-out, starting from its real speed (no jump). The last wedge crawls past the flapper.
+- The flapper ticks on every boundary crossing (playTick). No landing sound.
+- Landing angle is randomized inside the wedge, at least 6 degrees from either peg. Not dead-center.
+- Instant demo steps land immediately.
+- Rotation is applied through a ref (no per-frame React renders). No per-frame filters.
+- Mobile uses a compact size (300px on tall screens, 260px otherwise) and collapses to just the recent-digits strip while betting is open.
+
+________________________________________
+12. REVEAL GATE
+useGame holds the outcome back until the wheel lands. One committed snapshot contains currentDraw, streamHistory, tickets, balance and jackpotPools. Sounds, base-win notice, jackpot celebration and loss flash fire at the same commit point. A 6s fallback timer commits if the wheel never reports. Non-draw updates (bets, demo actions) apply immediately but are ignored while a reveal is pending.
+
+________________________________________
+13. RNG
+All outcome randomness goes through src/game/rng.ts. generateDigit() for draws (honors the demo forced-digit queue); generateAuxDigit() for everything else (never consumes the forced queue). Unseeded draws use Web Crypto with rejection sampling. A seeded generator exists for reproducible tests only. Cosmetic simulation (Live Active Bets, fake player counts) may use Math.random. The UI labels the system as a demo, not a certified RNG.
+
+________________________________________
+14. UI LAYOUT
+Desktop (>=1024px), three columns:
+- Left: Live Active Bets (simulated per-digit bar chart) above Socials chat.
+- Middle: JackpotPanel (3 tiles) above the Wheel.
+- Right: PhaseStatus (BETTING OPEN + countdown / GOOD LUCK), then BettingPanel, or TicketDrawer while betting is locked and there are active links.
+Header: logo (public/chains-logo.png, transparent), control cluster (Help, Sound, Bet History, Demo when ?demo, Balance).
+
+Mobile: one no-scroll screen. PhaseStatus (only while betting is open; no GOOD LUCK), JackpotPanel, Wheel, then the betting panel (with a one-row LinkStrip above it showing active links) or, once locked with links, the compact scrollable TicketDrawer. Footer: sound, help, history, demo (?demo), socials, balance. Socials is a bottom sheet with Live Active Bets and chat.
+Short screens (height <= 740px): while betting is open, the jackpot panel and wheel are hidden (wheel stays mounted).
+Exactly one layout is mounted at a time (isDesktop switch).
+Empty states show nothing.
+
+________________________________________
+15. BETTING PANEL
+Row: base digit slots joined by arrows, an arrow, then the gold-bordered jackpot slots. Captions: "Base chain pays N x" and "Jackpot". Tap a filled slot to remove a digit; tap a jackpot slot to focus it, the next pad press fills it. With 3 base digits filled the pad falls through to the first empty jackpot slot. Digit pad is two rows of five, colored per digit.
+Footer row: Clear, Random (random 1-3 digits, never touches the jackpot pair, no auto-submit), and the two-line "Numbers in / Any order" toggle on the right.
+Place Bet is full width and sticky. Labels: "Select Digits", "Set Jackpot Sequence", "Place $X Bet", any-order shows "Any order - N links" on a second line.
+After a successful bet digits and mode reset; the jackpot pair stays.
+
+________________________________________
+16. ACTIVE LINKS
+ChainLinks.tsx is the single source for link visuals. Each link is a chain of circles: base digits, then a gold jackpot pill with the jackpot digits (and the tier name LOW/MIDI/HIGH except at xs size).
+Circle fill = digit color; state = border: pending (dim), current (3px gold, pulsing), matched (3px green + check badge), failed (red + X).
+A lost link stays visible for 900ms with its red X before leaving the list.
+Cards show the chain only: no win amounts, status labels or chance text. TicketCard height is capped at 52px on desktop; mobile compact drawer scrolls with fixed 52px cards. LinkStrip groups links with identical jackpot state under one pill.
+Base win notice: a solid green "Base win $X paid" overlay on the JackpotPanel for 2.5s (opaque, no pulse). A jackpot win shows the full-screen celebration (confetti, auto-dismiss after about 4.2s).
+
+________________________________________
+17. SOUND
+playTick (spin ticks), playStepMatch (each matched digit), playBaseWin, playJackpotFanfare, playUiClick. No landing sound, no loss sound. Audio context unlocks on the first user gesture; header/footer button mutes.
+
+________________________________________
+18. HELP, HISTORY, DEMO TOOLS
+- Help modal: short player copy. Payout table from BASE_MULTIPLIERS, RTP from rtp.ts, disclaimer from RNG_DISCLAIMER. States that player counts, live bets and chat are simulated.
+- Bet History modal: GameHistory with tabs Your History / Draw History, plus Session Net (sum of totalReturn minus stake over resolved links), computed in the component, not the engine.
+- Demo panel (only with ?demo in the URL): force next digit, instant step, speed x1/x5/x20, pause/resume, reset game, reset balance, state readouts. simulateJackpotWin and createSimulatedTicket exist in the engine but have no UI.
+- Table chat (Socials): emoji whitelist plus short text, 1 message per round, local only (localStorage key chains-table-chat).
+
+________________________________________
+19. EDGE CASES (all implemented and tested)
+Repeated digits in base and jackpot sequences; base win followed by jackpot win or miss; multiple links resolving independently; no bets while betting is closed; new bets allowed again each round; any-order dedupe; concurrency cap including duplicates within one request; atomic bet placement (any failure creates no links and charges nothing).
+
+________________________________________
+20. TESTS AND CHECKS
+Vitest: ticket state machine, jackpot manager (contribution, payout, split, conservation), combo expansion, RTP formulas, engine betting rules and RNG routing, demo preset. Monte Carlo (sim.test.ts) is skipped unless SIM_BETS is set. Type check with `npx tsc -b`.
+
+________________________________________
+21. NOT BUILT (deliberate, pitch MVP)
+Server, multiplayer, persistence, real wallet, engine-level cross-call round lock, certified RNG, responsible-gaming features. See README "Production path".
+Unused code kept in place: engine multi-selection requests (the old LOW multi-pick, UI removed), provider auto-bet state (Auto Bet UI removed), SimulatedActivity.activeTicketsByTier and recentEvents, GameState.currentJackpotSequence, ChainsMark in GameHeader.
+Known small issues: split jackpot payouts can lose up to 1 cent; simulateJackpotWin on an empty pool celebrates $0.00 (unwired).
+
+________________________________________
+22. DECISIONS NOT TO REVERSE WITHOUT ASKING
+Terminology
+- Player-facing "Link", never "ticket". Tier labels LOW / MIDI / HIGH (the "3/4/5 in a row" and "volatility" phrasing is retired). Internal names stay: Ticket, TicketTier 'MEDIUM', JackpotTierName MINI/MIDI/GRAND, isCombo. Display renames never touch enums.
+- "Live Active Bets" and "N players" (was Bets Heat Map / N active). "Socials" is the umbrella label for chat + Live Active Bets.
+Rules
+- Multiple bets per round on any tier. The one-tier-per-round rule and the round lock are gone.
+- Pools unseeded. No seeds, ever, without recomputing RTP.
+- Base payout can never be put at risk by the jackpot step.
+Layout
+- No GOOD LUCK state on mobile. Desktop keeps it.
+- Mobile active links render in the shared zone (LinkStrip above the betting panel, compact drawer when locked). No docked bar, no swipe panels.
+- The Wheel stays mounted on short screens (hidden, never unmounted).
+- Any-order stays the compact two-line toggle in the footer row (a full-width version was tried and rejected).
+- Social controls are a single cluster (no LeftColumnControls). History icon is the restore-arrow-with-clock glyph supplied by the user; external Flaticon assets cannot be fetched by Claude, so approximations are used unless the file is added to the repo.
+Wheel
+- Landing is off-center within the wedge, away from pegs. No landing or loss sound. No second flapper click on landing. Gunmetal flapper. No per-frame filters.
+- Circle sizes in ChainLinks were validated against the 52px card cap; enlarging them caused overlap and was reverted.
+Heat map
+- Live Active Bets: one low-variance popularity bias per round from the engine (digitPopularity), smoothed in the component with light jitter, running only while betting is open, resets to 0% each round. Digit labels are anchored in the bar base. The live-dot is green, not gold.
+Demo
+- Presenter tools only with ?demo. Demo jackpot preset only through applyDemoJackpotPreset().
