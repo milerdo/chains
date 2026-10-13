@@ -24,8 +24,8 @@ export const STARTING_BALANCE = 100;
  * includes the original stake. */
 export const BASE_MULTIPLIERS: Record<TicketTier, number> = {
   LOW: 9,
-  MEDIUM: 88,
-  HIGH: 888,
+  MEDIUM: 90,
+  HIGH: 900,
 };
 
 /** Number of consecutive digits each tier requires (Section 5). */
@@ -58,14 +58,14 @@ export const INITIAL_JACKPOT_POOLS: JackpotPools = {
  */
 export const DEMO_JACKPOT_PRESET = { MINI: 60, MIDI: 700, GRAND: 8000 } as const;
 
-/** Progressive jackpot funding contribution added per $1 wagered on a
- * given tier, at the moment the bet is confirmed (Section 18). */
+/** 5% of every stake funds the tier's own pool. Base RTP is 90% for every
+ * tier. Total RTP with jackpots is 95%, because unseeded pools pay out
+ * everything contributed. */
 export const JACKPOT_CONTRIBUTION_RATES: Record<TicketTier, number> = {
-  LOW: 0.06,
-  MEDIUM: 0.07,
-  HIGH: 0.08,
+  LOW: 0.05,
+  MEDIUM: 0.05,
+  HIGH: 0.05,
 };
-
 /** Number of digits in the jackpot qualification combination (Section 8). */
 export const JACKPOT_SEQUENCE_LENGTH = 2;
 

@@ -101,13 +101,15 @@ export class ChainsGame {
   private speedMultiplier = 1;
   private scheduleTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // --- simulated "other players" activity (Section 28, cosmetic only) -------
+  // --- simulated "other players" activity -------
   private simulatedActivity: SimulatedActivity = {
     playerCount: 0,
     activeTicketsByTier: { LOW: 0, MEDIUM: 0, HIGH: 0 },
     recentEvents: [],
     digitPopularity: Array(10).fill(10),
   };
+
+  private suppressEmit = false;
 
   // --- subscribers -------------------------------------------------------
   private listeners: Set<Listener> = new Set();
@@ -226,6 +228,50 @@ export class ChainsGame {
    * touched. */
   placeBet(request: BetRequest): PlaceBetResult {
     return this.placeBetInternal(request, {});
+  }
+
+  /** All-or-nothing placement of several requests (Repeat Last Bet). With
+   * dryRun=true it only validates (rules, cap, balance) and changes nothing. */
+  placeBets(requests: BetRequest[], dryRun = false): PlaceBetResult {
+    if (requests.length === 0) return this.betFailure('No bets to place.');
+    const snapshot = {
+      tickets: [...this.tickets],
+      balance: this.balance,
+      pools: this.jackpotManager.getPools(),
+      comboGroupCounter: this.comboGroupCounter,
+    };
+    const ticketIds: string[] = [];
+    let totalStake = 0;
+    let failure: PlaceBetResult | null = null;
+    this.suppressEmit = true;
+    try {
+      for (const request of requests) {
+        const result = this.placeBetInternal(request, {});
+        if (!result.success) {
+          failure = result;
+          break;
+        }
+        ticketIds.push(...result.ticketIds);
+        totalStake = roundCurrency(totalStake + result.totalStake);
+      }
+    } finally {
+      this.suppressEmit = false;
+    }
+    if (failure || dryRun) {
+      this.tickets = snapshot.tickets;
+      this.balance = snapshot.balance;
+      this.jackpotManager.restorePools(snapshot.pools);
+      this.comboGroupCounter = snapshot.comboGroupCounter;
+      if (failure) return failure;
+      return { success: true, message: `Valid: total stake $${totalStake.toFixed(2)}.`, ticketIds: [], totalStake };
+    }
+    this.emit();
+    return {
+      success: true,
+      message: `${requests.length} bet${requests.length === 1 ? '' : 's'} placed: ${ticketIds.length} links, total stake $${totalStake.toFixed(2)}.`,
+      ticketIds,
+      totalStake,
+    };
   }
 
   // ==========================================================================
@@ -828,6 +874,7 @@ export class ChainsGame {
   }
 
   private emit(): void {
+    if (this.suppressEmit) return;
     const state = this.getState();
     this.listeners.forEach((listener) => listener(state));
   }

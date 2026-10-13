@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { activateDueTickets, countActiveWithSameSequence, createTicket, evaluateTicketOnDraw } from './ticket';
+import { activateDueTickets, countActiveWithSameSequence, createTicket, evaluateTicketOnDraw, nextExpectedDigit } from './ticket';
 import type { Ticket, TicketTier } from './types';
+
 
 const mk = (tier: TicketTier, digits: number[], jp: [number, number] = [7, 4]) =>
   createTicket({ tier, digits, jackpotSequence: jp, startDrawIndex: 1, createdAtDrawIndex: 0 });
@@ -20,17 +21,17 @@ describe('base game', () => {
     expect(t.totalReturn).toBe(9);
   });
 
-  it('HIGH progresses per digit and pays 888 on completion', () => {
+  it('HIGH progresses per digit and pays 900 on completion', () => {
     const mid = run(mk('HIGH', [4, 2, 3]), [4, 2]);
     expect(mid.status).toBe('ACTIVE');
     expect(mid.baseProgress).toBe(2);
     const won = run(mid, [3]);
     expect(won.status).toBe('BASE_WON');
-    expect(won.baseWinAmount).toBe(888);
+    expect(won.baseWinAmount).toBe(900);
   });
 
-  it('MEDIUM pays 88', () => {
-    expect(run(mk('MEDIUM', [3, 1]), [3, 1]).baseWinAmount).toBe(88);
+  it('MEDIUM pays 90', () => {
+    expect(run(mk('MEDIUM', [3, 1]), [3, 1]).baseWinAmount).toBe(90);
   });
 
   it('loses immediately on mismatch and ignores later draws', () => {
@@ -57,15 +58,15 @@ describe('jackpot qualification', () => {
   it('keeps the base payout when the second digit misses', () => {
     const t = run(base(), [7, 2]);
     expect(t.status).toBe('JACKPOT_LOST');
-    expect(t.baseWinAmount).toBe(888);
-    expect(t.totalReturn).toBe(888);
+    expect(t.baseWinAmount).toBe(900);
+    expect(t.totalReturn).toBe(900);
   });
 
   it('keeps the base payout when the first digit misses', () => {
     const t = run(base(), [1]);
     expect(t.status).toBe('JACKPOT_LOST');
     expect(t.jackpotProgress).toBe(0);
-    expect(t.totalReturn).toBe(888);
+    expect(t.totalReturn).toBe(900);
   });
 
   it('supports a repeated-digit jackpot pair (7 -> 7)', () => {
@@ -107,5 +108,19 @@ describe('validation', () => {
   it('rejects wrong digit count and bad jackpot pair', () => {
     expect(() => mk('LOW', [1, 2])).toThrow();
     expect(() => createTicket({ tier: 'LOW', digits: [1], jackpotSequence: [1] as unknown as [number, number], startDrawIndex: 1, createdAtDrawIndex: 0 })).toThrow();
+  });
+});
+
+describe('nextExpectedDigit', () => {
+  it('tracks base, then jackpot, then null', () => {
+    const t = mk('HIGH', [6, 5, 9], [7, 4]);
+    expect(nextExpectedDigit(t)).toBe(6);
+    const mid = run(t, [6]);
+    expect(nextExpectedDigit(mid)).toBe(5);
+    const won = run(mid, [5, 9]);
+    expect(nextExpectedDigit(won)).toBe(7);
+    expect(nextExpectedDigit(run(won, [7]))).toBe(4);
+    expect(nextExpectedDigit(run(won, [1]))).toBeNull();
+    expect(nextExpectedDigit(run(t, [1]))).toBeNull();
   });
 });

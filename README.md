@@ -14,7 +14,7 @@ draw after the bet.
 
 ## How it plays
 
-1. Pick 1-3 digits. The count sets the tier: **LOW 9x**, **MIDI 88x**, **HIGH 888x** ($1 per link).
+1. Pick 1-3 digits. The count sets the tier: **LOW 9x**, **MIDI 90x**, **HIGH 900x** ($1 per link).
 2. Optionally cover any order (every ordering is a $1 link). Pick a 2-digit jackpot pair. 
 3. Each draw must match your next digit, in order. One miss ends the link.
 4. Complete the sequence: the payout is credited instantly and can never be lost.
@@ -26,7 +26,7 @@ draw after the bet.
 - **Risk-free jackpot step:** the base win is already banked, so the jackpot is pure upside.
 - **Three volatility profiles in one game** (hit rates 1 in 10 / 100 / 1,000).
 - **Unseeded progressives:** pools are funded only by bets; the math is closed
-  (RTP 96.0 / 95.0 / 96.8%, avg 95.93%). See the math sheet.
+  (base 90.0, with progressive jackpot 95.00%). See the math sheet.
 
 ## Architecture
 

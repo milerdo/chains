@@ -293,3 +293,12 @@ export function sequenceEquals(a: readonly number[], b: readonly number[]): bool
 export function countActiveWithSameSequence(tickets: readonly Ticket[], tier: TicketTier, digits: number[]): number {
   return tickets.filter((t) => t.tier === tier && sequenceEquals(t.baseSequence, digits) && !isTerminal(t.status)).length;
 }
+
+/** The digit this ticket needs on its next evaluated draw (base digit, or
+ * jackpot digit while qualifying). Null once terminal. Display helper for
+ * the wheel bet markers. */
+export function nextExpectedDigit(ticket: Ticket): number | null {
+  if (isTerminal(ticket.status)) return null;
+  if (ticket.status === 'WAITING' || ticket.status === 'ACTIVE') return ticket.baseSequence[ticket.baseProgress] ?? null;
+  return ticket.jackpotSequence[ticket.jackpotProgress] ?? null;
+}

@@ -8,6 +8,7 @@ import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { useGame } from '../hooks/useGame';
 import { playTick } from '../utils/audio';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { nextExpectedDigit } from '../game/ticket';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
@@ -22,6 +23,9 @@ const HUB_R = 20;
 const RIVET_R = 136;
 const RIVET_COUNT = 26;
 const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
+// Bet-marker chips sit in the empty band between hub and digits: [radius, angle offset°] inside the wedge.
+const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[56, 0], [42, -7], [42, 7], [70, -8], [70, 8], [30, 0]];
+const CHIP_R = 4.6;
 
 import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
 
@@ -98,14 +102,22 @@ const WheelFrame = memo(function WheelFrame({ uid }: { uid: string }) {
   );
 });
 
+function Chip({ x, y, r }: { x: number; y: number; r: number }) {
+  return (
+    <>
+      <circle cx={x} cy={y} r={r} fill="#0b0b0b" stroke="#e5e7eb" strokeWidth={0.9} />
+      <circle cx={x} cy={y} r={r * 0.55} fill="none" stroke="#eab308" strokeWidth={0.6} strokeDasharray="1.2 1" />
+    </>
+  );
+}
+
 const WheelDisc = memo(function WheelDisc({
-  uid,
-  discRef,
-  landedDigit,
+  uid, discRef, landedDigit, markerCounts,
 }: {
   uid: string;
   discRef: RefObject<SVGGElement | null>;
   landedDigit: number | null;
+  markerCounts: readonly number[];
 }) {
   return (
     <>
@@ -158,6 +170,39 @@ const WheelDisc = memo(function WheelDisc({
             </text>
           );
         })}
+                {markerCounts.map((count, digit) => {
+          if (count === 0) return null;
+          const base = digit * HOLE_STEP_DEG;
+          if (count > CHIP_SLOTS.length) {
+            const p = pt(base, 56);
+            return (
+              <g key={`chips-${digit}`}>
+                <Chip x={p.x} y={p.y} r={7.5} />
+                <text
+                  x={p.x}
+                  y={p.y}
+                  transform={`rotate(${base} ${p.x} ${p.y})`}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontFamily="ui-monospace, monospace"
+                  fontWeight={800}
+                  fontSize={8}
+                  fill="#f4e4b8"
+                >
+                  {count}
+                </text>
+              </g>
+            );
+          }
+          return (
+            <g key={`chips-${digit}`}>
+              {CHIP_SLOTS.slice(0, count).map(([r, d], i) => {
+                const p = pt(base + d, r);
+                return <Chip key={i} x={p.x} y={p.y} r={CHIP_R} />;
+              })}
+            </g>
+          );
+        })}
         <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
       </g>
       <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#specularGrad-${uid})`} />
@@ -176,11 +221,24 @@ const WheelDisc = memo(function WheelDisc({
 }
 
 export function Wheel({ compact = false, collapsed = false }: WheelProps) {
-  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded, timeRemaining } = useGame();
+  const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded, timeRemaining, activeTickets } = useGame();
   const spinWanted =
     phase === 'BETTING_CLOSED' ||
     phase === 'DRAWING' ||
   (!collapsed && phase === 'BETTING_OPEN' && timeRemaining > 0 && timeRemaining <= SPIN_LEAD_MS);
+    // Markers = next digit each live link expects. Recomputed live while betting
+  // is open (new bets appear, previous round's markers are replaced); frozen
+  // through close/draw/result so they stay visible during the spin.
+  const [markerCounts, setMarkerCounts] = useState<number[]>(() => Array(10).fill(0));
+  useEffect(() => {
+    if (phase !== 'BETTING_OPEN') return;
+    const counts: number[] = Array(10).fill(0);
+    for (const t of activeTickets) {
+      const d = nextExpectedDigit(t);
+      if (d !== null) counts[d] += 1;
+    }
+    setMarkerCounts((prev) => (prev.every((v, i) => v === counts[i]) ? prev : counts));
+  }, [phase, activeTickets]);
   const uid = useId();
   const spinAngleRef = useRef(0);
   const discRef = useRef<SVGGElement>(null);
@@ -396,7 +454,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
         <div className="rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.55)] [&>svg]:block">
           <svg width={size} height={size} viewBox="0 0 300 300">
             <WheelFrame uid={uid} />
-            <WheelDisc uid={uid} discRef={discRef} landedDigit={justLanded ? currentDigit : null} />
+            <WheelDisc uid={uid} discRef={discRef} landedDigit={justLanded ? currentDigit : null} markerCounts={markerCounts} />
 
             <circle cx={CX} cy={22} r={5} fill={`url(#frameGrad-${uid})`} stroke="#2a1c02" strokeWidth={1} />
             <g

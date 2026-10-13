@@ -19,7 +19,7 @@ describe('JackpotManager', () => {
     const jm = new JackpotManager();
     for (let i = 0; i < 100; i += 1) jm.contribute('LOW', 1);
     const res = jm.payout('MINI', ['T1'], 10);
-    expect(res.perWinnerAmount).toBeCloseTo(6, 2);
+    expect(res.perWinnerAmount).toBeCloseTo(5, 2);
     expect(jm.getPool('MINI')).toBe(0);
     expect(jm.getWinHistory()).toHaveLength(1);
   });

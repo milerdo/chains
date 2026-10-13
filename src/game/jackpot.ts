@@ -51,8 +51,7 @@ export class JackpotManager {
    */
   contribute(tier: TicketTier, stake: number): number {
     const jackpotTierName = TIER_TO_JACKPOT[tier];
-    // Contribution rates are by design: $0.06 / $0.07 /
-    // $0.08 per $1 wagered. the pool accumulator must retain full
+    // Contribution rates are by design: $0.05 per $1 wagered. the pool accumulator must retain full
     // precision rather than rounding every single contribution to the
     // nearest cent — that would silently truncate the "exact" rate the spec
     // requires. Only roundPrecise (floating-point dust cleanup) is applied
@@ -94,6 +93,11 @@ export class JackpotManager {
       totalPaid: roundCurrency(perWinnerAmount * winnerTicketIds.length),
       winnerTicketIds: [...winnerTicketIds],
     };
+  }
+
+  /** Exact restore (no rounding). Used to roll back a failed or dry-run batch bet. */
+  restorePools(snapshot: JackpotPools): void {
+    this.pools = { ...snapshot };
   }
 
   getWinHistory(): JackpotWinRecord[] {

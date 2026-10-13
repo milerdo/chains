@@ -154,3 +154,33 @@ describe('ChainsGame — RNG routing', () => {
     expect(game.getState().currentDraw?.digit).toBe(9);
   });
 });
+describe('ChainsGame — placeBets (atomic batch)', () => {
+  const req = (d: number) => ({ selections: [{ tier: 'LOW' as const, digits: [d] }], jackpotSequence: [7, 4] as [number, number] });
+
+  it('places several requests together', () => {
+    const game = new ChainsGame();
+    const r = game.placeBets([req(1), req(2)]);
+    expect(r.success).toBe(true);
+    expect(r.totalStake).toBe(2);
+    expect(game.getActiveTickets()).toHaveLength(2);
+  });
+
+  it('rolls back everything if a later request fails', () => {
+    const game = new ChainsGame({ startingBalance: 2 });
+    const r = game.placeBets([req(1), req(2), req(3)]);
+    expect(r.success).toBe(false);
+    expect(game.getBalance()).toBe(2);
+    expect(game.getActiveTickets()).toHaveLength(0);
+    expect(game.getJackpotPools().MINI).toBe(0);
+  });
+
+  it('dry run validates without changing state', () => {
+    const game = new ChainsGame();
+    const r = game.placeBets([req(1), req(2)], true);
+    expect(r.success).toBe(true);
+    expect(r.totalStake).toBe(2);
+    expect(game.getBalance()).toBe(100);
+    expect(game.getActiveTickets()).toHaveLength(0);
+    expect(game.getJackpotPools().MINI).toBe(0);
+  });
+});

@@ -125,6 +125,9 @@ export interface UseGameValue {
   dismissJackpotCelebration: () => void;
 
   placeBet: (request: BetRequest) => PlaceBetResult;
+  placeBets: (requests: BetRequest[], dryRun?: boolean) => PlaceBetResult;
+  /** Bets from the most recent round the player bet in (Repeat Last Bet). */
+  lastRoundBets: BetRequest[];
   forceNextDraw: (digit: number) => void;
   forceDrawSequence: (digits: number[]) => void;
   clearForcedDraws: () => void;
@@ -136,6 +139,13 @@ export interface UseGameValue {
   resetBalance: () => void;
   simulateJackpotWin: (tier: JackpotTierName) => void;
   createSimulatedTicket: (tier: TicketTier) => void;
+}
+
+function cloneRequest(r: BetRequest): BetRequest {
+  return {
+    selections: r.selections.map((s) => ({ ...s, digits: [...s.digits] })),
+    jackpotSequence: [r.jackpotSequence[0], r.jackpotSequence[1]],
+  };
 }
 
 const GameContext = createContext<UseGameValue | null>(null);
@@ -190,6 +200,8 @@ export function GameProvider({
   const [payoutFlash, setPayoutFlash] = useState<{ amount: number; key: number } | null>(null);
   const payoutFlashTimeoutRef = useRef<number | null>(null);
   const [jackpotPick, setJackpotPick] = useState<[number | null, number | null]>([null, null]);
+  const roundBetsRef = useRef<BetRequest[]>([]);
+  const [lastRoundBets, setLastRoundBets] = useState<BetRequest[]>([]);
   // --- Reveal-delayed draw/stream state (public reveal) ----------------
   // Held back from the raw engine value until Wheel.tsx confirms its
   // landing animation has actually finished. See file header and
@@ -395,6 +407,10 @@ export function GameProvider({
   useEffect(() => {
     const entered = gameState.phase === 'BETTING_OPEN' && prevBettingPhaseRef.current !== 'BETTING_OPEN';
     prevBettingPhaseRef.current = gameState.phase;
+    if (entered && roundBetsRef.current.length > 0) {
+      setLastRoundBets(roundBetsRef.current);
+      roundBetsRef.current = [];
+    }
     if (!entered || !autoBet) return;
     const result = game.placeBet(autoBet.template);
     if (!result.success) {
@@ -419,7 +435,22 @@ export function GameProvider({
   const stopAutoBet = useCallback(() => setAutoBet(null), []);
   const clearAutoBetError = useCallback(() => setAutoBetError(null), []);
   const bettingLocked = gameState.phase !== 'BETTING_OPEN' || autoBet !== null;
-  const placeBet = useCallback((request: BetRequest) => game.placeBet(request), [game]);
+    const placeBet = useCallback(
+    (request: BetRequest) => {
+      const result = game.placeBet(request);
+      if (result.success) roundBetsRef.current.push(cloneRequest(request));
+      return result;
+    },
+    [game],
+  );
+  const placeBets = useCallback(
+    (requests: BetRequest[], dryRun = false) => {
+      const result = game.placeBets(requests, dryRun);
+      if (result.success && !dryRun) roundBetsRef.current.push(...requests.map(cloneRequest));
+      return result;
+    },
+    [game],
+  );
 
   const forceNextDraw = useCallback((digit: number) => game.forceNextDraw(digit), [game]);
   const forceDrawSequence = useCallback((digits: number[]) => game.forceDrawSequence(digits), [game]);
@@ -445,6 +476,8 @@ export function GameProvider({
     setPayoutFlash(null);
     setAutoBet(null);
     setAutoBetError(null);
+    roundBetsRef.current = [];
+    setLastRoundBets([]);
   }, [game, commitPublicReveal, demoPreset]);
 
   const dismissJackpotCelebration = useCallback(() => setJackpotCelebration(null), []);
@@ -506,6 +539,8 @@ export function GameProvider({
       jackpotPick,
       setJackpotPick,
       payoutFlash,
+      lastRoundBets,
+      placeBets,
     }),
     [
       gameState,
@@ -539,6 +574,8 @@ export function GameProvider({
       startAutoBet,
       stopAutoBet,
       payoutFlash,
+      lastRoundBets,
+      placeBets,
     ],
   );
 

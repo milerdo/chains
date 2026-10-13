@@ -37,9 +37,10 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 
 ## 7. Betting panel
 - `digits: number[]` (max 3, tier by count), `isCombo`, `jackpotFocus`. `jackpotPick` is `[n|null, n|null]` in GameProvider, starts empty, persists across rounds; reset never clears it.
-- Jackpot pair sits on the same row as the base digits, gold-bordered slots. Captions: "Base chain pays N×" and "Jackpot". No tier names in this panel.
-- Any order: two-line "Numbers in / Any order" button, right side of the Clear / Random row, needs 2+ digits (internal `isCombo`). A full-width redesign was tried and rejected; don't redo it. Random changes digits only. After a bet: digits + mode reset.
+- Jackpot pair is its own "Jackpot Numbers" section below the Clear/Random/Repeat row (tier label shown, Random button, short explainer). Caption under base digits: "Base chain pays N×".
+- Exact order / Any order is a compact two-option segmented control (OrderMode) under the base digits, shown only with 2+ digits. Each option shows its stake and link count. Any order still expands into one $1 link per unique ordering. Random changes digits only. After a bet: digits + mode reset.
 - Multiple bets per round on any tier are allowed (no round lock). Cap: 3 live links per tier+sequence. LOW multi-pick UI and Auto Bet UI are removed; engine multi-selection and provider auto-bet state remain, unreachable. Don't rebuild the UI without asking.
+- Repeat Last Bet: provider keeps lastRoundBets (the last round the player actually bet in). Pressing it dry-run validates via placeBets(..., true) and stages the full set in the panel (local state); nothing is placed until Place Bet, which calls atomic placeBets.
 
 ## 8. Links (ChainLinks.tsx is the single source for link visuals)
 - `ChainCircle` fill = digit color (`DIGIT_COLORS`); state = border: pending / current (3px gold pulse) / matched (3px green + ✓ badge) / failed (red + ✕).
@@ -56,6 +57,7 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 - Landing angle is randomized inside the wedge, at least `PEG_SAFE_MARGIN_DEG` (6°) from either peg. Don't revert to dead-center.
 - Flapper: tapered gunmetal paddle, own `flapperGrad-${uid}`. No second click in `land()`.
 - Instant demo steps land immediately (`INSTANT_THRESHOLD_MS`).
+- Bet markers: small black chips inside WheelDisc (rotate with the disc), one per live link on its nextExpectedDigit(). Recomputed only while BETTING_OPEN, frozen during close/draw/result. More than 6 on a digit collapses to one counted chip.
 
 ## 10. Sound (utils/audio.ts)
 Set is: `playTick` (spin), `playStepMatch`, `playBaseWin`, `playJackpotFanfare`, `playUiClick`. No landing or loss sound. Don't add one without asking.
@@ -65,7 +67,7 @@ Player-facing: "Link", LOW / MIDI / HIGH, "Live Active Bets", "N players", "Soci
 
 ## 12. Economy, RTP, demo
 - Timings (constants.ts): betting 12s, closed 1s, draw 6s, result 1s.
-- Jackpot pools are unseeded (0/0/0); contributions 6c/7c/8c per $1. Seeds push RTP above 100%. Overall RTP 95.93%.
+- Jackpot pools are unseeded (0/0/0); contributions 5c per $1 on every tier. Seeds push RTP above 100%. Base RTP 90%, total RTP 95.0%
 - `DEMO_JACKPOT_PRESET` only via `applyDemoJackpotPreset()` when the URL has `?demo`; never in engine, tests or RTP.
 - DemoPanel and its button render only with `?demo`.
 - Outcome randomness only via `rng.ts` (`generateDigit` for draws, `generateAuxDigit` for the rest). Cosmetic simulation may use `Math.random`.

@@ -12,7 +12,7 @@ Demo build. Not a certified RNG; not for real-money play.
   The link then needs the next 2 draws to match its jackpot pair
   to win that tier's progressive pool.
 - Every $1 staked adds a fixed share to the tier's pool:
-  6c (MINI, LOW) / 7c (MIDI) / 8c (GRAND, HIGH).
+  5c (MINI, LOW) / 5c (MIDI) / 5c (GRAND, HIGH).
 - Pools are unseeded (start at $0): jackpots are funded 100% by player bets.
 
 ## 2. Base game
@@ -20,8 +20,8 @@ Demo build. Not a certified RNG; not for real-money play.
 | Tier | Digits | Hit probability p | Hit frequency | Total return (per $1) | Base RTP = p x payout |
 |---|---|---|---|---|---|
 | LOW | 1 | 10^-1 | 1 in 10 | 9x | 90.0% |
-| MIDI | 2 | 10^-2 | 1 in 100 | 88x | 88.0% |
-| HIGH | 3 | 10^-3 | 1 in 1,000 | 888x | 88.8% |
+| MIDI | 2 | 10^-2 | 1 in 100 | 90x | 90.0% |
+| HIGH | 3 | 10^-3 | 1 in 1,000 | 900x | 90.0% |
 
 ## 3. Jackpot
 
@@ -31,9 +31,9 @@ unit test).
 
 | Tier | Pool | Contribution per $1 | Jackpot hit probability (base win, then the pair) | Jackpot frequency | Average pool at win |
 |---|---|---|---|---|---|
-| LOW | MINI | $0.06 | 10^-1 x 10^-2 = 10^-3 | 1 in 1,000 links | $60 |
-| MIDI | MIDI | $0.07 | 10^-2 x 10^-2 = 10^-4 | 1 in 10,000 links | $700 |
-| HIGH | GRAND | $0.08 | 10^-3 x 10^-2 = 10^-5 | 1 in 100,000 links | $8,000 |
+| LOW | MINI | $0.05 | 10^-1 x 10^-2 = 10^-3 | 1 in 1,000 links | $50 |
+| MIDI | MIDI | $0.05 | 10^-2 x 10^-2 = 10^-4 | 1 in 10,000 links | $500 |
+| HIGH | GRAND | $0.05 | 10^-3 x 10^-2 = 10^-5 | 1 in 100,000 links | $5,000 |
 
 Average pool at win = contribution / hit probability (steady state).
 
@@ -41,10 +41,10 @@ Average pool at win = contribution / hit probability (steady state).
 
 | Tier | Base | Jackpot | **Total** | House edge |
 |---|---|---|---|---|
-| LOW | 90.0% | 6.0% | **96.0%** | 4.0% |
-| MIDI | 88.0% | 7.0% | **95.0%** | 5.0% |
-| HIGH | 88.8% | 8.0% | **96.8%** | 3.2% |
-| Equal-weighted average | | | **95.93%** | 4.07% |
+| LOW | 90% | 5.0% | **95%** | 5.0% |
+| MIDI | 90% | 5.0% | **95%** | 5.0% |
+| HIGH | 90% | 5.0% | **95%** | 5.0% |
+| Equal-weighted average | | | **95.00%** | 5.00% |
 
 Figures are derived in code from `src/game/rtp.ts`, never hardcoded.
 
@@ -55,8 +55,8 @@ Variance = p x m^2 - (p x m)^2
 | Tier | Std. deviation |
 |---|---|
 | LOW | 2.70 |
-| MIDI | 8.76 |
-| HIGH | 28.07 |
+| MIDI | 8.96 |
+| HIGH | 28.45 |
 
 ## 6. Limits and exposure
 
@@ -64,7 +64,7 @@ Variance = p x m^2 - (p x m)^2
 - Link cost: $1. Combo: $1 per unique ordering (max 6 links / $6 for
   3 distinct digits).
 - Max concurrent live links on the same tier + sequence: 3.
-- Max single-link win: 888x stake plus the GRAND pool.
+- Max single-link win: 900x stake plus the GRAND pool.
 - Base payouts are locked in and cannot be taken back by jackpot outcomes.
 
 ## 6b. Combo and multi-pick do not change the math
@@ -83,8 +83,8 @@ so RTP per $1 is identical to a straight bet.
 | Tier | Measured | Theory | Deviation |
 |---|---|---|---|
 | LOW | 90.031% | 90.000% | +0.8 sigma |
-| MIDI | 87.998% | 88.000% | -0.02 sigma |
-| HIGH | 89.296% | 88.800% | +1.25 sigma |
+| MIDI | 89.998% | 90.000% | -0.02 sigma |
+| HIGH | 90.502% | 90.000% | +1.25 sigma |
 
 Reproduce: 
 macOS/Linux `SIM_BETS=50000000 npx vitest run src/game/sim.test.ts` 

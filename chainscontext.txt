@@ -45,8 +45,8 @@ Note: the engine still generates GameState.currentJackpotSequence each round, bu
 
 ________________________________________
 6. PAYOUTS (total return per $1, includes the stake)
-LOW 9x, MIDI 88x, HIGH 888x.
-Base RTP: 90.0% / 88.0% / 88.8%.
+LOW 9x, MIDI 90x, HIGH 900x.
+Base RTP: 90.0% / with progressive jackpot 95%.
 
 ________________________________________
 7. LINK TIMELINE AND RULES
@@ -67,7 +67,7 @@ Demo only: with ?demo in the URL, pools are preloaded to 60 / 700 / 8,000 (DEMO_
 
 ________________________________________
 9. RTP (derived in src/game/rtp.ts, never hardcoded)
-Total RTP: LOW 96.0%, MIDI 95.0%, HIGH 96.8%. Equal-weighted average 95.93%, house edge 4.07%.
+Total RTP: 95.0% for every tier (base 90% + 5% jackpot share). House edge 5.0%
 Monte Carlo (50M links per tier, base game only) matches theory within 1.25 sigma. Full sheet: docs/MATH.md.
 RTP is shown in the Help modal.
 
