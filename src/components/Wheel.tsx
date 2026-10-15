@@ -138,7 +138,6 @@ const WheelDisc = memo(function WheelDisc({
             />
           );
         })}
-        <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#sheenGrad-${uid})`} />
         {Array.from({ length: HOLE_COUNT }, (_, i) => {
           const p = pt(i * HOLE_STEP_DEG - HOLE_STEP_DEG / 2, PEG_R);
           return (
@@ -204,8 +203,10 @@ const WheelDisc = memo(function WheelDisc({
             </g>
           );
         })}
-        <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
       </g>
+      {/* Stationary lighting layers: do not rotate with the disc */}
+      <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#sheenGrad-${uid})`} />
+      <circle cx={CX} cy={CY} r={HUB_R} fill={`url(#hubGrad-${uid})`} stroke="#2a1c02" strokeWidth={1.5} />
       <circle cx={CX} cy={CY} r={RIM_INNER_R} fill={`url(#specularGrad-${uid})`} />
     </>
   );
@@ -428,14 +429,15 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
 
   const recentDigits = streamHistory.slice(-10);
   const tall = useMediaQuery('(min-height: 800px)');
-  const size = compact ? (tall ? 300 : 260) : 340;
+  const wide = useMediaQuery('(min-width: 1152px)');
+  const size = compact ? (tall ? 300 : 260) : wide ? 340 : 300;
 
   return (
     <section
       aria-label="Live number stream"
       className={[
         'relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
-        compact ? 'p-3' : 'p-5 sm:p-6',
+        compact ? 'p-3' : 'p-4',
       ].join(' ')}
     >
 

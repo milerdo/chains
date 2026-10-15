@@ -36,7 +36,6 @@ function AppShell() {
   const [demoOpen, setDemoOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // matches Tailwind's `lg`
   const shortScreen = useMediaQuery('(max-height: 740px)');
-  const showDrawerOnly = bettingLocked && activeTickets.length > 0;
 
   return (
     <div className="table-ambience flex h-dvh flex-col overflow-hidden text-white/90">
@@ -49,7 +48,7 @@ function AppShell() {
 
             {isDesktop ? (
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[1fr_1.3fr_1fr] gap-4 overflow-hidden px-6 py-4">
+          <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-[0.85fr_1.1fr_1fr] gap-3 overflow-hidden px-6 py-4">
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
               <div className="h-[31%] min-h-[190px] shrink-0">
                 <MultiplayerSim />
@@ -58,23 +57,20 @@ function AppShell() {
             </div>
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
               <JackpotPanel />
-              <Wheel />
+              <div className="shrink-0">
+                <Wheel />
+              </div>
+              {activeTickets.length > 0 && (
+                <div className="min-h-0 flex-1">
+                  <TicketDrawer tickets={activeTickets} grid />
+                </div>
+              )}
             </div>
             <div className="flex min-h-0 flex-col overflow-hidden">
               <PhaseStatus className="mb-3" />
-              <div className={['min-h-0 flex-1 overflow-y-auto pr-1', showDrawerOnly ? 'hidden' : ''].join(' ')}>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                 <BettingPanel />
-                {activeTickets.length > 0 && (
-                  <div className="mt-3">
-                    <TicketDrawer tickets={activeTickets} />
-                  </div>
-                )}
               </div>
-              {showDrawerOnly && (
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  <TicketDrawer tickets={activeTickets} />
-                </div>
-              )}
             </div>
           </div>
         </main>

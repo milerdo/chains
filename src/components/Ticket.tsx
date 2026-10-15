@@ -1,7 +1,7 @@
 import type { Ticket } from '../game/types';
 import { LinkChain } from './ChainLinks';
 
-export function TicketCard({ ticket }: { ticket: Ticket }) {
+export function TicketCard({ ticket, dense = false }: { ticket: Ticket; dense?: boolean }) {
   const isLost = ticket.status === 'LOST';
   const isJackpotWon = ticket.status === 'JACKPOT_WON';
   const inQualification = ticket.status === 'BASE_WON' || ticket.status === 'JACKPOT_STEP_1' || ticket.status === 'JACKPOT_STEP_2';
@@ -11,6 +11,7 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
     <div
       className={[
         'flex h-full min-h-0 flex-col justify-center rounded-2xl border px-3.5 py-2 transition-colors duration-300',
+        dense ? '!px-2.5' : '',
         isJackpotWon
           ? 'border-[#eab308] bg-[#eab308]/[0.08] shadow-[0_0_28px_-6px_rgba(234,179,8,0.55)]'
           : isLost
@@ -27,7 +28,7 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
   );
 }
 
-export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; compact?: boolean }) {
+export function TicketDrawer({ tickets, compact = false, grid = false }: { tickets: Ticket[]; compact?: boolean; grid?: boolean }) {
   return (
     <section
       aria-label="Active links"
@@ -38,8 +39,12 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
     >
       <div
         className={[
-          'flex min-h-0 flex-1 flex-col',
-           compact ? 'gap-1.5 overflow-y-auto pr-1' : 'gap-2 overflow-y-auto pr-1',
+          'min-h-0 flex-1',
+          grid
+            ? 'grid grid-cols-2 content-start gap-2 overflow-y-auto pr-1'
+            : compact
+              ? 'flex flex-col gap-1.5 overflow-y-auto pr-1'
+              : 'flex flex-col gap-2 overflow-y-auto pr-1',
         ].join(' ')}
       >
         {tickets.length === 0 ? (
@@ -49,7 +54,7 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
         ) : (
           tickets.map((ticket) => (
             <div key={ticket.id} className="h-[52px] shrink-0">
-              <TicketCard ticket={ticket} />
+              <TicketCard ticket={ticket} dense={grid} />
             </div>
           ))
         )}

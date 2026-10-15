@@ -60,10 +60,6 @@ export function BettingPanel() {
   const padActive = !locked && (jackpotFocus !== null || digits.length < MAX_DIGIT_SLOTS);
 
   const jackpotLabel = tier ? JACKPOT_LABEL[tier] : null;
-  const jackpotCopy =
-    tier === null
-      ? 'Win your base bet to unlock a bonus jackpot bet.'
-      : `Win your base bet, then ${jackpotPick.join(', ')} in any order on the next 3 draws wins the ${jackpotLabel} jackpot.`;
 
   function handleDigitPress(digit: number) {
     if (locked) return;
@@ -222,19 +218,6 @@ export function BettingPanel() {
         </span>
       </div>
 
-      {/* 2. Exact / Any order */}
-      {comboAvailable && !staged && (
-        <OrderMode
-          digits={digits}
-          anyOrder={comboActive}
-          locked={locked}
-          onChange={(v) => {
-            playUiClick();
-            setIsCombo(v);
-          }}
-        />
-      )}
-
       {staged && (
         <div className="mt-3 flex items-start justify-between gap-2 rounded-xl border border-[#eab308]/40 bg-[#eab308]/[0.06] px-3 py-2 font-mono text-[11px]">
           <div className="min-w-0">
@@ -258,10 +241,10 @@ export function BettingPanel() {
         </div>
       )}
 
-      {/* 3. Pad */}
+      {/* 2. Pad */}
       <DigitPad active={padActive} onPress={handleDigitPress} />
 
-      {/* 4. Actions */}
+      {/* 3. Actions */}
       <div className="mt-3 grid grid-cols-[1fr_1fr_1.6fr] gap-1.5">
         <button type="button" onClick={handleClear} disabled={locked || (digits.length === 0 && !staged)} className={actionBtn}>
           Clear
@@ -280,48 +263,46 @@ export function BettingPanel() {
         </button>
       </div>
 
+      {/* 4. Exact / Any order */}
+      {comboAvailable && !staged && (
+        <OrderMode
+          digits={digits}
+          anyOrder={comboActive}
+          locked={locked}
+          onChange={(v) => {
+            playUiClick();
+            setIsCombo(v);
+          }}
+        />
+      )}
+
       {/* 5. Jackpot numbers */}
-      <div className="mt-3 rounded-xl border border-[#eab308]/25 bg-[#eab308]/[0.04] px-3 py-2">
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]">
-          Jackpot Numbers
-          {jackpotLabel && <span className="text-white/50"> · {jackpotLabel}</span>}
-        </span>
-        <div className="mt-1.5 flex items-center gap-3">
-          <div role="group" aria-label="Jackpot numbers" className="flex shrink-0 items-center gap-1.5">
-            {jackpotPick.map((value, i) => (
-              <JackpotSlot
-                key={i}
-                value={value}
-                waiting={!locked && jackpotFocus === i}
-                disabled={locked}
-                onClick={() => focusJackpotSlot(i as 0 | 1 | 2)}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={handleRandomJackpot}
+      <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-[#eab308]/25 bg-[#eab308]/[0.04] px-3 py-2">
+        <div className="min-w-0 font-mono leading-tight">
+          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#eab308]">Jackpot Numbers</div>
+          <div className="mt-0.5 text-[10px] font-bold text-white/80">{jackpotLabel} | in any order </div>
+        </div>
+        <div role="group" aria-label="Jackpot numbers" className="flex shrink-0 items-center gap-1.5">
+          {jackpotPick.map((value, i) => (
+            <JackpotSlot
+              key={i}
+              value={value}
+              waiting={!locked && jackpotFocus === i}
               disabled={locked}
-              aria-label="Random jackpot numbers"
-              className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg border border-[#eab308]/40 text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <DiceIcon />
-            </button>
-          </div>
-          <p className="min-w-0 flex-1 font-mono text-[10px] leading-snug text-white/50">{jackpotCopy}</p>
+              onClick={() => focusJackpotSlot(i as 0 | 1 | 2)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={handleRandomJackpot}
+            disabled={locked}
+            aria-label="Random jackpot numbers"
+            className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg border border-[#eab308]/40 text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ShuffleIcon />
+          </button>
         </div>
       </div>
-
-      {feedback && (
-        <p
-          role="status"
-          className={[
-            'mt-3 rounded-lg px-3 py-1.5 text-center text-xs',
-            feedback.type === 'success' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-red-400/10 text-red-300',
-          ].join(' ')}
-        >
-          {feedback.message}
-        </p>
-      )}
 
       {/* 6. Place bet */}
       <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 rounded-b-3xl border-t border-white/[0.06] bg-[#141414]/95 px-4 pb-4 pt-3 backdrop-blur-sm sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
@@ -372,8 +353,8 @@ function OrderMode({
   onChange: (anyOrder: boolean) => void;
 }) {
   const options = [
-    { value: false, title: 'Exact order', stake: TICKET_STAKE },
-    { value: true, title: 'Any order', stake: calculateComboStake(digits) },
+    { value: false, title: 'Exact order', stake: TICKET_STAKE, links: 1 },
+    { value: true, title: 'Any order', stake: calculateComboStake(digits), links: countComboPossibilities(digits) },
   ];
   return (
     <div
@@ -391,13 +372,17 @@ function OrderMode({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={[
-              'flex flex-col items-center whitespace-nowrap rounded-lg px-1.5 py-1 font-mono leading-tight transition disabled:cursor-not-allowed disabled:opacity-40',
-              active ? 'bg-[#eab308] text-black' : 'text-white/55 hover:text-white/80',
+              'flex flex-col items-center rounded-lg px-2 py-1.5 font-mono leading-tight transition disabled:cursor-not-allowed disabled:opacity-40',
+              active
+                ? 'bg-[#eab308] text-black shadow-[0_0_16px_-4px_rgba(234,179,8,0.75)]'
+                : 'text-white/50 hover:text-white/80',
             ].join(' ')}
           >
-            <span className="text-[9px] font-semibold uppercase tracking-[0.15em] opacity-70">Numbers in</span>
-            <span className="text-[11px] font-black uppercase tracking-wide">
-              {o.title} · {formatCurrency(o.stake)}
+            <span className={['text-xs uppercase tracking-wide', active ? 'font-black' : 'font-semibold'].join(' ')}>
+              {o.title}
+            </span>
+            <span className={['mt-0.5 text-[11px] tabular-nums', active ? 'font-bold text-black/75' : 'text-white/40'].join(' ')}>
+              {formatCurrency(o.stake)} · {o.links} link{o.links === 1 ? '' : 's'}
             </span>
           </button>
         );
@@ -436,15 +421,14 @@ function JackpotSlot({ value, waiting, disabled, onClick }: JackpotSlotProps) {
   );
 }
 
-function DiceIcon() {
+function ShuffleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
-      <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m18 14 4 4-4 4" />
+      <path d="m18 2 4 4-4 4" />
+      <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" />
+      <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
+      <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
     </svg>
   );
 }
