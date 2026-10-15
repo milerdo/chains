@@ -11,12 +11,22 @@ function baseCircleState(ticket: Ticket, index: number): CircleState {
   return 'pending';
 }
 
-function jackpotCircleState(ticket: Ticket, index: number): CircleState {
-  if (index < ticket.jackpotProgress) return 'matched';
-  if (ticket.status === 'JACKPOT_LOST' && index === ticket.jackpotProgress) return 'failed';
-  const isQualifying = ticket.status === 'BASE_WON' || ticket.status === 'JACKPOT_STEP_1' || ticket.status === 'JACKPOT_STEP_2';
-  if (isQualifying && index === ticket.jackpotProgress) return 'current';
-  return 'pending';
+/** Per-circle states for the 3 jackpot numbers (any-order, multiset match). */
+function jackpotCircleStates(ticket: Ticket): CircleState[] {
+  const pool = [...ticket.jackpotMatched];
+  const states = ticket.jackpotSequence.map<CircleState>((digit) => {
+    const i = pool.indexOf(digit);
+    if (i === -1) return 'pending';
+    pool.splice(i, 1);
+    return 'matched';
+  });
+  if (ticket.status === 'JACKPOT_LOST') {
+    const first = states.indexOf('pending');
+    if (first !== -1) states[first] = 'failed';
+    return states;
+  }
+  const qualifying = ticket.status === 'BASE_WON' || ticket.status === 'JACKPOT_STEP_1' || ticket.status === 'JACKPOT_STEP_2';
+  return qualifying ? states.map<CircleState>((s) => (s === 'pending' ? 'current' : s)) : states;
 }
 
 const JACKPOT_TIER_DISPLAY: Record<string, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
@@ -93,32 +103,34 @@ interface LinkChainProps {
 }
 
 export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChainProps) {
+  if (showJackpot && isJackpotRelevant(ticket.status)) {
+    return <JackpotChain ticket={ticket} size={size} />;
+  }
   return (
-   <div className="flex flex-nowrap items-center">
+    <div className="flex flex-nowrap items-center">
+      <BaseChain ticket={ticket} size={size} />
+    </div>
+  );
+}
+
+/** Bonus jackpot bet: only shown once the base sequence is won. No arrows to
+ * a pill; the whole card is gold-tinted (see Ticket.tsx). */
+function JackpotChain({ ticket, size }: { ticket: Ticket; size: 'xs' | 'sm' | 'md' }) {
+  const states = jackpotCircleStates(ticket);
+  return (
+    <div className="flex flex-nowrap items-center gap-2">
       <span className="flex shrink-0 items-center">
-        {ticket.baseSequence.map((digit, i) => (
-          <span key={`b-${i}`} className="flex items-center">
+        {ticket.jackpotSequence.map((digit, i) => (
+          <span key={i} className="flex items-center">
             {i > 0 && <Link size={size} />}
-            <ChainCircle digit={digit} state={baseCircleState(ticket, i)} size={size} />
+            <ChainCircle digit={digit} state={states[i]} size={size} />
           </span>
         ))}
       </span>
-      {showJackpot && (
-        <span className="flex shrink-0 items-center">
-          <Link size={size} />
-          <span className="flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#eab308]/60 bg-[#eab308]/[0.14] px-1.5 py-0.5">
-            {ticket.jackpotSequence.map((digit, i) => (
-              <span key={`j-${i}`} className="flex items-center">
-                {i > 0 && <Link size={size} />}
-                <ChainCircle digit={digit} state={jackpotCircleState(ticket, i)} size={size} />
-              </span>
-            ))}
-            {size !== 'xs' && (
-              <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
-                {JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}
-              </span>
-            )}
-          </span>
+      {size !== 'xs' && (
+        <span className="flex shrink-0 flex-col font-mono font-bold uppercase leading-none text-[#eab308]">
+          <span className="text-[8px] tracking-[0.2em] opacity-70">Jackpot</span>
+          <span className="mt-0.5 text-[11px] tracking-[0.1em]">{JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}</span>
         </span>
       )}
     </div>
@@ -129,7 +141,7 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
  * Links not yet in qualification all fall into one pill-less 'base' group. */
 function jackpotGroupKey(t: Ticket): string {
   return isJackpotRelevant(t.status)
-    ? `${t.jackpotTier}|${t.jackpotSequence.join(',')}|${t.jackpotProgress}|${t.status}`
+    ? `${t.jackpotTier}|${t.jackpotSequence.join(',')}|${[...t.jackpotMatched].sort().join(',')}|${t.status}`
     : 'base';
 }
 
@@ -167,29 +179,22 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
     >
       <>
           <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-white/40">{tickets.length}</span>
-          {[...groups.entries()].map(([key, group]) => {
-            const lead = group[0];
-            return (
-              <span key={key} className="flex shrink-0 items-center gap-1.5">
-                {group.map((t) => (
-                  <BaseChain key={t.id} ticket={t} size="xs" />
-                ))}
-                {key !== 'base' && (
-                  <span className="flex shrink-0 items-center rounded-full border border-[#eab308]/60 bg-[#eab308]/[0.14] px-1.5 py-0.5">
-                    {lead.jackpotSequence.map((digit, i) => (
-                      <span key={i} className="flex items-center">
-                        {i > 0 && <Link size="xs" />}
-                        <ChainCircle digit={digit} state={jackpotCircleState(lead, i)} size="xs" />
-                      </span>
-                    ))}
-                     <span className="ml-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#eab308]">
-                      {JACKPOT_TIER_DISPLAY[lead.jackpotTier]}
-                    </span>
+          {[...groups.entries()].map(([key, group]) => (
+            <span key={key} className="flex shrink-0 items-center gap-1.5">
+              {key === 'base' ? (
+                group.map((t) => <BaseChain key={t.id} ticket={t} size="xs" />)
+              ) : (
+                <>
+                  <span className="flex shrink-0 items-center rounded-md border border-[#eab308]/60 bg-[#eab308]/[0.14] px-1.5 py-0.5">
+                    <JackpotChain ticket={group[0]} size="xs" />
                   </span>
-                )}
-              </span>
-            );
-          })}
+                  {group.length > 1 && (
+                    <span className="font-mono text-[9px] font-bold text-[#eab308]">×{group.length}</span>
+                  )}
+                </>
+              )}
+            </span>
+          ))}
         </>
     </div>
   );

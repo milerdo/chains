@@ -8,7 +8,7 @@ import { memo, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { useGame } from '../hooks/useGame';
 import { playTick } from '../utils/audio';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { nextExpectedDigit } from '../game/ticket';
+import { expectedDigits } from '../game/ticket';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
@@ -23,8 +23,9 @@ const HUB_R = 20;
 const RIVET_R = 136;
 const RIVET_COUNT = 26;
 const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
-// Bet-marker chips sit in the empty band between hub and digits: [radius, angle offset°] inside the wedge.
-const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[56, 0], [42, -7], [42, 7], [70, -8], [70, 8], [30, 0]];
+// Bet-marker chips orbit the numeral (DIGIT_R = 92): [radius, angle offset°] inside the wedge.
+// inner, outer, left, right, inner-left, inner-right
+const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[70, 0], [113, 0], [92, -12], [92, 12], [72, -10], [72, 10]];
 const CHIP_R = 4.6;
 
 import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
@@ -174,7 +175,7 @@ const WheelDisc = memo(function WheelDisc({
           if (count === 0) return null;
           const base = digit * HOLE_STEP_DEG;
           if (count > CHIP_SLOTS.length) {
-            const p = pt(base, 56);
+            const p = pt(base, 70);
             return (
               <g key={`chips-${digit}`}>
                 <Chip x={p.x} y={p.y} r={7.5} />
@@ -234,8 +235,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
     if (phase !== 'BETTING_OPEN') return;
     const counts: number[] = Array(10).fill(0);
     for (const t of activeTickets) {
-      const d = nextExpectedDigit(t);
-      if (d !== null) counts[d] += 1;
+      for (const d of expectedDigits(t)) counts[d] += 1;
     }
     setMarkerCounts((prev) => (prev.every((v, i) => v === counts[i]) ? prev : counts));
   }, [phase, activeTickets]);

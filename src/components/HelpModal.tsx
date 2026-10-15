@@ -89,20 +89,21 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
           <Section title="Jackpot">
             <p>
-              Select a 2-digit jackpot pair when you bet. After a base win, the next 2 draws must match your selection, in order,
-              to win your tier's jackpot. Miss and you keep your original win.
+              Pick 3 jackpot numbers when you bet. After a base win, your link turns into a bonus jackpot bet: the next 3 draws
+              must be your 3 numbers, in any order, to win your tier's jackpot. Miss and you keep your original win.
             </p>
           </Section>
 
           <Section title="Example">
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 font-mono text-xs">
-              <p className="text-white/50">HIGH 4 → 2 → 3 · Jackpot 7 → 4</p>
+               <p className="text-white/50">HIGH 4 → 2 → 3 · Jackpot 7, 4, 1 (any order)</p>
               <div className="mt-3 flex flex-col gap-1.5">
                 <ExampleRow label="Draw 1" value="4" note="✓ match" tone="win" />
                 <ExampleRow label="Draw 2" value="2" note="✓ match" tone="win" />
                 <ExampleRow label="Draw 3" value="3" note={`✓ WIN — ${BASE_MULTIPLIERS.HIGH}× paid`} tone="win" />
-                <ExampleRow label="Draw 4" value="7" note="✓ jackpot 1/2" tone="win" />
-                <ExampleRow label="Draw 5" value="4" note="✓ HIGH JACKPOT WON" tone="jackpot" />
+                <ExampleRow label="Draw 4" value="1" note="✓ jackpot 1/3" tone="win" />
+                <ExampleRow label="Draw 5" value="7" note="✓ jackpot 2/3" tone="win" />
+                <ExampleRow label="Draw 6" value="4" note="✓ HIGH JACKPOT WON" tone="jackpot" />
               </div>
             </div>
           </Section>

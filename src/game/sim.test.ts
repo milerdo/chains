@@ -14,7 +14,7 @@ async function measureBaseRtp(tier: TicketTier, seed: number): Promise<number> {
     // Yield periodically so Vitest's worker can report progress (avoids RPC timeout).
     if (i % 500_000 === 0) await new Promise((r) => setTimeout(r, 0));
     const digits = Array.from({ length: BASE_SEQUENCE_LENGTH[tier] }, () => rng.generateDigit());
-    let ticket = createTicket({ tier, digits, jackpotSequence: [0, 0], startDrawIndex: 1, createdAtDrawIndex: 0 });
+    let ticket = createTicket({ tier, digits, jackpotSequence: [0, 0, 0], startDrawIndex: 1, createdAtDrawIndex: 0 });
     let idx = 1;
     while (ticket.status === 'WAITING' || ticket.status === 'ACTIVE') {
       ticket = evaluateTicketOnDraw(ticket, { drawIndex: idx++, digit: rng.generateDigit() });

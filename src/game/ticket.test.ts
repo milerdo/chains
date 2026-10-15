@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { activateDueTickets, countActiveWithSameSequence, createTicket, evaluateTicketOnDraw, nextExpectedDigit } from './ticket';
-import type { Ticket, TicketTier } from './types';
+import { activateDueTickets, countActiveWithSameSequence, createTicket, evaluateTicketOnDraw, expectedDigits } from './ticket';
+import type { JackpotSequence, Ticket, TicketTier } from './types';
 
 
-const mk = (tier: TicketTier, digits: number[], jp: [number, number] = [7, 4]) =>
+const mk = (tier: TicketTier, digits: number[], jp: JackpotSequence = [7, 4, 1]) =>
   createTicket({ tier, digits, jackpotSequence: jp, startDrawIndex: 1, createdAtDrawIndex: 0 });
 
 function run(t: Ticket, digits: number[]): Ticket {
@@ -46,36 +46,59 @@ describe('base game', () => {
   });
 });
 
-describe('jackpot qualification', () => {
+describe('jackpot qualification (3 numbers, any order, 3 draws)', () => {
   const base = () => run(mk('HIGH', [4, 2, 3]), [4, 2, 3]);
 
-  it('wins when both jackpot digits match in order', () => {
-    const t = run(base(), [7, 4]);
-    expect(t.status).toBe('JACKPOT_WON');
-    expect(t.jackpotProgress).toBe(2);
+  it('wins on any ordering of the set', () => {
+    for (const order of [[7, 4, 1], [1, 7, 4], [4, 1, 7], [7, 1, 4]]) {
+      expect(run(base(), order).status).toBe('JACKPOT_WON');
+    }
   });
 
-  it('keeps the base payout when the second digit misses', () => {
-    const t = run(base(), [7, 2]);
-    expect(t.status).toBe('JACKPOT_LOST');
-    expect(t.baseWinAmount).toBe(900);
-    expect(t.totalReturn).toBe(900);
+  it('tracks progress per matched digit', () => {
+    const one = run(base(), [4]);
+    expect(one.status).toBe('JACKPOT_STEP_1');
+    expect(one.jackpotMatched).toEqual([4]);
+    const two = run(one, [1]);
+    expect(two.status).toBe('JACKPOT_STEP_2');
+    expect(two.jackpotProgress).toBe(2);
   });
 
-  it('keeps the base payout when the first digit misses', () => {
-    const t = run(base(), [1]);
-    expect(t.status).toBe('JACKPOT_LOST');
-    expect(t.jackpotProgress).toBe(0);
-    expect(t.totalReturn).toBe(900);
+  it('keeps the base payout when a draw is not in the set', () => {
+    for (const draws of [[1, 1], [7, 9], [7, 4, 2], [9]]) {
+      const t = run(base(), draws);
+      expect(t.status).toBe('JACKPOT_LOST');
+      expect(t.baseWinAmount).toBe(900);
+      expect(t.totalReturn).toBe(900);
+    }
   });
 
-  it('supports a repeated-digit jackpot pair (7 -> 7)', () => {
-    const t = run(run(mk('LOW', [1], [7, 7]), [1]), [7, 7]);
-    expect(t.status).toBe('JACKPOT_WON');
+  it('repeating an already-matched digit ends the attempt', () => {
+    expect(run(base(), [7, 7]).status).toBe('JACKPOT_LOST');
   });
 
-  it('order matters (4 -> 7 does not match 7 -> 4)', () => {
-    expect(run(base(), [4, 7]).status).toBe('JACKPOT_LOST');
+  it('repeated jackpot digits are a multiset (1,1,2 any order; 111 needs 1,1,1)', () => {
+    const lowWon = (jp: JackpotSequence) => run(mk('LOW', [1], jp), [1]);
+    for (const order of [[1, 1, 2], [1, 2, 1], [2, 1, 1]]) {
+      expect(run(lowWon([1, 1, 2]), order).status).toBe('JACKPOT_WON');
+    }
+    expect(run(lowWon([1, 1, 2]), [1, 1, 1]).status).toBe('JACKPOT_LOST');
+    expect(run(lowWon([1, 1, 1]), [1, 1, 1]).status).toBe('JACKPOT_WON');
+    expect(run(lowWon([1, 1, 1]), [1, 1, 2]).status).toBe('JACKPOT_LOST');
+  });
+
+  it('enumeration: of 1000 draw triples, 6 win for distinct digits, 3 for 112, 1 for 111', () => {
+    const count = (jp: JackpotSequence) => {
+      let wins = 0;
+      for (let a = 0; a < 10; a += 1)
+        for (let b = 0; b < 10; b += 1)
+          for (let c = 0; c < 10; c += 1)
+            if (run(run(mk('LOW', [5], jp), [5]), [a, b, c]).status === 'JACKPOT_WON') wins += 1;
+      return wins;
+    };
+    expect(count([7, 4, 1])).toBe(6);
+    expect(count([1, 1, 2])).toBe(3);
+    expect(count([1, 1, 1])).toBe(1);
   });
 });
 
@@ -107,20 +130,21 @@ describe('timeline rules', () => {
 describe('validation', () => {
   it('rejects wrong digit count and bad jackpot pair', () => {
     expect(() => mk('LOW', [1, 2])).toThrow();
-    expect(() => createTicket({ tier: 'LOW', digits: [1], jackpotSequence: [1] as unknown as [number, number], startDrawIndex: 1, createdAtDrawIndex: 0 })).toThrow();
+    expect(() => createTicket({ tier: 'LOW', digits: [1], jackpotSequence: [1, 2] as unknown as JackpotSequence, startDrawIndex: 1, createdAtDrawIndex: 0 })).toThrow();
   });
 });
 
-describe('nextExpectedDigit', () => {
-  it('tracks base, then jackpot, then null', () => {
-    const t = mk('HIGH', [6, 5, 9], [7, 4]);
-    expect(nextExpectedDigit(t)).toBe(6);
+describe('expectedDigits', () => {
+  it('tracks base, then remaining jackpot digits (distinct), then empty', () => {
+    const t = mk('HIGH', [6, 5, 9], [7, 4, 4]);
+    expect(expectedDigits(t)).toEqual([6]);
     const mid = run(t, [6]);
-    expect(nextExpectedDigit(mid)).toBe(5);
+    expect(expectedDigits(mid)).toEqual([5]);
     const won = run(mid, [5, 9]);
-    expect(nextExpectedDigit(won)).toBe(7);
-    expect(nextExpectedDigit(run(won, [7]))).toBe(4);
-    expect(nextExpectedDigit(run(won, [1]))).toBeNull();
-    expect(nextExpectedDigit(run(t, [1]))).toBeNull();
+    expect(expectedDigits(won)).toEqual([7, 4]);
+    expect(expectedDigits(run(won, [4]))).toEqual([7, 4]);
+    expect(expectedDigits(run(won, [4, 4]))).toEqual([7]);
+    expect(expectedDigits(run(won, [1]))).toEqual([]);
+    expect(expectedDigits(run(t, [1]))).toEqual([]);
   });
 });

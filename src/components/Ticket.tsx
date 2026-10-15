@@ -15,9 +15,11 @@ export function TicketCard({ ticket }: { ticket: Ticket }) {
           ? 'border-[#eab308] bg-[#eab308]/[0.08] shadow-[0_0_28px_-6px_rgba(234,179,8,0.55)]'
           : isLost
             ? 'border-red-400/20 bg-red-400/[0.03]'
-            : inQualification || jackpotMissed
-              ? 'border-emerald-400/25 bg-emerald-400/[0.04]'
-              : 'border-white/[0.08] bg-white/[0.02]',
+            : inQualification
+              ? 'border-[#eab308]/60 bg-[#eab308]/[0.12]'
+              : jackpotMissed
+                ? 'border-emerald-400/25 bg-emerald-400/[0.04]'
+                : 'border-white/[0.08] bg-white/[0.02]',
       ].join(' ')}
     >
       <LinkChain ticket={ticket} size="sm" />
@@ -37,7 +39,7 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
       <div
         className={[
           'flex min-h-0 flex-1 flex-col',
-          compact ? 'gap-1.5 overflow-y-auto pr-1' : 'gap-2 overflow-hidden',
+           compact ? 'gap-1.5 overflow-y-auto pr-1' : 'gap-2 overflow-y-auto pr-1',
         ].join(' ')}
       >
         {tickets.length === 0 ? (
@@ -46,7 +48,7 @@ export function TicketDrawer({ tickets, compact = false }: { tickets: Ticket[]; 
           </p>
         ) : (
           tickets.map((ticket) => (
-            <div key={ticket.id} className={compact ? 'h-[52px] shrink-0' : 'min-h-0 flex-1 max-h-[52px]'}>
+            <div key={ticket.id} className="h-[52px] shrink-0">
               <TicketCard ticket={ticket} />
             </div>
           ))

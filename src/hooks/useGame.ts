@@ -60,6 +60,7 @@ import type {
   Ticket,
   TicketStatus,
   TicketTier,
+  JackpotSequence,
 } from '../game/types';
 
 export interface AutoBetState {
@@ -70,8 +71,8 @@ export interface AutoBetState {
 
 export interface UseGameValue {
   /** Player's chosen jackpot pair; persists across rounds and breakpoint remounts. */
-  jackpotPick: [number | null, number | null];
-  setJackpotPick: (pair: [number | null, number | null]) => void;
+  jackpotPick: JackpotSequence;
+  setJackpotPick: (pick: JackpotSequence) => void;
   bettingLocked: boolean;
   autoBet: AutoBetState | null;
   autoBetError: string | null;
@@ -89,7 +90,7 @@ export interface UseGameValue {
   /** The 2-digit jackpot combination auto-assigned for the current betting
    * round (Section 9). Editable in the UI, but pre-filled with this value
    * the instant a fresh BETTING_OPEN phase begins. */
-  currentJackpotSequence: [number, number];
+  currentJackpotSequence: JackpotSequence;
   /** The most recently RESOLVED draw, held back from the raw engine value
    * until the Wheel has reported that its landing animation has actually
    * finished (see file header). Every component that displays a digit
@@ -144,7 +145,7 @@ export interface UseGameValue {
 function cloneRequest(r: BetRequest): BetRequest {
   return {
     selections: r.selections.map((s) => ({ ...s, digits: [...s.digits] })),
-    jackpotSequence: [r.jackpotSequence[0], r.jackpotSequence[1]],
+    jackpotSequence: [...r.jackpotSequence],
   };
 }
 
@@ -199,7 +200,11 @@ export function GameProvider({
   
   const [payoutFlash, setPayoutFlash] = useState<{ amount: number; key: number } | null>(null);
   const payoutFlashTimeoutRef = useRef<number | null>(null);
-  const [jackpotPick, setJackpotPick] = useState<[number | null, number | null]>([null, null]);
+  const [jackpotPick, setJackpotPick] = useState<JackpotSequence>(() => [
+    Math.floor(Math.random() * 10),
+    Math.floor(Math.random() * 10),
+    Math.floor(Math.random() * 10),
+  ]);
   const roundBetsRef = useRef<BetRequest[]>([]);
   const [lastRoundBets, setLastRoundBets] = useState<BetRequest[]>([]);
   // --- Reveal-delayed draw/stream state (public reveal) ----------------

@@ -31,14 +31,14 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 - Desktop: left = Live Active Bets (`MultiplayerSim`) + `EmojiChat`; middle = `JackpotPanel` + `Wheel`; right = `PhaseStatus` + (`BettingPanel` | `TicketDrawer`). TicketDrawer replaces the panel only when `bettingLocked && activeTickets.length > 0` (`showDrawerOnly`). `BettingPanel` stays mounted (hidden) while the drawer shows.
 - Mobile: one no-scroll screen. `PhaseStatus` only while betting is open (no GOOD LUCK state on mobile), JackpotPanel, Wheel (`compact`, `collapsed` during BETTING_OPEN), then BettingPanel (mounted, hidden when locked) with `LinkStrip` above it, or compact TicketDrawer when locked with links. `MobileFooter` = sound/help/history/(demo)/socials + Balance. Socials = bottom sheet (Live Active Bets + chat).
 - Short screens (`max-height:740px`): while betting is open, JackpotPanel is not rendered and the Wheel wrapper is `hidden`. NEVER unmount the Wheel (refs, `reportWheelLanded`).
-- Compact TicketDrawer scrolls, cards fixed `h-[52px] shrink-0`. Desktop drawer: `flex-1 max-h-[52px]`, no scroll.
+- Compact TicketDrawer scrolls, cards fixed `h-[52px] shrink-0`. Desktop drawer: “fixed 52px cards, scrolls.
 - Empty states show nothing (LinkStrip returns null). Don't add empty-state copy.
 - Header: `HostMark` = `<img src="/chains-logo.png">` (transparent PNG).
 
 ## 7. Betting panel
 - `digits: number[]` (max 3, tier by count), `isCombo`, `jackpotFocus`. `jackpotPick` is `[n|null, n|null]` in GameProvider, starts empty, persists across rounds; reset never clears it.
 - Jackpot pair is its own "Jackpot Numbers" section below the Clear/Random/Repeat row (tier label shown, Random button, short explainer). Caption under base digits: "Base chain pays N×".
-- Exact order / Any order is a compact two-option segmented control (OrderMode) under the base digits, shown only with 2+ digits. Each option shows its stake and link count. Any order still expands into one $1 link per unique ordering. Random changes digits only. After a bet: digits + mode reset.
+- Exact order / Any order is a compact two-option segmented control (OrderMode) under the base digits, shown only with 2+ digits. Each option shows its stake. Any order still expands into one $1 link per unique ordering. Random changes digits only. After a bet: digits + mode reset.
 - Multiple bets per round on any tier are allowed (no round lock). Cap: 3 live links per tier+sequence. LOW multi-pick UI and Auto Bet UI are removed; engine multi-selection and provider auto-bet state remain, unreachable. Don't rebuild the UI without asking.
 - Repeat Last Bet: provider keeps lastRoundBets (the last round the player actually bet in). Pressing it dry-run validates via placeBets(..., true) and stages the full set in the panel (local state); nothing is placed until Place Bet, which calls atomic placeBets.
 

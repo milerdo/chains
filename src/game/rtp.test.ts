@@ -11,6 +11,8 @@ describe('theoretical RTP', () => {
   it('overall / house edge / jackpot frequency', () => {
     expect(overallRtp()).toBeCloseTo(0.95, 10);
     expect(houseEdge()).toBeCloseTo(0.05, 10);
-    expect(jackpotHitProbability('HIGH')).toBeCloseTo(1e-5, 12);
+    expect(jackpotHitProbability('HIGH')).toBeCloseTo(6e-6, 12); // 3 distinct digits
+    expect(jackpotHitProbability('HIGH', [1, 1, 2])).toBeCloseTo(3e-6, 12);
+    expect(jackpotHitProbability('HIGH', [1, 1, 1])).toBeCloseTo(1e-6, 12);
   });
 });

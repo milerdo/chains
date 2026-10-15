@@ -19,10 +19,7 @@ export type TicketTier = 'LOW' | 'MEDIUM' | 'HIGH';
  *                       qualification draws consumed yet (jackpot step 0)
  * JACKPOT_STEP_1     -> first jackpot digit matched, awaiting the second
  *                       qualification draw
- * JACKPOT_STEP_2     -> reserved for jackpot combinations longer than 2
- *                       digits (extensibility hook — unused while the
- *                       jackpot combination is fixed at 2 digits, since
- *                       the second draw resolves directly to WON/LOST)
+ * JACKPOT_STEP_2     -> two jackpot digits matched, awaiting the third
  * JACKPOT_WON        -> full jackpot combination matched (terminal)
  * JACKPOT_LOST       -> jackpot qualification failed; base payout stands
  *                       (terminal)
@@ -39,6 +36,9 @@ export type TicketStatus =
 
 /** The three progressive jackpot pools (Section 16). */
 export type JackpotTierName = 'MINI' | 'MIDI' | 'GRAND';
+
+/** The player's 3 jackpot numbers. Order is irrelevant; repeats are allowed. */
+export type JackpotSequence = [number, number, number];
 
 /** One resolved global draw on the shared stream (Section 4). */
 export interface DrawResult {
@@ -68,8 +68,10 @@ export interface Ticket {
   tier: TicketTier;
   /** The exact digit sequence this ticket must match, in order. */
   baseSequence: number[];
-  /** The 2-digit jackpot combination locked in at bet time (Section 8). */
-  jackpotSequence: [number, number];
+  /** The 3 jackpot numbers locked in at bet time. Matched in any order. */
+  jackpotSequence: JackpotSequence;
+  /** Jackpot digits matched so far, in the order they were drawn. */
+  jackpotMatched: number[];
   /** Which progressive pool this ticket can win (Section 16). */
   jackpotTier: JackpotTierName;
   /** Stake in demo credits paid for this ticket. */
@@ -129,7 +131,7 @@ export interface BetSelection {
  * combination for that betting round (Sections 5 & 8). */
 export interface BetRequest {
   selections: BetSelection[];
-  jackpotSequence: [number, number];
+  jackpotSequence: JackpotSequence;
 }
 
 /** Result of attempting to place a bet. */
@@ -187,7 +189,7 @@ export interface GameState {
    * (Section 9: "The combination is randomly generated and displayed
    * during the betting phase"). The player may still edit it before
    * confirming a bet — this is only the auto-assigned starting value. */
-  currentJackpotSequence: [number, number];
+  currentJackpotSequence: JackpotSequence;
   phaseStartedAt: number;
   phaseEndsAt: number;
   timeRemainingMs: number;

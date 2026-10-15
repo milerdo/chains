@@ -30,6 +30,7 @@ import type {
   SimulatedActivityEvent,
   Ticket,
   TicketTier,
+  JackpotSequence,
 } from './types';
 import {
   BASE_SEQUENCE_LENGTH,
@@ -89,7 +90,7 @@ export class ChainsGame {
    * round (Section 9). Regenerated every time a fresh BETTING_OPEN phase
    * begins (see enterPhase / reset below). The player may still edit it in
    * the UI before confirming — this is only the starting value. */
-  private currentJackpotSequence: [number, number] = [0, 0];
+  private currentJackpotSequence: JackpotSequence = [0, 0, 0];
 
   // --- phase / scheduler state -----------------------------------------------
   private phase: GamePhase = 'BETTING_OPEN';
@@ -126,7 +127,7 @@ export class ChainsGame {
     this.balance = this.config.startingBalance;
     this.phaseDurationMs = this.config.bettingDurationMs;
     this.phaseRemainingMs = this.phaseDurationMs;
-    this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
+    this.currentJackpotSequence = this.randomJackpot();
     this.simulatedActivity = this.generateSimulatedActivity();
   }
 
@@ -144,12 +145,13 @@ export class ChainsGame {
       tickets: this.tickets.map((t) => ({
         ...t,
         baseSequence: [...t.baseSequence],
-        jackpotSequence: [t.jackpotSequence[0], t.jackpotSequence[1]],
+        jackpotSequence: [...t.jackpotSequence],
+        jackpotMatched: [...t.jackpotMatched],
         drawLog: [...t.drawLog],
       })),
       balance: this.balance,
       jackpotPools: this.jackpotManager.getPools(),
-      currentJackpotSequence: [this.currentJackpotSequence[0], this.currentJackpotSequence[1]],
+      currentJackpotSequence: [...this.currentJackpotSequence],
       phaseStartedAt: this.phaseStartTime,
       phaseEndsAt: this.phaseStartTime + this.phaseRemainingMs / this.speedMultiplier,
       timeRemainingMs: this.getTimeRemainingMs(),
@@ -176,8 +178,8 @@ export class ChainsGame {
     return this.jackpotManager.getPools();
   }
 
-  getCurrentJackpotSequence(): [number, number] {
-    return [this.currentJackpotSequence[0], this.currentJackpotSequence[1]];
+  getCurrentJackpotSequence(): JackpotSequence {
+    return [...this.currentJackpotSequence];
   }
 
   getBalance(): number {
@@ -472,9 +474,9 @@ export class ChainsGame {
   /** Creates a ticket on behalf of the demo panel, bypassing the
    * BETTING_OPEN phase restriction so a presenter can drop in a ticket at
    * any moment to narrate a scenario. */
-  createSimulatedTicket(tier: TicketTier, digits?: number[], jackpotSequence?: [number, number]): PlaceBetResult {
+  createSimulatedTicket(tier: TicketTier, digits?: number[], jackpotSequence?: JackpotSequence): PlaceBetResult {
     const resolvedDigits = digits ?? this.randomDigits(BASE_SEQUENCE_LENGTH[tier]);
-    const resolvedJackpot: [number, number] = jackpotSequence ?? [this.randomDigit(), this.randomDigit()];
+    const resolvedJackpot: JackpotSequence = jackpotSequence ?? this.randomJackpot();
     return this.placeBetInternal(
       { selections: [{ tier, digits: resolvedDigits }], jackpotSequence: resolvedJackpot },
       { bypassPhaseCheck: true },
@@ -492,7 +494,7 @@ export class ChainsGame {
   simulateJackpotWin(jackpotTierName: JackpotTierName): Ticket {
     const tier = TIER_FOR_JACKPOT[jackpotTierName];
     const digits = this.randomDigits(BASE_SEQUENCE_LENGTH[tier]);
-    const jackpotSequence: [number, number] = [this.randomDigit(), this.randomDigit()];
+    const jackpotSequence: JackpotSequence = this.randomJackpot();
 
     let ticket = createTicket({
       tier,
@@ -510,7 +512,8 @@ export class ChainsGame {
       ...ticket,
       status: 'JACKPOT_WON',
       baseProgress: ticket.baseSequence.length,
-      jackpotProgress: 2,
+      jackpotProgress: 3,
+      jackpotMatched: [...jackpotSequence],
       resolvedBaseAtDrawIndex: this.drawIndex,
       resolvedJackpotAtDrawIndex: this.drawIndex,
       baseWinAmount,
@@ -552,7 +555,7 @@ export class ChainsGame {
     this.phaseDurationMs = this.config.bettingDurationMs;
     this.phaseRemainingMs = this.phaseDurationMs;
     this.phaseStartTime = Date.now();
-    this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
+    this.currentJackpotSequence = this.randomJackpot();
 
     this.simulatedActivity = this.generateSimulatedActivity();
     this.simulatedActivity = { ...this.simulatedActivity, digitPopularity: this.regenerateDigitPopularity() };
@@ -732,7 +735,7 @@ export class ChainsGame {
       // Section 9: a fresh 2-digit jackpot combination is randomly
       // generated and displayed at the start of every betting round. The
       // player may still edit it before confirming a bet.
-      this.currentJackpotSequence = [this.randomDigit(), this.randomDigit()];
+      this.currentJackpotSequence = this.randomJackpot();
       // Cosmetic "table heat" realism fix: one low-variance popularity
       // bias per round instead of fully re-randomizing every draw. See
       // regenerateDigitPopularity() below.
@@ -811,7 +814,11 @@ export class ChainsGame {
   private randomDigits(count: number): number[] {
     return Array.from({ length: count }, () => this.randomDigit());
   }
-
+  
+  private randomJackpot(): JackpotSequence {
+    return [this.randomDigit(), this.randomDigit(), this.randomDigit()];
+  }
+  
   /**
    * Produces cosmetic "other players" activity for the live-table feel
    * (Section 28). Entirely simulated, never represents real accounts, and

@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { playUiClick } from '../utils/audio';
 import { formatCurrency } from '../utils/format';
-import { calculateComboStake, countComboPossibilities, expandComboPossibilities } from '../game/combo';
+import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
 import { DIGIT_COLORS } from '../utils/digitColors';
-import type { BetRequest, TicketTier } from '../game/types';
+import type { BetRequest, JackpotSequence, TicketTier } from '../game/types';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH;
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -27,8 +27,7 @@ interface StagedBets {
 }
 
 function describeBet(r: BetRequest): string {
-  const picks = r.selections.map((s) => `${s.digits.join('→')}${s.isCombo ? ' any' : ''}`).join(', ');
-  return `${picks} · J ${r.jackpotSequence.join('→')}`;
+  return r.selections.map((s) => `${s.digits.join('→')}${s.isCombo ? ' any' : ''}`).join(', ');
 }
 
 export function BettingPanel() {
@@ -37,7 +36,7 @@ export function BettingPanel() {
   } = useGame();
   const [digits, setDigits] = useState<number[]>([]);
   const [isCombo, setIsCombo] = useState(false);
-  const [jackpotFocus, setJackpotFocus] = useState<0 | 1 | null>(null);
+  const [jackpotFocus, setJackpotFocus] = useState<0 | 1 | 2 | null>(null);
   const [staged, setStaged] = useState<StagedBets | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -52,46 +51,34 @@ export function BettingPanel() {
   }, [locked]);
 
   const tier = tierForDigitCount(digits.length);
-  const comboActive = digits.length >= 2 && isCombo;
+  const comboAvailable = digits.length >= 2 && countComboPossibilities(digits) > 1;
+  const comboActive = comboAvailable && isCombo;
   const possibilityCount = comboActive ? countComboPossibilities(digits) : 1;
   const entryStake = tier === null ? 0 : comboActive ? calculateComboStake(digits) : TICKET_STAKE;
   const totalStake = staged ? staged.totalStake : entryStake;
-  const jackpotComplete = jackpotPick[0] !== null && jackpotPick[1] !== null;
-  const waitingJackpot: 0 | 1 | null =
-    locked ? null : jackpotFocus ?? (jackpotPick[0] === null ? 0 : jackpotPick[1] === null ? 1 : null);
-  const canSubmit =
-    !locked && balance >= totalStake && (staged !== null || (tier !== null && jackpotComplete));
-  const padActive = !locked && (jackpotFocus !== null || digits.length < MAX_DIGIT_SLOTS || !jackpotComplete);
+  const canSubmit = !locked && balance >= totalStake && (staged !== null || tier !== null);
+  const padActive = !locked && (jackpotFocus !== null || digits.length < MAX_DIGIT_SLOTS);
 
   const jackpotLabel = tier ? JACKPOT_LABEL[tier] : null;
   const jackpotCopy =
     tier === null
-      ? 'Win your base bet to unlock a jackpot attempt.'
-      : jackpotComplete
-        ? `Win your base bet first. Then ${jackpotPick[0]} → ${jackpotPick[1]} on the next 2 draws wins the ${jackpotLabel} jackpot.`
-        : `Win your base bet first, then pick 2 numbers to chase the ${jackpotLabel} jackpot.`;
+      ? 'Win your base bet to unlock a bonus jackpot bet.'
+      : `Win your base bet, then ${jackpotPick.join(', ')} in any order on the next 3 draws wins the ${jackpotLabel} jackpot.`;
 
   function handleDigitPress(digit: number) {
     if (locked) return;
     playUiClick();
     setFeedback(null);
     if (jackpotFocus !== null) {
-      const next: [number | null, number | null] = [jackpotPick[0], jackpotPick[1]];
+      const next: JackpotSequence = [...jackpotPick];
       next[jackpotFocus] = digit;
       setJackpotPick(next);
-      setJackpotFocus(jackpotFocus === 0 ? 1 : null);
+      setJackpotFocus(jackpotFocus < 2 ? ((jackpotFocus + 1) as 1 | 2) : null);
       return;
     }
     if (digits.length < MAX_DIGIT_SLOTS) {
       setStaged(null);
       setDigits((prev) => [...prev, digit]);
-      return;
-    }
-    const empty = jackpotPick[0] === null ? 0 : jackpotPick[1] === null ? 1 : null;
-    if (empty !== null) {
-      const next: [number | null, number | null] = [jackpotPick[0], jackpotPick[1]];
-      next[empty] = digit;
-      setJackpotPick(next);
     }
   }
 
@@ -129,7 +116,7 @@ export function BettingPanel() {
   function handleRandomJackpot() {
     if (locked) return;
     playUiClick();
-    setJackpotPick([randDigit(), randDigit()]);
+    setJackpotPick([randDigit(), randDigit(), randDigit()]);
     setJackpotFocus(null);
   }
 
@@ -149,7 +136,7 @@ export function BettingPanel() {
     setStaged({ requests: lastRoundBets, totalStake: check.totalStake });
   }
 
-  function focusJackpotSlot(index: 0 | 1) {
+  function focusJackpotSlot(index: 0 | 1 | 2) {
     if (locked) return;
     playUiClick();
     setJackpotFocus((f) => (f === index ? null : index));
@@ -158,7 +145,7 @@ export function BettingPanel() {
   function buildRequest(): BetRequest {
     return {
       selections: [{ tier: tier as TicketTier, digits, isCombo: comboActive }],
-      jackpotSequence: jackpotPick as [number, number],
+      jackpotSequence: [...jackpotPick],
     };
   }
 
@@ -200,9 +187,17 @@ export function BettingPanel() {
                   onClick={() => handleRemoveDigit(i)}
                   disabled={locked || !filled}
                   aria-label={filled ? `Remove digit ${digit}` : 'Empty digit slot'}
-                  style={filled ? { backgroundColor: `${DIGIT_COLORS[digit]}33`, borderColor: DIGIT_COLORS[digit] } : undefined}
+                  style={
+                    filled
+                      ? {
+                          backgroundColor: `${DIGIT_COLORS[digit]}55`,
+                          borderColor: DIGIT_COLORS[digit],
+                          boxShadow: `0 0 14px ${DIGIT_COLORS[digit]}99`,
+                        }
+                      : undefined
+                  }
                   className={[
-                    'flex h-11 w-11 items-center justify-center rounded-xl border font-mono text-lg font-bold tabular-nums transition disabled:cursor-default',
+                    'flex h-14 w-14 items-center justify-center rounded-xl border-2 font-mono text-2xl font-bold tabular-nums transition disabled:cursor-default',
                     filled
                       ? 'text-white'
                       : isNext
@@ -228,7 +223,7 @@ export function BettingPanel() {
       </div>
 
       {/* 2. Exact / Any order */}
-      {digits.length >= 2 && !staged && (
+      {comboAvailable && !staged && (
         <OrderMode
           digits={digits}
           anyOrder={comboActive}
@@ -287,25 +282,30 @@ export function BettingPanel() {
 
       {/* 5. Jackpot numbers */}
       <div className="mt-3 rounded-xl border border-[#eab308]/25 bg-[#eab308]/[0.04] px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]">
-            Jackpot Numbers
-            {jackpotLabel && <span className="text-white/50"> · {jackpotLabel}</span>}
-          </span>
-          <button
-            type="button"
-            onClick={handleRandomJackpot}
-            disabled={locked}
-            className="rounded-md border border-[#eab308]/40 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            Random
-          </button>
-        </div>
+        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308]">
+          Jackpot Numbers
+          {jackpotLabel && <span className="text-white/50"> · {jackpotLabel}</span>}
+        </span>
         <div className="mt-1.5 flex items-center gap-3">
-          <div role="group" aria-label="Jackpot sequence" className="flex shrink-0 items-center gap-1.5">
-            <JackpotSlot value={jackpotPick[0]} waiting={waitingJackpot === 0} disabled={locked} onClick={() => focusJackpotSlot(0)} />
-            <span className="font-mono text-xs text-[#eab308]/60">→</span>
-            <JackpotSlot value={jackpotPick[1]} waiting={waitingJackpot === 1} disabled={locked} onClick={() => focusJackpotSlot(1)} />
+          <div role="group" aria-label="Jackpot numbers" className="flex shrink-0 items-center gap-1.5">
+            {jackpotPick.map((value, i) => (
+              <JackpotSlot
+                key={i}
+                value={value}
+                waiting={!locked && jackpotFocus === i}
+                disabled={locked}
+                onClick={() => focusJackpotSlot(i as 0 | 1 | 2)}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={handleRandomJackpot}
+              disabled={locked}
+              aria-label="Random jackpot numbers"
+              className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg border border-[#eab308]/40 text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <DiceIcon />
+            </button>
           </div>
           <p className="min-w-0 flex-1 font-mono text-[10px] leading-snug text-white/50">{jackpotCopy}</p>
         </div>
@@ -341,10 +341,7 @@ export function BettingPanel() {
               ? `Place ${formatCurrency(staged.totalStake)} Bet`
               : tier === null
                 ? 'Select Digits'
-                : !jackpotComplete
-                  ? 'Set Jackpot Sequence'
-                  : `Place ${formatCurrency(totalStake)} Bet`}
-          </span>
+                : `Place ${formatCurrency(totalStake)} Bet`}          </span>
           {staged ? (
             <span className="text-[10px] tracking-[0.12em] opacity-70">
               Repeat · {staged.requests.length} bet{staged.requests.length === 1 ? '' : 's'}
@@ -374,17 +371,9 @@ function OrderMode({
   locked: boolean;
   onChange: (anyOrder: boolean) => void;
 }) {
-  const arrow = (d: number[]) => d.join('→');
-  const links = (n: number) => `${n} link${n === 1 ? '' : 's'}`;
-  const orders = countComboPossibilities(digits);
-  const typed = arrow(digits);
-  const anyList =
-    orders <= 2
-      ? [digits, ...expandComboPossibilities(digits).filter((p) => arrow(p) !== typed)].map(arrow).join(' or ')
-      : 'all orders';
   const options = [
-    { value: false, title: 'Exact order', stake: TICKET_STAKE, detail: `${typed} · 1 link` },
-    { value: true, title: 'Any order', stake: calculateComboStake(digits), detail: `${anyList} · ${links(orders)}` },
+    { value: false, title: 'Exact order', stake: TICKET_STAKE },
+    { value: true, title: 'Any order', stake: calculateComboStake(digits) },
   ];
   return (
     <div
@@ -406,10 +395,10 @@ function OrderMode({
               active ? 'bg-[#eab308] text-black' : 'text-white/55 hover:text-white/80',
             ].join(' ')}
           >
-            <span className="text-[10px] font-black uppercase tracking-wide">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.15em] opacity-70">Numbers in</span>
+            <span className="text-[11px] font-black uppercase tracking-wide">
               {o.title} · {formatCurrency(o.stake)}
             </span>
-            <span className={['text-[10px]', active ? 'opacity-75' : 'opacity-60'].join(' ')}>{o.detail}</span>
           </button>
         );
       })}
@@ -421,32 +410,42 @@ function OrderMode({
 // Sub-components
 // ----------------------------------------------------------------------------
 interface JackpotSlotProps {
-  value: number | null;
+  value: number;
   waiting: boolean;
   disabled: boolean;
   onClick: () => void;
 }
 
 function JackpotSlot({ value, waiting, disabled, onClick }: JackpotSlotProps) {
-  const filled = value !== null;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={filled ? `Jackpot digit ${value}` : 'Empty jackpot digit'}
-      style={filled && !waiting ? { backgroundColor: `${DIGIT_COLORS[value]}33` } : undefined}
+      aria-label={`Jackpot number ${value}`}
+      style={!waiting ? { backgroundColor: `${DIGIT_COLORS[value]}33` } : undefined}
       className={[
         'flex h-9 w-9 items-center justify-center rounded-lg border-2 font-mono text-sm font-bold tabular-nums transition',
         waiting
           ? 'border-[#eab308] bg-[#eab308]/15 text-[#eab308] shadow-[0_0_0_3px_rgba(234,179,8,0.15)] animate-pulse'
-          : filled
-            ? 'border-[#eab308]/70 text-white'
-            : 'border-dashed border-[#eab308]/40 text-[#eab308]/40',
+          : 'border-[#eab308]/70 text-white',
       ].join(' ')}
     >
-      {value ?? '·'}
+      {value}
     </button>
+  );
+}
+
+function DiceIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+      <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

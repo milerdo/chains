@@ -8,7 +8,7 @@ describe('ChainsGame — combo betting (engine-level)', () => {
     const startingBalance = game.getBalance();
     const result = game.placeBet({
       selections: [{ tier: 'HIGH', digits: [3, 1, 4], isCombo: true }],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(true);
     expect(result.totalStake).toBe(6);
@@ -19,7 +19,7 @@ describe('ChainsGame — combo betting (engine-level)', () => {
     const game = new ChainsGame();
     const result = game.placeBet({
       selections: [{ tier: 'HIGH', digits: [1, 1, 2], isCombo: true }],
-      jackpotSequence: [0, 0],
+      jackpotSequence: [0, 0,0],
     });
     expect(result.success).toBe(true);
     expect(result.ticketIds).toHaveLength(3);
@@ -33,7 +33,7 @@ describe('ChainsGame — combo betting (engine-level)', () => {
     const game = new ChainsGame();
     game.placeBet({
       selections: [{ tier: 'HIGH', digits: [3, 1, 4], isCombo: true }],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     const expectedGrand = INITIAL_JACKPOT_POOLS.GRAND + JACKPOT_CONTRIBUTION_RATES.HIGH * 6;
     expect(game.getJackpotPools().GRAND).toBeCloseTo(expectedGrand, 6);
@@ -46,7 +46,7 @@ describe('ChainsGame — combo betting (engine-level)', () => {
         { tier: 'LOW', digits: [5] },
         { tier: 'MEDIUM', digits: [3, 1] },
       ],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(false);
     expect(result.ticketIds).toHaveLength(0);
@@ -55,18 +55,18 @@ describe('ChainsGame — combo betting (engine-level)', () => {
   
   it('allows a second bet on the SAME tier in the same still-open round', () => {
     const game = new ChainsGame();
-    const first = game.placeBet({ selections: [{ tier: 'LOW', digits: [5] }], jackpotSequence: [7, 4] });
+    const first = game.placeBet({ selections: [{ tier: 'LOW', digits: [5] }], jackpotSequence: [7, 4, 1] });
     expect(first.success).toBe(true);
 
-    const second = game.placeBet({ selections: [{ tier: 'LOW', digits: [3] }], jackpotSequence: [7, 4] });
+    const second = game.placeBet({ selections: [{ tier: 'LOW', digits: [3] }], jackpotSequence: [7, 4, 1] });
     expect(second.success).toBe(true);
     expect(game.getActiveTickets()).toHaveLength(2);
   });
 
   it('allows bets on different tiers in the same round (separate requests)', () => {
   const game = new ChainsGame();
-  expect(game.placeBet({ selections: [{ tier: 'LOW', digits: [5] }], jackpotSequence: [7, 4] }).success).toBe(true);
-  expect(game.placeBet({ selections: [{ tier: 'HIGH', digits: [1, 2, 3] }], jackpotSequence: [7, 4] }).success).toBe(true);
+  expect(game.placeBet({ selections: [{ tier: 'LOW', digits: [5] }], jackpotSequence: [7, 4, 1] }).success).toBe(true);
+  expect(game.placeBet({ selections: [{ tier: 'HIGH', digits: [1, 2, 3] }], jackpotSequence: [7, 4, 1] }).success).toBe(true);
   expect(game.getActiveTickets()).toHaveLength(2);
   });
 });
@@ -81,7 +81,7 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
         { tier: 'LOW', digits: [5] },
         { tier: 'LOW', digits: [9] },
       ],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(true);
     expect(result.ticketIds).toHaveLength(3);
@@ -95,7 +95,7 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
     const game = new ChainsGame();
     game.placeBet({
       selections: [{ tier: 'LOW', digits: [1] }, { tier: 'LOW', digits: [2] }, { tier: 'LOW', digits: [3] }],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     const expectedMini = INITIAL_JACKPOT_POOLS.MINI + JACKPOT_CONTRIBUTION_RATES.LOW * 3;
     expect(game.getJackpotPools().MINI).toBeCloseTo(expectedMini, 6);
@@ -105,7 +105,7 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
     const game = new ChainsGame({ startingBalance: 2 });
     const result = game.placeBet({
       selections: [{ tier: 'LOW', digits: [1] }, { tier: 'LOW', digits: [2] }, { tier: 'LOW', digits: [3] }],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(false);
     expect(result.ticketIds).toHaveLength(0);
@@ -124,7 +124,7 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
        { tier: 'LOW', digits: [5] },
         { tier: 'LOW', digits: [5] },
      ],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(false);
     expect(game.getActiveTickets()).toHaveLength(0);
@@ -137,7 +137,7 @@ describe('ChainsGame — LOW multi-pick (engine-level, Option B)', () => {
         { tier: 'HIGH', digits: [3, 1, 4], isCombo: true },
         { tier: 'HIGH', digits: [1, 2, 3] },
       ],
-      jackpotSequence: [7, 4],
+      jackpotSequence: [7, 4, 1],
     });
     expect(result.success).toBe(false);
     expect(game.getActiveTickets()).toHaveLength(0);
@@ -155,7 +155,7 @@ describe('ChainsGame — RNG routing', () => {
   });
 });
 describe('ChainsGame — placeBets (atomic batch)', () => {
-  const req = (d: number) => ({ selections: [{ tier: 'LOW' as const, digits: [d] }], jackpotSequence: [7, 4] as [number, number] });
+  const req = (d: number) => ({ selections: [{ tier: 'LOW' as const, digits: [d] }], jackpotSequence: [7, 4, 1] as [number, number, number] });
 
   it('places several requests together', () => {
     const game = new ChainsGame();

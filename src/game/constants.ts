@@ -56,7 +56,7 @@ export const INITIAL_JACKPOT_POOLS: JackpotPools = {
  * ~steady-state average pool sizes (docs/MATH.md). NOT a seed: never used by
  * engine defaults, rtp.ts or any RTP figure.
  */
-export const DEMO_JACKPOT_PRESET = { MINI: 60, MIDI: 700, GRAND: 8000 } as const;
+export const DEMO_JACKPOT_PRESET = { MINI: 80, MIDI: 830, GRAND: 8300 } as const;
 
 /** 5% of every stake funds the tier's own pool. Base RTP is 90% for every
  * tier. Total RTP with jackpots is 95%, because unseeded pools pay out
@@ -66,8 +66,9 @@ export const JACKPOT_CONTRIBUTION_RATES: Record<TicketTier, number> = {
   MEDIUM: 0.05,
   HIGH: 0.05,
 };
-/** Number of digits in the jackpot qualification combination (Section 8). */
-export const JACKPOT_SEQUENCE_LENGTH = 2;
+
+/** Number of numbers in the jackpot set; matched in any order over this many draws. */
+export const JACKPOT_SEQUENCE_LENGTH = 3;
 
 /** Maximum number of concurrently-live (non-terminal) tickets allowed with
  * the exact same tier + digit sequence (Sections 5 & 12). */

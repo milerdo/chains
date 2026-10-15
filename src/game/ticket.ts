@@ -11,6 +11,7 @@
 
 import type {
   DrawResult,
+  JackpotSequence,
   JackpotTierName,
   Ticket,
   TicketDrawRecord,
@@ -80,7 +81,7 @@ export function validateJackpotSequence(sequence: number[]): void {
 export interface CreateTicketParams {
   tier: TicketTier;
   digits: number[];
-  jackpotSequence: [number, number];
+  jackpotSequence: JackpotSequence;
   startDrawIndex: number;
   createdAtDrawIndex: number;
   stake?: number;
@@ -103,7 +104,8 @@ export function createTicket(params: CreateTicketParams): Ticket {
     id: generateTicketId(),
     tier,
     baseSequence: [...digits],
-    jackpotSequence: [jackpotSequence[0], jackpotSequence[1]],
+    jackpotSequence: [...jackpotSequence],
+    jackpotMatched: [],
     jackpotTier,
     stake,
     status: 'WAITING',
@@ -214,9 +216,18 @@ function evaluateBaseStep(ticket: Ticket, draw: DrawResult): Ticket {
   };
 }
 
+/** Jackpot digits still needed (multiset difference: sequence minus matched). */
+export function remainingJackpotDigits(ticket: Ticket): number[] {
+  const rest = [...ticket.jackpotSequence];
+  for (const digit of ticket.jackpotMatched) {
+    const i = rest.indexOf(digit);
+    if (i !== -1) rest.splice(i, 1);
+  }
+  return rest;
+}
+
 function evaluateJackpotStep(ticket: Ticket, draw: DrawResult): Ticket {
-  const expectedDigit = ticket.jackpotSequence[ticket.jackpotProgress];
-  const matched = draw.digit === expectedDigit;
+  const matched = remainingJackpotDigits(ticket).includes(draw.digit);
 
   const drawLog: TicketDrawRecord[] = [
     ...ticket.drawLog,
@@ -224,8 +235,8 @@ function evaluateJackpotStep(ticket: Ticket, draw: DrawResult): Ticket {
   ];
 
   if (!matched) {
-    // Jackpot qualification ends. The already-credited base payout is
-    // untouched and remains on the player's balance (Section 15).
+    // Draw is not one of the still-needed digits (includes a repeat of an
+    // already-matched digit). Qualification ends; base payout is untouched.
     return {
       ...ticket,
       status: 'JACKPOT_LOST',
@@ -234,27 +245,26 @@ function evaluateJackpotStep(ticket: Ticket, draw: DrawResult): Ticket {
     };
   }
 
-  const newJackpotProgress = ticket.jackpotProgress + 1;
-  const jackpotComplete = newJackpotProgress === ticket.jackpotSequence.length;
+  const jackpotMatched = [...ticket.jackpotMatched, draw.digit];
+  const newJackpotProgress = jackpotMatched.length;
 
-  if (!jackpotComplete) {
+  if (newJackpotProgress < ticket.jackpotSequence.length) {
     return {
       ...ticket,
       status: jackpotProgressToStatus(newJackpotProgress),
       jackpotProgress: newJackpotProgress,
+      jackpotMatched,
       nextDrawIndex: draw.drawIndex + 1,
       drawLog,
     };
   }
 
-  // Full jackpot combination matched. The actual pool payout amount (which
-  // may be split across simultaneous winners, Section 17) is resolved by
-  // the engine via the JackpotManager, not here — this function only owns
-  // the ticket's own sequence-matching state.
+  // Full set matched. Pool payout/split is resolved by the engine.
   return {
     ...ticket,
     status: 'JACKPOT_WON',
     jackpotProgress: newJackpotProgress,
+    jackpotMatched,
     resolvedJackpotAtDrawIndex: draw.drawIndex,
     drawLog,
   };
@@ -294,11 +304,14 @@ export function countActiveWithSameSequence(tickets: readonly Ticket[], tier: Ti
   return tickets.filter((t) => t.tier === tier && sequenceEquals(t.baseSequence, digits) && !isTerminal(t.status)).length;
 }
 
-/** The digit this ticket needs on its next evaluated draw (base digit, or
- * jackpot digit while qualifying). Null once terminal. Display helper for
- * the wheel bet markers. */
-export function nextExpectedDigit(ticket: Ticket): number | null {
-  if (isTerminal(ticket.status)) return null;
-  if (ticket.status === 'WAITING' || ticket.status === 'ACTIVE') return ticket.baseSequence[ticket.baseProgress] ?? null;
-  return ticket.jackpotSequence[ticket.jackpotProgress] ?? null;
+/** Distinct digits this ticket could match on its next evaluated draw (base
+ * digit, or the still-needed jackpot digits while qualifying). Empty once
+ * terminal. Display helper for the wheel bet markers. */
+export function expectedDigits(ticket: Ticket): number[] {
+  if (isTerminal(ticket.status)) return [];
+  if (ticket.status === 'WAITING' || ticket.status === 'ACTIVE') {
+    const d = ticket.baseSequence[ticket.baseProgress];
+    return d === undefined ? [] : [d];
+  }
+  return [...new Set(remainingJackpotDigits(ticket))];
 }
