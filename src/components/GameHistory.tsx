@@ -66,7 +66,7 @@ export function GameHistory({ defaultTab = 'GLOBAL' }: GameHistoryProps = {}) {
                   key={draw.drawIndex}
                   className="flex items-center justify-between rounded-lg px-2.5 py-1.5 font-mono text-xs odd:bg-white/[0.015]"
                 >
-                  <span className="text-white/40">{formatDrawIndex(draw.drawIndex)}</span>
+                  <span className="text-white/55">{formatDrawIndex(draw.drawIndex)}</span>
                   <span className="font-bold tabular-nums text-white">{draw.digit}</span>
                 </li>
               ))}
@@ -86,7 +86,7 @@ export function GameHistory({ defaultTab = 'GLOBAL' }: GameHistoryProps = {}) {
                   <span className="text-white/60">
                     {ticket.tier} {formatSequence(ticket.baseSequence)}
                   </span>
-                  <span className="shrink-0 text-white/35">{outcome.label}</span>
+                  <span className="shrink-0 text-white/55">{outcome.label}</span>
                   <span
                     className={[
                       'shrink-0 font-bold tabular-nums',
@@ -112,7 +112,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
       onClick={onClick}
       className={[
         'flex-1 rounded-lg py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.15em] transition',
-        active ? 'bg-[#eab308] text-black' : 'text-white/40 hover:text-white/70',
+        active ? 'bg-[#eab308] text-black' : 'text-white/55 hover:text-white/70',
       ].join(' ')}
     >
       {label}

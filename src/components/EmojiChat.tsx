@@ -107,7 +107,7 @@ export function EmojiChat() {
           <ul className="flex flex-col gap-1.5">
             {messages.map((m) => (
               <li key={m.id} className="flex items-baseline gap-2 rounded-lg px-2 py-1 font-mono text-xs odd:bg-white/[0.02]">
-                <span className="shrink-0 tabular-nums text-white/30">{formatTimestamp(m.sentAt)}</span>
+                <span className="shrink-0 tabular-nums text-white/50">{formatTimestamp(m.sentAt)}</span>
                 <span className="break-words text-white/70">{m.text}</span>
               </li>
             ))}
@@ -142,7 +142,7 @@ export function EmojiChat() {
         <button
           type="submit"
           disabled={!canSend || !draft.trim()}
-          className="rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308] transition hover:bg-[#eab308]/20 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308] transition hover:bg-[#eab308]/20 disabled:cursor-not-allowed disabled:opacity-30"
         >
           Send
         </button>

@@ -19,7 +19,7 @@ export function PhaseStatus({ className = '' }: { className?: string }) {
           <button
             type="button"
             onClick={stopAutoBet}
-            className="rounded-lg border border-[#eab308]/50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-[#eab308] transition hover:bg-[#eab308]/20"
+            className="rounded-lg border border-[#eab308]/50 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#eab308] transition hover:bg-[#eab308]/20"
           >
             Cancel
           </button>

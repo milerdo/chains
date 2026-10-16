@@ -66,7 +66,7 @@ export function JackpotCelebration() {
         <span className="font-mono text-3xl font-bold tabular-nums text-white sm:text-4xl">
           {formatSignedCurrency(jackpotCelebration.amount)}
         </span>
-        <span className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-white/35">
+        <span className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-white/35">
           tap anywhere to dismiss
         </span>
       </div>

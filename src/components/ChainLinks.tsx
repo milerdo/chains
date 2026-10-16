@@ -79,7 +79,7 @@ export function ChainCircle({ digit, state, size = 'md' }: CircleProps) {
       {state === 'matched' && (
         <span className={[
           'absolute -right-1 -top-1 flex items-center justify-center rounded-full bg-emerald-400 font-black leading-none text-black',
-        size === 'xs' ? 'h-3 w-3 text-[8px]' : 'h-3.5 w-3.5 text-[9px]',
+        size === 'xs' ? 'h-3 w-3 text-[8px]' : 'h-3.5 w-3.5 text-[11px]',
       ].join(' ')}>✓</span>
     )}
       {state === 'failed' && (
@@ -178,7 +178,7 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
       className="flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5"
     >
       <>
-          <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-white/40">{tickets.length}</span>
+          <span className="shrink-0 font-mono text-[11px] font-bold tabular-nums text-white/40">{tickets.length}</span>
           {[...groups.entries()].map(([key, group]) => (
             <span key={key} className="flex shrink-0 items-center gap-1.5">
               {key === 'base' ? (
@@ -189,7 +189,7 @@ export function LinkStrip({ tickets }: { tickets: Ticket[] }) {
                     <JackpotChain ticket={group[0]} size="xs" />
                   </span>
                   {group.length > 1 && (
-                    <span className="font-mono text-[9px] font-bold text-[#eab308]">×{group.length}</span>
+                    <span className="font-mono text-[11px] font-bold text-[#eab308]">×{group.length}</span>
                   )}
                 </>
               )}

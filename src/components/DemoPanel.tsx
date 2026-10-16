@@ -86,14 +86,14 @@ export function DemoPanel({ isOpen }: DemoPanelProps) {
                   ))}
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-white/35">
+                  <span className="font-mono text-[11px] text-white/35">
                     Queued: {forcedQueue.length > 0 ? forcedQueue.join(' → ') : 'none'}
                   </span>
                   <button
                     type="button"
                     onClick={handleClearForced}
                     disabled={forcedQueue.length === 0}
-                    className="font-mono text-[10px] text-white/35 underline decoration-dotted disabled:opacity-30"
+                    className="font-mono text-[11px] text-white/35 underline decoration-dotted disabled:opacity-30"
                   >
                     clear
                   </button>
@@ -162,7 +162,7 @@ export function DemoPanel({ isOpen }: DemoPanelProps) {
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.015] p-3.5">
-      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">{title}</span>
+      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-white/40">{title}</span>
       <div className="mt-2.5">{children}</div>
     </div>
   );

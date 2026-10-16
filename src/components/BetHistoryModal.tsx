@@ -62,7 +62,7 @@ export function BetHistoryModal({ isOpen, onClose }: BetHistoryModalProps) {
         </div>
 
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/40">Session Net</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-white/40">Session Net</span>
           <span className={`font-mono text-xl font-bold tabular-nums ${netTone}`}>
             {formatSignedCurrency(netTotal)}
           </span>

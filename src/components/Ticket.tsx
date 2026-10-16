@@ -34,9 +34,14 @@ export function TicketDrawer({ tickets, compact = false, grid = false }: { ticke
       aria-label="Active links"
       className={[
         'flex min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
-        compact ? 'shrink p-2' : 'h-full p-3',
+         compact ? 'shrink p-2' : grid ? 'h-full px-2 pb-2 pt-1.5' : 'h-full p-3',
       ].join(' ')}
     >
+      {grid && (
+        <div className="mb-1 px-0.5 font-mono text-[11px] font-bold uppercase leading-none tracking-[0.15em] text-white/50">
+          Active links <span className="text-white/35">· {tickets.length}</span>
+        </div>
+      )}
       <div
         className={[
           'min-h-0 flex-1',

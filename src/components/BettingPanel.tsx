@@ -161,7 +161,7 @@ export function BettingPanel() {
   }
 
   const actionBtn =
-    'whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-white/60 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30';
+    'whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-white/60 transition hover:border-[#eab308]/50 hover:text-[#eab308] disabled:cursor-not-allowed disabled:opacity-30';
 
   return (
     <section
@@ -213,7 +213,7 @@ export function BettingPanel() {
               Base chain pays <span className="font-bold text-white">{BASE_MULTIPLIERS[tier]}×</span>
             </>
           ) : (
-            <span className="text-white/30">Pick 1–3 digits</span>
+            <span className="text-white/50">Pick 1–3 digits</span>
           )}
         </span>
       </div>
@@ -278,9 +278,13 @@ export function BettingPanel() {
 
       {/* 5. Jackpot numbers */}
       <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-[#eab308]/25 bg-[#eab308]/[0.04] px-3 py-2">
-        <div className="min-w-0 font-mono leading-tight">
+        <div className="min-w-0 font-mono leading-tight" title="After a base win, collect these 3 numbers in any order on the next 3 draws">
           <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#eab308]">Jackpot Numbers</div>
-          <div className="mt-0.5 text-[10px] font-bold text-white/80">{jackpotLabel} | in any order </div>
+          <div className="mt-0.5 text-[11px] font-bold text-white/80">
+            {jackpotLabel && <span className="text-[#eab308]">{jackpotLabel}</span>}
+            {jackpotLabel && <span className="text-white/40"> · </span>}
+            in any order
+          </div>
         </div>
         <div role="group" aria-label="Jackpot numbers" className="flex shrink-0 items-center gap-1.5">
           {jackpotPick.map((value, i) => (
@@ -297,7 +301,7 @@ export function BettingPanel() {
             onClick={handleRandomJackpot}
             disabled={locked}
             aria-label="Random jackpot numbers"
-            className="ml-0.5 flex h-9 w-9 items-center justify-center rounded-lg border border-[#eab308]/40 text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
+            className="ml-0.5 flex h-10 w-10 items-center justify-center rounded-lg border border-[#eab308]/40 text-[#eab308] transition hover:bg-[#eab308]/15 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ShuffleIcon />
           </button>
@@ -324,12 +328,12 @@ export function BettingPanel() {
                 ? 'Select Digits'
                 : `Place ${formatCurrency(totalStake)} Bet`}          </span>
           {staged ? (
-            <span className="text-[10px] tracking-[0.12em] opacity-70">
+            <span className="text-[11px] tracking-[0.12em] opacity-70">
               Repeat · {staged.requests.length} bet{staged.requests.length === 1 ? '' : 's'}
             </span>
           ) : (
             comboActive && (
-              <span className="text-[10px] tracking-[0.12em] opacity-70">
+              <span className="text-[11px] tracking-[0.12em] opacity-70">
                 Any order · {possibilityCount} link{possibilityCount === 1 ? '' : 's'}
               </span>
             )
@@ -381,7 +385,7 @@ function OrderMode({
             <span className={['text-xs uppercase tracking-wide', active ? 'font-black' : 'font-semibold'].join(' ')}>
               {o.title}
             </span>
-            <span className={['mt-0.5 text-[11px] tabular-nums', active ? 'font-bold text-black/75' : 'text-white/40'].join(' ')}>
+            <span className={['mt-0.5 text-[11px] tabular-nums', active ? 'font-bold text-black/75' : 'text-white/55'].join(' ')}>
               {formatCurrency(o.stake)} · {o.links} link{o.links === 1 ? '' : 's'}
             </span>
           </button>
@@ -455,7 +459,7 @@ function DigitPad({ active, onPress }: DigitPadProps) {
           onClick={() => onPress(digit)}
           disabled={!active}
           style={{ backgroundColor: `${DIGIT_COLORS[digit]}80`, borderColor: `${DIGIT_COLORS[digit]}80` }}
-          className="flex h-10 items-center justify-center rounded-lg border font-mono text-lg font-bold tabular-nums text-white transition hover:brightness-125 active:scale-95"        
+          className="flex h-11 items-center justify-center rounded-lg border font-mono text-lg font-bold tabular-nums text-white transition hover:brightness-125 active:scale-95"        
           >
           {digit}
         </button>

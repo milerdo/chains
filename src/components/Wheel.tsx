@@ -25,8 +25,18 @@ const RIVET_COUNT = 26;
 const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
 // Bet-marker chips sit AROUND the numeral (DIGIT_R = 92), never over it: [radius, angle offset°].
 // outer, left, right, outer-left, outer-right, inner
-const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[111, 0], [92, -13], [92, 13], [111, -8], [111, 8], [70, 0]];
 const CHIP_R = 5.5;
+const CHIP_HALO_R = 21; // distance from the numeral's center to each chip
+// top first, then pairs stepping down both sides; last slot sits inside, below the numeral
+const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [
+  ...[0, -40, 40, -80, 80].map((deg) => {
+    const rad = (deg * Math.PI) / 180;
+    const radial = DIGIT_R + CHIP_HALO_R * Math.cos(rad);
+    const tangential = CHIP_HALO_R * Math.sin(rad);
+    return [Math.hypot(radial, tangential), (Math.atan2(tangential, radial) * 180) / Math.PI] as const;
+  }),
+  [70, 0] as const,
+];
 import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
 
 // --- Animation timing ----------------------------------------------------
@@ -429,7 +439,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
   const recentDigits = streamHistory.slice(-10);
   const tall = useMediaQuery('(min-height: 800px)');
   const wide = useMediaQuery('(min-width: 1152px)');
-  const size = compact ? (tall ? 300 : 260) : wide ? 340 : 300;
+    const size = compact ? (tall ? 300 : 260) : wide ? (tall ? 340 : 310) : 290;
 
   return (
     <section
