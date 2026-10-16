@@ -23,11 +23,10 @@ const HUB_R = 20;
 const RIVET_R = 136;
 const RIVET_COUNT = 26;
 const PEG_VISUAL_R = 6.5; // raised-bump size — large enough to read as physical
-// Bet-marker chips orbit the numeral (DIGIT_R = 92): [radius, angle offset°] inside the wedge.
-// inner, outer, left, right, inner-left, inner-right
-const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[70, 0], [113, 0], [92, -12], [92, 12], [72, -10], [72, 10]];
-const CHIP_R = 4.6;
-
+// Bet-marker chips sit AROUND the numeral (DIGIT_R = 92), never over it: [radius, angle offset°].
+// outer, left, right, outer-left, outer-right, inner
+const CHIP_SLOTS: ReadonlyArray<readonly [number, number]> = [[111, 0], [92, -13], [92, 13], [111, -8], [111, 8], [70, 0]];
+const CHIP_R = 5.5;
 import { DIGIT_COLORS as WEDGE_COLORS } from '../utils/digitColors';
 
 // --- Animation timing ----------------------------------------------------
@@ -170,11 +169,11 @@ const WheelDisc = memo(function WheelDisc({
             </text>
           );
         })}
-                {markerCounts.map((count, digit) => {
+         {markerCounts.map((count, digit) => {
           if (count === 0) return null;
           const base = digit * HOLE_STEP_DEG;
           if (count > CHIP_SLOTS.length) {
-            const p = pt(base, 70);
+            const p = pt(base, 114);
             return (
               <g key={`chips-${digit}`}>
                 <Chip x={p.x} y={p.y} r={7.5} />
@@ -437,11 +436,11 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
       aria-label="Live number stream"
       className={[
         'relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
-        compact ? 'p-3' : 'p-4',
+        compact ? 'p-3' : 'px-4 pb-3 pt-2',
       ].join(' ')}
     >
 
-      <div className={['flex flex-col items-center', compact ? '' : 'mt-1'].join(' ')}>
+      <div className="flex flex-col items-center">
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
             an animating transform is what caused the center "wobble". */}
@@ -487,7 +486,7 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
         </div>
       </div>
 
-        <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-3'].join(' ')}>
+        <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-2'].join(' ')}>
           {recentDigits.length === 0 && (
             <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
           )}

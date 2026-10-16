@@ -14,6 +14,7 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 - Keep replies short: what changed, files, checks, known issues, next step.
 - Monte Carlo (skipped unless SIM_BETS is set): `SIM_BETS=50000000 npx vitest run src/game/sim.test.ts`
 - When a type changes shape (e.g. `JackpotSequence`), grep for the old shape (`grep -rn "\[number, number\]" src`) before declaring done, including tests.
+- Remove locals/imports that become unused (`noUnusedLocals` fails the build).
 
 ## 4. Architecture
 `src/game` is pure TS (no React/DOM): engine, ticket, combo, payouts, jackpot, rng, rtp, constants. `src/hooks/useGame.ts` is a thin reactive bridge. `src/components` renders only. Never put game math in components. The wheel never decides or alters a result.
@@ -29,19 +30,21 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 
 ## 6. Layout (current)
 - One `<main>` chosen by `useMediaQuery('(min-width:1024px)')`: single mount per breakpoint. State that must survive a resize lives in GameProvider (`jackpotPick`, auto-bet state).
-- Desktop: left = Live Active Bets (`MultiplayerSim`) + `EmojiChat`; middle = `JackpotPanel` + `Wheel`; right = `PhaseStatus` + (`BettingPanel` | `TicketDrawer`). TicketDrawer replaces the panel only when `bettingLocked && activeTickets.length > 0` (`showDrawerOnly`). `BettingPanel` stays mounted (hidden) while the drawer shows.
+- Desktop: grid `[0.85fr_1.1fr_1fr]`, gap-3. Left = Live Active Bets (`MultiplayerSim`) + `EmojiChat`. Middle (gap-2) = `JackpotPanel` + `Wheel` (in a `shrink-0` wrapper; its card has reduced top padding so the wheel sits high) + Active Links (`TicketDrawer grid`, only when links exist, fills the remaining height). Right = `PhaseStatus` + `BettingPanel`. The BettingPanel is always shown and is only disabled while locked; it is never swapped for the drawer on desktop (`showDrawerOnly` no longer exists).
+- Wheel size on desktop: 340px at >=1152px wide, 300px below.
 - Mobile: one no-scroll screen. `PhaseStatus` only while betting is open (no GOOD LUCK state on mobile), JackpotPanel, Wheel (`compact`, `collapsed` during BETTING_OPEN), then BettingPanel (mounted, hidden when locked) with `LinkStrip` above it, or compact TicketDrawer when locked with links. `MobileFooter` = sound/help/history/(demo)/socials + Balance. Socials = bottom sheet (Live Active Bets + chat).
 - Short screens (`max-height:740px`): while betting is open, JackpotPanel is not rendered and the Wheel wrapper is `hidden`. NEVER unmount the Wheel (refs, `reportWheelLanded`).
-- TicketDrawer (desktop and mobile): cards are fixed `h-[52px] shrink-0` and the list scrolls (`overflow-y-auto`). General rule: use scroll wherever content can exceed its container; don't squeeze or clip.
-- Empty states show nothing (LinkStrip returns null). Don't add empty-state copy.
+- TicketDrawer: cards are fixed `h-[52px] shrink-0` and the list scrolls (`overflow-y-auto`). Desktop (`grid` prop): 3 columns. Mobile compact: grid, 3 columns from 380px viewport width, otherwise 2. Both use `dense` cards. General rule: use scroll wherever content can exceed its container; don't squeeze or clip.
+- Empty states show nothing (LinkStrip returns null; the desktop links grid is not rendered when empty). Don't add empty-state copy.
 - Header: `HostMark` = `<img src="/chains-logo.png">` (transparent PNG).
 
 ## 7. Betting panel
+One component shared by mobile and desktop; don't fork it per breakpoint. Order top to bottom: base digits, pad, (OrderMode when available), action row, Jackpot Numbers box, sticky Place Bet.
 - `digits: number[]` (max 3, tier by count), `isCombo`, `jackpotFocus: 0|1|2|null`, `staged`. `jackpotPick` is a `JackpotSequence` (3 digits) in GameProvider, randomly prefilled once per session, editable, persists across rounds and breakpoint remounts; a bet or reset never clears it.
-- Base digit slots are `h-14 w-14`, `border-2`, `text-2xl`. Filled slots get a glow in their own `DIGIT_COLORS` color (`boxShadow 0 0 14px {color}99`). The next empty slot keeps the gold pulse. Caption under the slots: "Base chain pays N×".
-- Order mode (`OrderMode`, under the base digits): two-option segmented control. Each option has "Numbers in" on line 1 and "Exact order · $1" / "Any order · $N" on line 2. No combination list, no link count. Shown only when `comboAvailable` (2+ digits and `countComboPossibilities(digits) > 1`), so it is hidden for 77, 777 and a single digit, where Any order would cost the same as Exact. Any order still expands into one $1 link per unique ordering in the engine.
-- Pad is two rows of five. Row below: Clear / Random / Repeat Last Bet. Random changes base digits only and never touches the jackpot numbers.
-- Jackpot Numbers section sits below that row: 3 slots (no arrows), a dice SVG icon button (random jackpot numbers) beside them, tier label, short explainer ("Win your base bet, then X, Y, Z in any order on the next 3 draws wins the {tier} jackpot."). Tap a slot to focus it; the next pad press fills it and advances to the next slot. Repeated digits are allowed and are NOT enforced away (they only change the jackpot odds, never payouts or RTP).
+- Base digit slots are `h-14 w-14` (`lg:h-16 lg:w-16 lg:text-3xl`), `border-2`. Filled slots get a glow in their own `DIGIT_COLORS` color (`boxShadow 0 0 14px {color}99`). The next empty slot keeps the gold pulse. Caption under the slots: "Base chain pays N×".
+- Order mode (`OrderMode`): two-option segmented control, shown only when `comboAvailable` (2+ digits and `countComboPossibilities(digits) > 1`), so it is hidden for 77, 777 and a single digit, where Any order would cost the same as Exact. Each option shows its title, price and link count; the selected one is gold with a glow and bolder text, the other is dimmed. It sits between the pad and the action row so the flow is digits, order, bet (it used to sit above the pad and shoved the pad down mid-tap). Any order still expands into one $1 link per unique ordering in the engine.
+- Pad is two rows of five. Action row below it: Clear / Random / Repeat Last Bet. Random changes base digits only and never touches the jackpot numbers.
+- Jackpot Numbers box (below the action row, above Place Bet): left = "JACKPOT NUMBERS" and a second line "<tier> | in any order" (tier label dynamic: LOW / MIDI / HIGH, from the digit count); right = 3 slots (no arrows) plus a shuffle-arrows (crossing arrows) SVG icon button for random jackpot numbers (`aria-label="Random jackpot numbers"`). Keep the copy minimal; the full rule lives in the Help modal. Tap a slot to focus it; the next pad press fills it and advances to the next slot. Repeated digits are allowed and are NOT enforced away (they only change the jackpot odds, never payouts or RTP).
 - Place Bet needs only 1-3 base digits (the jackpot numbers are always set). Labels: "Select Digits", "Place $X Bet", plus "Any order" second line only when Any order is active, "Repeat · N bets" when staged.
 - Multiple bets per round on any tier are allowed (no round lock). Cap: 3 live links per tier+sequence. LOW multi-pick UI and Auto Bet UI are removed; engine multi-selection and provider auto-bet state remain, unreachable. Don't rebuild the UI without asking.
 - Repeat Last Bet: provider keeps lastRoundBets (the last round the player actually bet in), each request stored with its own jackpot numbers. Pressing it dry-run validates via placeBets(..., true) and stages the full set in the panel (local state). The staged summary lists base picks only (e.g. `4→2→3 any`), no jackpot numbers. Place Bet then calls atomic placeBets and replays everything exactly as it was, including the stored jackpot numbers, even if the player has since edited the current ones.
@@ -49,21 +52,23 @@ Senior full-stack engineer + casino game mathematician building CHAINS, a playab
 
 ## 8. Links (ChainLinks.tsx is the single source for link visuals)
 - `ChainCircle` fill = digit color (`DIGIT_COLORS`); state = border: pending / current (3px gold pulse) / matched (3px green + ✓ badge) / failed (red + ✕).
-- `LinkChain` is `flex-nowrap`. Before the base win a link shows only its base circles. On `BASE_WON` (and through jackpot steps / outcome) `JackpotChain` REPLACES the base circles with the 3 jackpot circles (no arrows, no pill) plus a small "Jackpot / LOW|MIDI|HIGH" label (hidden at `xs`), from `JACKPOT_TIER_DISPLAY`. The base is already banked, and this keeps HIGH inside the 52px card cap. Don't enlarge circle sizes without checking that cap.
+- `LinkChain` is `flex-nowrap`. Before the base win a link shows only its base circles. On `BASE_WON` (and through jackpot steps / outcome) `JackpotChain` REPLACES the base circles with the 3 jackpot circles (no arrows, no pill) plus a small "Jackpot / LOW|MIDI|HIGH" label (hidden at `xs`), from `JACKPOT_TIER_DISPLAY`. The base is already banked, and this keeps HIGH inside the 52px card cap.
+- Sizes: `sm` in non-dense cards; `xs` in `dense` cards (desktop links grid and the mobile compact drawer), where the jackpot label is hidden and the gold card tint signals the jackpot stage. A 3-circle chain needs about 102px per dense card, which is why mobile drops to 2 columns below 380px. Don't enlarge circle sizes without checking the 52px cap and those widths.
 - `jackpotCircleStates` is a multiset match against `jackpotMatched`: matched / pending, `current` while qualifying, first pending becomes `failed` on JACKPOT_LOST.
-- TicketCard (Ticket.tsx): the whole card turns gold-tinted (`border-[#eab308]/60 bg-[#eab308]/[0.12]`) while in qualification (BASE_WON / JACKPOT_STEP_1 / JACKPOT_STEP_2). JACKPOT_WON is the stronger gold glow, JACKPOT_LOST is green-tinted (base win stands), LOST is red-tinted. No amounts, status labels or chance text.
+- TicketCard (Ticket.tsx): the whole card turns gold-tinted (`border-[#eab308]/60 bg-[#eab308]/[0.12]`) while in qualification (BASE_WON / JACKPOT_STEP_1 / JACKPOT_STEP_2). JACKPOT_WON is the stronger gold glow, JACKPOT_LOST is green-tinted (base win stands), LOST is red-tinted. No amounts, status labels or chance text. `dense` = `!px-1.5 items-center`.
 - `LinkStrip` groups links with identical jackpot state (`jackpotGroupKey`: tier + jackpot digits + sorted matched digits + status) to share one gold wrapper; pre-base links fall in one 'base' group.
 - Base win notice ("Base win $X paid") is a solid green overlay on `JackpotPanel` for 2.5s, driven by `payoutFlash`. Opaque, no pulse (pool numbers must not show through). PhaseStatus no longer shows it.
 
 ## 9. Wheel (Wheel.tsx)
 - SVG; rotation applied via ref `setAttribute` (not React state). No per-frame filters (drop-shadow, feTurbulence). Static layers are memoized with per-instance `useId()` gradient ids.
+- Lighting: the hub, `sheenGrad` and `specularGrad` circles are drawn AFTER the rotating `<g ref={discRef}>` and stay stationary, so highlights don't orbit with the disc. Don't move them back inside the rotating group. Known/accepted: peg highlights and shadows are inside the group and rotate with it.
 - Spin-up starts at BETTING_CLOSED, or 2s before close on desktop when not `collapsed` (`SPIN_LEAD_MS`). Cruise speed 520°/s, time constant 0.25s.
 - When `wheelTargetDraw` arrives: keep current speed for `cruiseDist`, then decelerate for `DECEL_MS` (3.5s ÷ speed multiplier) with `easeOutPow` (`DECEL_POWER` 3), starting at the wheel's real speed (no jump). DRAWING phase is 6s; worst case about 4.3s.
 - After Reset, `prevRevealedDrawIndexRef` is cleared when `wheelTargetDraw` is null.
 - Landing angle is randomized inside the wedge, at least `PEG_SAFE_MARGIN_DEG` (6°) from either peg. Don't revert to dead-center.
 - Flapper: tapered gunmetal paddle, own `flapperGrad-${uid}`. No second click in `land()`.
 - Instant demo steps land immediately (`INSTANT_THRESHOLD_MS`).
-- Bet markers: small black chips inside WheelDisc (rotate with the disc), one per distinct digit each live link can match next, from `expectedDigits(ticket)` (base digit while ACTIVE, the still-needed jackpot digits while qualifying). Chips orbit the numeral, not the hub: `CHIP_SLOTS` = inner (70, 0°), outer (113, 0°), left (92, -12°), right (92, +12°), inner-left (72, -10°), inner-right (72, +10°). More than 6 on a digit collapses to one counted chip at radius 70. Recomputed only while BETTING_OPEN, frozen during close/draw/result.
+- Bet markers: black chips inside WheelDisc (rotate with the disc), one per distinct digit each live link can match next, from `expectedDigits(ticket)` (base digit while ACTIVE, the still-needed jackpot digits while qualifying). Chips sit AROUND the numeral and never over it (the digit must stay readable): `CHIP_R` 5.5, `CHIP_SLOTS` = outer (113, 0°), left (92, -13°), right (92, +13°), outer-left (113, -9°), outer-right (113, +9°), inner (70, 0°). Outer chips stay clear of the pegs at ±18°. More than 6 on a digit collapses to one counted chip at radius 114. Recomputed only while BETTING_OPEN, frozen during close/draw/result.
 
 ## 10. Sound (utils/audio.ts)
 Set is: `playTick` (spin), `playStepMatch`, `playBaseWin`, `playJackpotFanfare`, `playUiClick`. No landing or loss sound. Don't add one without asking.
@@ -80,11 +85,11 @@ Player-facing: "Link", LOW / MIDI / HIGH, "Live Active Bets", "N players", "Soci
 - `DEMO_JACKPOT_PRESET` (80 / 830 / 8,300) only via `applyDemoJackpotPreset()` when the URL has `?demo`; never in engine, tests or RTP.
 - DemoPanel and its button render only with `?demo`.
 - Outcome randomness only via `rng.ts` (`generateDigit` for draws, `generateAuxDigit` for the rest). Cosmetic simulation may use `Math.random`. The session-start `jackpotPick` prefill is a UI default, not an outcome, so `Math.random` is fine there.
-- Help modal is short player copy; figures come from `BASE_MULTIPLIERS`, `rtp.ts`, `RNG_DISCLAIMER`. Update it and docs/MATH.md together when rules change.
+- Help modal is short player copy and is where the jackpot rule is explained in detail; figures come from `BASE_MULTIPLIERS`, `rtp.ts`, `RNG_DISCLAIMER`. Update it and docs/MATH.md together when rules change.
 - Any order does not change RTP: each possibility is an independent $1 link.
 
 ## 13. Known gaps (deliberate)
-Engine has no cross-call round lock. `SimulatedActivity.activeTicketsByTier/recentEvents` and `GameState.currentJackpotSequence` are unused by the UI (the engine still regenerates it). Split jackpot payouts can lose up to 1 cent. `simulateJackpotWin` on an empty pool celebrates $0.00 (unwired).
+Engine has no cross-call round lock. `SimulatedActivity.activeTicketsByTier/recentEvents` and `GameState.currentJackpotSequence` are unused by the UI (the engine still regenerates it). Split jackpot payouts can lose up to 1 cent. `simulateJackpotWin` on an empty pool celebrates $0.00 (unwired). Peg highlights rotate with the disc. README and docs/MATH.md may still describe the old 2-digit jackpot pair and 6/7/8c contributions in places; fix them when touched.
 
 ## Final principle
 Preserve the CHAINS concept. Correctness before polish. Small, tested changes.

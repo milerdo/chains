@@ -88,7 +88,7 @@ Behavior:
 - Instant demo steps land immediately.
 - Rotation is applied through a ref (no per-frame React renders). No per-frame filters.
 Lighting: only the wedges, pegs, digits and bet chips are inside the rotating group. The hub, the sheen overlay and the specular overlay are drawn AFTER it and stay stationary, so highlights do not orbit with the disc. (Peg highlights/shadows still rotate with the disc; accepted, subtle.)
-Bet markers: black chips, one per live link on the digit that link expects next (base digit, or the remaining jackpot digits while qualifying). They sit ON the numeral (CHIP_R 6.5, slots centered at the digit radius, fanning out for 2+ chips; chip fill slightly translucent). More than 6 on a digit collapse to one counted chip. Recomputed only while BETTING_OPEN, frozen during close/draw/result.
+Bet markers: black chips, one per live link on the digit that link expects next (base digit, or the remaining jackpot digits while qualifying). They sit in the free space around the numeral, never over it (CHIP_R 5.5): first chip on the outer side (between the numeral and the rim), then one on each side of the numeral, then two more outer, then one inner. More than 6 on a digit collapse to one counted chip at the outer position. Recomputed only while BETTING_OPEN, frozen during close/draw/result.
 Sizes: desktop 340px at >=1152px wide, 300px below; mobile compact 300px (tall screens) / 260px. Mobile collapses to the recent-digits strip while betting is open.
 
 ________________________________________
@@ -103,7 +103,7 @@ ________________________________________
 14. UI LAYOUT
 Desktop (>=1024px), three columns (grid-cols-[0.85fr_1.1fr_1fr], gap-3):
 - Left: Live Active Bets (simulated per-digit bar chart) above Socials chat.
-- Middle: JackpotPanel (3 tiles), the Wheel, then the Active Links grid under the wheel (3 columns of compact cards). The grid renders only when there are active links.
+- Middle (gap-2, wheel card has reduced top padding so the wheel sits high): JackpotPanel (3 tiles), the Wheel, then the Active Links grid under the wheel (3 columns of compact cards). The grid renders only when there are active links.
 - Right: PhaseStatus (BETTING OPEN + countdown / GOOD LUCK), then BettingPanel. The BettingPanel is always shown and simply disabled while betting is locked; it is never swapped for the ticket drawer on desktop.
 Header: logo (public/chains-logo.png, transparent), control cluster (Help, Sound, Bet History, Demo when ?demo, Balance).
 
@@ -131,7 +131,7 @@ Circle fill = digit color; state = border: pending (dim), current (3px gold, pul
 A lost link stays visible for 900ms with its red X before leaving the list.
 Cards show the chain only: no win amounts, status labels or chance text.
 Desktop: TicketDrawer in `grid` mode under the wheel, 3 columns, `dense` cards using size "xs" circles (so the jackpot label is hidden there; the gold card tint signals the jackpot stage). Cards are fixed 52px high, the grid scrolls.
-Mobile: LinkStrip above the betting panel; compact scrollable TicketDrawer (fixed 52px cards, size "sm") when locked with links. LinkStrip groups links with identical jackpot state under one pill.
+Mobile: LinkStrip above the betting panel; compact scrollable TicketDrawer when locked with links, as a grid of fixed 52px dense cards (size "xs"): 3 columns from 380px viewport width, otherwise 2. LinkStrip groups links with identical jackpot state under one pill.
 Base win notice: a solid green "Base win $X paid" overlay on the JackpotPanel for 2.5s (opaque, no pulse). A jackpot win shows the full-screen celebration (confetti, auto-dismiss after about 4.2s).
 
 ________________________________________
@@ -181,7 +181,7 @@ Layout
 Wheel
 - Landing is off-center within the wedge, away from pegs. No landing or loss sound. No second flapper click on landing. Gunmetal flapper. No per-frame filters.
 - Hub, sheen and specular layers are stationary (outside the rotating group).
-- Bet chips sit on the numeral and are only recomputed while betting is open.
+- Bet chips sit around the numeral (outer side and left/right), never over it, and are only recomputed while betting is open.
 Heat map
 - Live Active Bets: one low-variance popularity bias per round (digitPopularity), smoothed in the component with light jitter, only while betting is open, resets to 0% each round. Live-dot is green, not gold.
 Demo

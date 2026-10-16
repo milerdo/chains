@@ -55,7 +55,7 @@ function AppShell() {
               </div>
               <EmojiChat />
             </div>
-            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="flex min-h-0 flex-col gap-2 overflow-hidden">
               <JackpotPanel />
               <div className="shrink-0">
                 <Wheel />

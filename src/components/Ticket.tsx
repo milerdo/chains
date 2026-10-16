@@ -11,7 +11,7 @@ export function TicketCard({ ticket, dense = false }: { ticket: Ticket; dense?: 
     <div
       className={[
         'flex h-full min-h-0 flex-col justify-center rounded-2xl border px-3.5 py-2 transition-colors duration-300',
-        dense ? '!px-2.5' : '',
+        dense ? '!px-1.5 items-center' : '',
         isJackpotWon
           ? 'border-[#eab308] bg-[#eab308]/[0.08] shadow-[0_0_28px_-6px_rgba(234,179,8,0.55)]'
           : isLost
@@ -23,7 +23,7 @@ export function TicketCard({ ticket, dense = false }: { ticket: Ticket; dense?: 
                 : 'border-white/[0.08] bg-white/[0.02]',
       ].join(' ')}
     >
-      <LinkChain ticket={ticket} size="sm" />
+    <LinkChain ticket={ticket} size={dense ? 'xs' : 'sm'} />
     </div>
   );
 }
@@ -41,9 +41,9 @@ export function TicketDrawer({ tickets, compact = false, grid = false }: { ticke
         className={[
           'min-h-0 flex-1',
           grid
-            ? 'grid grid-cols-2 content-start gap-2 overflow-y-auto pr-1'
+            ? 'grid grid-cols-3 content-start gap-1.5 overflow-y-auto pr-1'
             : compact
-              ? 'flex flex-col gap-1.5 overflow-y-auto pr-1'
+              ? 'grid grid-cols-2 min-[380px]:grid-cols-3 content-start gap-1.5 overflow-y-auto pr-1'
               : 'flex flex-col gap-2 overflow-y-auto pr-1',
         ].join(' ')}
       >
@@ -54,7 +54,7 @@ export function TicketDrawer({ tickets, compact = false, grid = false }: { ticke
         ) : (
           tickets.map((ticket) => (
             <div key={ticket.id} className="h-[52px] shrink-0">
-              <TicketCard ticket={ticket} dense={grid} />
+              <TicketCard ticket={ticket} dense={grid || compact} />
             </div>
           ))
         )}
