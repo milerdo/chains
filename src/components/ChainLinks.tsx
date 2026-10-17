@@ -100,11 +100,12 @@ interface LinkChainProps {
   ticket: Ticket;
   size?: 'xs' | 'sm' | 'md';
   showJackpot?: boolean;
+  labelled?: boolean;
 }
 
-export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChainProps) {
+export function LinkChain({ ticket, size = 'md', showJackpot = true, labelled = false }: LinkChainProps) {
   if (showJackpot && isJackpotRelevant(ticket.status)) {
-    return <JackpotChain ticket={ticket} size={size} />;
+    return <JackpotChain ticket={ticket} size={size} labelled={labelled} />;
   }
   return (
     <div className="flex flex-nowrap items-center">
@@ -115,22 +116,36 @@ export function LinkChain({ ticket, size = 'md', showJackpot = true }: LinkChain
 
 /** Bonus jackpot bet: only shown once the base sequence is won. No arrows to
  * a pill; the whole card is gold-tinted (see Ticket.tsx). */
-function JackpotChain({ ticket, size }: { ticket: Ticket; size: 'xs' | 'sm' | 'md' }) {
+function JackpotChain({ ticket, size, labelled = false }: { ticket: Ticket; size: 'xs' | 'sm' | 'md'; labelled?: boolean }) {
   const states = jackpotCircleStates(ticket);
+  const tier = JACKPOT_TIER_DISPLAY[ticket.jackpotTier];
+  const circles = (
+    <span className="flex shrink-0 items-center">
+      {ticket.jackpotSequence.map((digit, i) => (
+        <span key={i} className="flex items-center">
+          {i > 0 && <Link size={size} />}
+          <ChainCircle digit={digit} state={states[i]} size={size} />
+        </span>
+      ))}
+    </span>
+  );
+  if (size === 'xs' && labelled) {
+    return (
+      <div className="flex flex-col items-center">
+        <span className="font-mono text-[10px] font-bold uppercase leading-none tracking-[0.05em] text-[#eab308]">
+          Jackpot {tier}
+        </span>
+        {circles}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-nowrap items-center gap-2">
-      <span className="flex shrink-0 items-center">
-        {ticket.jackpotSequence.map((digit, i) => (
-          <span key={i} className="flex items-center">
-            {i > 0 && <Link size={size} />}
-            <ChainCircle digit={digit} state={states[i]} size={size} />
-          </span>
-        ))}
-      </span>
+      {circles}
       {size !== 'xs' && (
         <span className="flex shrink-0 flex-col font-mono font-bold uppercase leading-none text-[#eab308]">
           <span className="text-[8px] tracking-[0.2em] opacity-70">Jackpot</span>
-          <span className="mt-0.5 text-[11px] tracking-[0.1em]">{JACKPOT_TIER_DISPLAY[ticket.jackpotTier]}</span>
+          <span className="mt-0.5 text-[11px] tracking-[0.1em]">{tier}</span>
         </span>
       )}
     </div>

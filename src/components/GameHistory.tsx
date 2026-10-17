@@ -6,14 +6,15 @@
 
 import { useState } from 'react';
 import { useGame } from '../hooks/useGame';
-import { formatDrawIndex, formatSequence, formatSignedCurrency } from '../utils/format';
+import { formatSequence, formatSignedCurrency } from '../utils/format';
 import { playUiClick } from '../utils/audio';
 import type { Ticket } from '../game/types';
+import { DIGIT_COLORS } from '../utils/digitColors';
 
 type Tab = 'GLOBAL' | 'YOURS';
 
-const VISIBLE_GLOBAL_ROWS = 20;
 const VISIBLE_TICKET_ROWS = 20;
+const VISIBLE_GLOBAL_DRAWS = 60;
 
 function outcomeMeta(ticket: Ticket): { label: string; amount: number; tone: 'win' | 'loss' } {
   if (ticket.status === 'LOST') {
@@ -42,7 +43,7 @@ export function GameHistory({ defaultTab = 'GLOBAL' }: GameHistoryProps = {}) {
     setTab(next);
   }
 
-  const globalRows = [...streamHistory].slice(-VISIBLE_GLOBAL_ROWS).reverse();
+  const globalRows = [...streamHistory].slice(-VISIBLE_GLOBAL_DRAWS).reverse();
   const ticketRows = [...history].slice(-VISIBLE_TICKET_ROWS).reverse();
 
   return (
@@ -60,14 +61,17 @@ export function GameHistory({ defaultTab = 'GLOBAL' }: GameHistoryProps = {}) {
           globalRows.length === 0 ? (
             <EmptyState message="No draws yet." />
           ) : (
-            <ul className="flex flex-col gap-1">
-              {globalRows.map((draw) => (
+            <ul className="grid grid-cols-10 gap-1 p-0.5">
+              {globalRows.map((draw, i) => (
                 <li
                   key={draw.drawIndex}
-                  className="flex items-center justify-between rounded-lg px-2.5 py-1.5 font-mono text-xs odd:bg-white/[0.015]"
+                  style={{ backgroundColor: DIGIT_COLORS[draw.digit] }}
+                  className={[
+                    'flex aspect-square items-center justify-center rounded-md font-mono text-sm font-bold tabular-nums text-white',
+                    i === 0 ? 'ring-2 ring-[#eab308]' : '',
+                  ].join(' ')}
                 >
-                  <span className="text-white/55">{formatDrawIndex(draw.drawIndex)}</span>
-                  <span className="font-bold tabular-nums text-white">{draw.digit}</span>
+                  {draw.digit}
                 </li>
               ))}
             </ul>

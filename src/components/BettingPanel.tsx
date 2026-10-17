@@ -6,6 +6,7 @@ import { calculateComboStake, countComboPossibilities } from '../game/combo';
 import { BASE_MULTIPLIERS, BASE_SEQUENCE_LENGTH, TICKET_STAKE } from '../game/constants';
 import { DIGIT_COLORS } from '../utils/digitColors';
 import type { BetRequest, JackpotSequence, TicketTier } from '../game/types';
+import { PhaseStatus } from './PhaseStatus';
 
 const MAX_DIGIT_SLOTS = BASE_SEQUENCE_LENGTH.HIGH;
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -168,6 +169,7 @@ export function BettingPanel() {
       aria-label="Place a bet"
       className="rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-4 backdrop-blur-sm sm:p-5"
     >
+      <PhaseStatus />
       {/* 1. Base digits */}
       <div className="flex flex-col items-center gap-1.5">
         <div className="flex items-center gap-1.5">
@@ -218,6 +220,9 @@ export function BettingPanel() {
         </span>
       </div>
 
+      {/* 2. Pad */}
+      <DigitPad active={padActive} onPress={handleDigitPress} />
+      
       {staged && (
         <div className="mt-3 flex items-start justify-between gap-2 rounded-xl border border-[#eab308]/40 bg-[#eab308]/[0.06] px-3 py-2 font-mono text-[11px]">
           <div className="min-w-0">
@@ -240,9 +245,6 @@ export function BettingPanel() {
           </button>
         </div>
       )}
-
-      {/* 2. Pad */}
-      <DigitPad active={padActive} onPress={handleDigitPress} />
 
       {/* 3. Actions */}
       <div className="mt-3 grid grid-cols-[1fr_1fr_1.6fr] gap-1.5">
@@ -283,7 +285,7 @@ export function BettingPanel() {
           <div className="mt-0.5 text-[11px] font-bold text-white/80">
             {jackpotLabel && <span className="text-[#eab308]">{jackpotLabel}</span>}
             {jackpotLabel && <span className="text-white/40"> · </span>}
-            in any order
+            any order
           </div>
         </div>
         <div role="group" aria-label="Jackpot numbers" className="flex shrink-0 items-center gap-1.5">

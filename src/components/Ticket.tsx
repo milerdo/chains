@@ -11,7 +11,7 @@ export function TicketCard({ ticket, dense = false }: { ticket: Ticket; dense?: 
     <div
       className={[
         'flex h-full min-h-0 flex-col justify-center rounded-2xl border px-3.5 py-2 transition-colors duration-300',
-        dense ? '!px-1.5 items-center' : '',
+        dense ? '!px-1.5 !py-0 items-center' : '',
         isJackpotWon
           ? 'border-[#eab308] bg-[#eab308]/[0.08] shadow-[0_0_28px_-6px_rgba(234,179,8,0.55)]'
           : isLost
@@ -23,7 +23,7 @@ export function TicketCard({ ticket, dense = false }: { ticket: Ticket; dense?: 
                 : 'border-white/[0.08] bg-white/[0.02]',
       ].join(' ')}
     >
-    <LinkChain ticket={ticket} size={dense ? 'xs' : 'sm'} />
+     <LinkChain ticket={ticket} size={dense ? 'xs' : 'sm'} labelled={dense} />
     </div>
   );
 }
@@ -34,11 +34,11 @@ export function TicketDrawer({ tickets, compact = false, grid = false }: { ticke
       aria-label="Active links"
       className={[
         'flex min-h-0 flex-col rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent backdrop-blur-sm',
-         compact ? 'shrink p-2' : grid ? 'h-full px-2 pb-2 pt-1.5' : 'h-full p-3',
+        compact ? 'shrink p-2' : grid ? 'h-full px-2 pb-1.5 pt-0.5' : 'h-full p-3',
       ].join(' ')}
     >
       {grid && (
-        <div className="mb-1 px-0.5 font-mono text-[11px] font-bold uppercase leading-none tracking-[0.15em] text-white/50">
+        <div className="px-2 py-1.5 font-mono text-[11px] font-bold uppercase leading-none tracking-[0.15em] text-white/50">
           Active links <span className="text-white/35">· {tickets.length}</span>
         </div>
       )}
@@ -58,7 +58,7 @@ export function TicketDrawer({ tickets, compact = false, grid = false }: { ticke
           </p>
         ) : (
           tickets.map((ticket) => (
-            <div key={ticket.id} className="h-[52px] shrink-0">
+            <div key={ticket.id} className="h-10 shrink-0">
               <TicketCard ticket={ticket} dense={grid || compact} />
             </div>
           ))

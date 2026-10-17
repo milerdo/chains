@@ -69,7 +69,7 @@ export function BetHistoryModal({ isOpen, onClose }: BetHistoryModalProps) {
         </div>
 
         <div className="mt-5">
-          <GameHistory defaultTab="YOURS" />
+          <GameHistory defaultTab="GLOBAL" />
         </div>
       </div>
     </div>

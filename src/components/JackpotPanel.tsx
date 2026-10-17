@@ -41,73 +41,51 @@ function useAnimatedValue(target: number, durationMs = 650): number {
   return display;
 }
 
-interface TierMeta {
-  label: string;
-  accent: string;
-  glow: string;
-  ring: string;
-}
+const TIER_LABEL: Record<JackpotTierName, string> = { MINI: 'LOW', MIDI: 'MIDI', GRAND: 'HIGH' };
 
-const TIER_META: Record<JackpotTierName, TierMeta> = {
-  MINI: {
-    label: 'LOW',
-    accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
-    ring: 'border-[#eab308]/25',
-  },
-  MIDI: {
-    label: 'MIDI',
-    accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
-    ring: 'border-[#eab308]/25',
-  },
-  GRAND: {
-    label: 'HIGH',
-    accent: 'text-[#fbbf24]',
-    glow: 'shadow-[0_0_0_0_rgba(255,255,255,0.9)]',
-    ring: 'border-[#eab308]/25',
-  },
-};
-
-function JackpotTile({ tierName, amount }: { tierName: JackpotTierName; amount: number }) {
+function JackpotCell({ tierName, amount, size }: { tierName: JackpotTierName; amount: number; size: string }) {
   const animated = useAnimatedValue(amount);
-  const meta = TIER_META[tierName];
 
   return (
-    <div
-      className={[
-        'relative flex-1 overflow-hidden rounded-lg border bg-gradient-to-b from-white/[0.03] to-transparent px-1.5 py-1.5 backdrop-blur-sm transition-shadow duration-700',
-        meta.ring,
-        meta.glow,
-      ].join(' ')}
-    >
+    <div className="relative flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap">
       {tierName === 'GRAND' && (
-        <span className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-t from-[#eab308]/[0.07] to-transparent" />
+        <span className="pointer-events-none absolute -inset-x-2 inset-y-0 animate-pulse bg-gradient-to-t from-[#eab308]/[0.07] to-transparent" />
       )}
-      <div className="relative flex items-baseline justify-center gap-1 whitespace-nowrap">
-        <span className={`font-mono text-[13px] font-semibold uppercase leading-none tracking-[0.1em] ${meta.accent}`}>
-          {meta.label}
-        </span>
-        <span className="font-mono text-[13px] font-bold leading-none tabular-nums text-white">
-          {formatCompactCurrency(animated)}
-        </span>
-      </div>
+      <span className={`relative font-mono ${size} font-semibold uppercase leading-none tracking-[0.08em] text-[#fbbf24]`}>
+        {TIER_LABEL[tierName]}
+      </span>
+      <span className={`relative font-mono ${size} font-bold leading-none tabular-nums text-white`}>
+        {formatCompactCurrency(animated)}
+      </span>
     </div>
   );
 }
 
 export function JackpotPanel() {
- const { jackpotPools, payoutFlash } = useGame();
+  const { jackpotPools, payoutFlash } = useGame();
+
+  const longest = Math.max(
+    ...(['MINI', 'MIDI', 'GRAND'] as const).map((t) => formatCompactCurrency(jackpotPools[t]).length),
+  );
+  // "$8,300.00" = 9 chars, "$10,000.00" = 10, "$100,000.00" = 11, "$1,000,000.00" = 13
+  const size =
+    longest <= 9 ? 'text-[13px] sm:text-[15px]'
+    : longest === 10 ? 'text-[12px] sm:text-[14px]'
+    : longest === 11 ? 'text-[11px] sm:text-[13px]'
+    : 'text-[10px] sm:text-[11px]';
 
   return (
-    <section aria-label="Progressive jackpots" className="relative flex w-full gap-1.5">     
-      <JackpotTile tierName="MINI" amount={jackpotPools.MINI} />
-      <JackpotTile tierName="MIDI" amount={jackpotPools.MIDI} />
-      <JackpotTile tierName="GRAND" amount={jackpotPools.GRAND} />
+    <section
+      aria-label="Progressive jackpots"
+      className="relative flex h-10 w-full shrink-0 items-center justify-around overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] px-2"
+    >
+      <JackpotCell tierName="MINI" amount={jackpotPools.MINI} size={size} />
+      <JackpotCell tierName="MIDI" amount={jackpotPools.MIDI} size={size} />
+      <JackpotCell tierName="GRAND" amount={jackpotPools.GRAND} size={size} />
       {payoutFlash && (
         <div
           key={payoutFlash.key}
-          className="absolute inset-0 flex items-center justify-center rounded-lg border-2 border-emerald-400 bg-[#0b1a12] font-mono text-sm font-bold uppercase tracking-[0.15em] text-emerald-300 shadow-[0_0_24px_rgba(52,211,153,0.55)]"
+          className="absolute inset-0 flex items-center justify-center rounded-xl border-2 border-emerald-400 bg-[#0b1a12] font-mono text-sm font-bold uppercase tracking-[0.15em] text-emerald-300 shadow-[0_0_24px_rgba(52,211,153,0.55)]"
         >
           Base win {formatCurrency(payoutFlash.amount)} paid
         </div>

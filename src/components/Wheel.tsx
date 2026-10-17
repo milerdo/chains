@@ -9,6 +9,7 @@ import { useGame } from '../hooks/useGame';
 import { playTick } from '../utils/audio';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { expectedDigits } from '../game/ticket';
+import { JackpotPanel } from './JackpotPanel';
 
 // --- Geometry (SVG viewBox 0 0 300 300, center 150,150) -----------------
 const HOLE_COUNT = 10;
@@ -228,10 +229,14 @@ const WheelDisc = memo(function WheelDisc({
     compact?: boolean;
     /** Collapses the SVG to zero height (animated), leaving only the
      * recent-digits strip. Mobile uses this while betting is open. */
-    collapsed?: boolean;    
+    collapsed?: boolean;
+    /** Hides the recent-digits strip (mobile short screens while betting). */
+    hideStrip?: boolean;   
+    /** Hides the jackpot strip (mobile while betting is open). */
+    hideJackpot?: boolean; 
 }
 
-export function Wheel({ compact = false, collapsed = false }: WheelProps) {
+export function Wheel({ compact = false, collapsed = false, hideStrip = false, hideJackpot = false }: WheelProps) {
   const { phase, wheelTargetDraw, speedMultiplier, streamHistory, reportWheelLanded, timeRemaining, activeTickets } = useGame();
   const spinWanted =
     phase === 'BETTING_CLOSED' ||
@@ -449,7 +454,11 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
         compact ? 'p-3' : 'px-4 pb-3 pt-2',
       ].join(' ')}
     >
-
+      {!hideJackpot && (
+        <div className="mb-2">
+          <JackpotPanel />
+        </div>
+      )}
       <div className="flex flex-col items-center">
         {/* Shadow lives on this static wrapper, NOT on the svg that
             contains the rotating transform — filters recomputed against
@@ -496,22 +505,25 @@ export function Wheel({ compact = false, collapsed = false }: WheelProps) {
         </div>
       </div>
 
-        <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-2'].join(' ')}>
-          {recentDigits.length === 0 && (
-            <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
-          )}
-          {recentDigits.map((draw, i) => (
-            <span
-              key={draw.drawIndex}
-              className={[
-                'flex h-6 w-6 items-center justify-center rounded-md font-mono text-xs tabular-nums',
-                i === recentDigits.length - 1 ? 'bg-[#eab308]/15 text-[#eab308]' : 'bg-white/[0.04] text-white/40',
-              ].join(' ')}
-            >
-              {draw.digit}
-            </span>
-          ))}
-        </div>
+         {!hideStrip && (
+          <div className={['flex flex-wrap items-center justify-center gap-1.5', compact ? 'mt-1.5' : 'mt-2'].join(' ')}>
+            {recentDigits.length === 0 && (
+              <span className="font-mono text-[11px] text-white/25">awaiting first draw…</span>
+            )}
+            {[...recentDigits].reverse().map((draw, i) => (
+              <span
+                key={draw.drawIndex}
+                style={{ backgroundColor: WEDGE_COLORS[draw.digit] }}
+                className={[
+                  'flex h-6 w-6 items-center justify-center rounded-md font-mono text-xs font-bold tabular-nums text-white',
+                  i === 0 ? 'ring-2 ring-[#eab308]' : 'opacity-80',
+                ].join(' ')}
+              >
+                {draw.digit}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
     </section>
